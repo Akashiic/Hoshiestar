@@ -188,7 +188,7 @@
      public int tickCount;
      private int remainingFireTicks;
      private final EntityFluidInteraction fluidInteraction = new EntityFluidInteraction(Set.of(FluidTags.WATER, FluidTags.LAVA));
-@@ -275,8 +_,8 @@
+@@ -275,10 +_,10 @@
      public @Nullable PortalProcessor portalProcess;
      public int portalCooldown;
      private boolean invulnerable;
@@ -197,8 +197,11 @@
 +    protected UUID uuid; // Purpur - Add toggle for RNG manipulation
 +    protected String stringUUID; // Purpur - Add toggle for RNG manipulation
      private boolean hasGlowingTag;
-     private final Set<String> tags = Sets.newHashSet();
+-    private final Set<String> tags = Sets.newHashSet();
++    private final Set<String> tags = new io.papermc.paper.util.SizeLimitedSet<>(new it.unimi.dsi.fastutil.objects.ObjectOpenHashSet<>(), MAX_ENTITY_TAG_COUNT); // Paper - fully limit tag size - replace set impl
      private final double[] pistonDeltas = new double[]{0.0, 0.0, 0.0};
+     private long pistonDeltasGameTime;
+     private EntityDimensions dimensions;
 @@ -292,6 +_,7 @@
      public boolean hasVisualFire;
      private Vec3 lastKnownSpeed = Vec3.ZERO;
@@ -2834,7 +2837,7 @@
      }
  
      public void onExplosionHit(@Nullable Entity explosionCausedBy) {
-@@ -3829,23 +_,57 @@
+@@ -3829,23 +_,70 @@
      }
  
      @Override
@@ -2846,6 +2849,19 @@
 +            return;
 +        }
 +        // Paper end - rewrite chunk system
++        // Youer start - derive the remove event cause from the RemovalReason when no explicit cause was set.
++        // Mods remove entities through the vanilla remove()/discard() overloads, which pass a null cause, and
++        // CraftEventFactory silently drops EntityRemoveEvent for a null cause (upstream 1.21.1 50f8a829b).
++        // Only for entities that are in a world and on the main thread: async worldgen must not fire Bukkit events.
++        if (cause == null && this.valid && org.bukkit.Bukkit.isPrimaryThread()) {
++            cause = switch (reason) {
++                case KILLED -> org.bukkit.event.entity.EntityRemoveEvent.Cause.DEATH;
++                case DISCARDED -> org.bukkit.event.entity.EntityRemoveEvent.Cause.DESPAWN;
++                case UNLOADED_TO_CHUNK, UNLOADED_WITH_PLAYER -> org.bukkit.event.entity.EntityRemoveEvent.Cause.UNLOAD;
++                case CHANGED_DIMENSION -> null; // dimension change is not a real removal, no event
++            };
++        }
++        // Youer end
 +        org.bukkit.craftbukkit.event.CraftEventFactory.callEntityRemoveEvent(this, cause); // CraftBukkit
 +        final boolean alreadyRemoved = this.removalReason != null; // Paper - Folia schedulers
          if (this.removalReason == null) {

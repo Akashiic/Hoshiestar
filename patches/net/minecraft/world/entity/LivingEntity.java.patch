@@ -534,7 +534,7 @@
          return visibilityPercent;
      }
  
-@@ -948,17 +_,33 @@
+@@ -948,17 +_,36 @@
          this.entityData.set(DATA_EFFECT_PARTICLES, List.of());
      }
  
@@ -543,6 +543,9 @@
 +        removeAllEffects$cause.set(cause);
 +    }
      public boolean removeAllEffects() {
++        // Youer start - one-shot: consume the cause once for every effect, and before the early returns so it can't leak into the next call
++        EntityPotionEffectEvent.Cause cause = removeAllEffects$cause.getAndSet(EntityPotionEffectEvent.Cause.UNKNOWN);
++        // Youer end
          if (this.level().isClientSide()) {
              return false;
          } else if (this.activeEffects.isEmpty()) {
@@ -553,8 +556,8 @@
 -            this.onEffectsRemoved(copy.values());
 +            Map<Holder<MobEffect>, MobEffectInstance> map = new java.util.HashMap<>(this.activeEffects.size());
 +            for (Map.Entry<Holder<MobEffect>, MobEffectInstance> entry : this.activeEffects.entrySet()) {
-+                if (removeAllEffects$cause.get() == EntityPotionEffectEvent.Cause.MILK && !this.level().purpurConfig.milkClearsBeneficialEffects && entry.getValue().getEffect().value().isBeneficial()) continue; // Purpur - Milk Keeps Beneficial Effects
-+                EntityPotionEffectEvent event = CraftEventFactory.callEntityPotionEffectChangeEvent(this, entry.getValue(), null, removeAllEffects$cause.getAndSet(EntityPotionEffectEvent.Cause.UNKNOWN), EntityPotionEffectEvent.Action.CLEARED);
++                if (cause == EntityPotionEffectEvent.Cause.MILK && !this.level().purpurConfig.milkClearsBeneficialEffects && entry.getValue().getEffect().value().isBeneficial()) continue; // Purpur - Milk Keeps Beneficial Effects
++                EntityPotionEffectEvent event = CraftEventFactory.callEntityPotionEffectChangeEvent(this, entry.getValue(), null, cause, EntityPotionEffectEvent.Action.CLEARED); // Youer - same cause for every effect
 +                if (!event.isCancelled() && !net.neoforged.neoforge.event.EventHooks.onEffectRemoved(this, entry.getValue())) {
 +                    map.put(entry.getKey(), entry.getValue());
 +                }
@@ -725,7 +728,7 @@
  
      protected void onEffectAdded(MobEffectInstance effect, @Nullable Entity source) {
          if (!this.level().isClientSide()) {
-@@ -1128,18 +_,65 @@
+@@ -1128,18 +_,68 @@
          }
      }
  
@@ -736,12 +739,15 @@
 +    }
 +
      public void heal(float heal) {
++        // Youer - one-shot: consume the pushed reason so it can't leak into the next heal (upstream 1.21.1 aa4535a38)
++        EntityRegainHealthEvent.RegainReason regainReason = this.heal$regainReason;
++        this.heal$regainReason = EntityRegainHealthEvent.RegainReason.CUSTOM;
 +        heal = net.neoforged.neoforge.event.EventHooks.onLivingHeal(this, heal);
 +        if (heal <= 0) return;
          float health = this.getHealth();
          if (health > 0.0F) {
 -            this.setHealth(health + heal);
-+            EntityRegainHealthEvent event = new EntityRegainHealthEvent(this.getBukkitEntity(), heal, heal$regainReason);
++            EntityRegainHealthEvent event = new EntityRegainHealthEvent(this.getBukkitEntity(), heal, regainReason);
 +            // Suppress during worldgen
 +            if (this.valid) {
 +                this.level().getCraftServer().getPluginManager().callEvent(event);
@@ -836,7 +842,7 @@
              if (damage < 0.0F) {
                  damage = 0.0F;
              }
-@@ -1178,23 +_,44 @@
+@@ -1178,23 +_,54 @@
                  damage *= 0.75F;
              }
  
@@ -857,6 +863,16 @@
                  damage = Float.MAX_VALUE;
              }
 +            this.damageContainers.peek().setNewDamage(damage); // Update container with vanilla changes
++
++            // Paper start - skipVanillaDamageTickWhenShieldBlocked
++            // Paper's actuallyHurt returns false for a fully shield-blocked hit on a player when this unsupported
++            // setting is enabled, which skips the hurt tick, iframes and all post-damage side effects.
++            if (blocked && damage <= 0.0F && this instanceof net.minecraft.world.entity.player.Player
++                    && io.papermc.paper.configuration.GlobalConfiguration.get().unsupportedSettings.skipVanillaDamageTickWhenShieldBlocked) {
++                this.damageContainers.pop();
++                return false;
++            }
++            // Paper end - skipVanillaDamageTickWhenShieldBlocked
  
              boolean tookFullDamage = true;
              if (this.invulnerableTime > 10.0F && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) {

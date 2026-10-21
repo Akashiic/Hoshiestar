@@ -133,15 +133,21 @@ public class WatchdogThread extends ca.spottedleaf.moonrise.common.util.TickThre
                         }
                         // try one last chance to safe shutdown on main in case it 'comes back'
                         server.abnormalExit = true;
-                        server.halt(false, this.restart);
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
+                        // Youer start - only take over the shutdown while the server is running, the main thread may already be stopping (upstream #560)
+                        if (server.isRunning()) {
+                            server.halt(false, this.restart);
+                            try {
+                                Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            if (server.isRunning() && !server.hasStopped()) {
+                                server.close();
+                            }
+                        } else {
+                            logger.log(Level.WARNING, "The server is already stopping, letting the main thread finish the shutdown");
                         }
-                        if (!server.hasStopped()) {
-                            server.close();
-                        }
+                        // Youer end
                     }
                     break;
                 }

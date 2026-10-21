@@ -95,7 +95,7 @@
  
          this.level().broadcastEntityEvent(this, (byte)18);
      }
-@@ -208,27 +_,69 @@
+@@ -208,27 +_,70 @@
  
      public void spawnChildFromBreeding(ServerLevel level, Animal partner) {
          AgeableMob offspring = this.getBreedOffspring(level, partner);
@@ -148,6 +148,7 @@
 -        this.setAge(6000);
 -        partner.setAge(6000);
 +        // CraftBukkit end
++        final int experience = this.finalizeSpawnChildFromBreeding$counter.getAndSet(this.getRandom().nextInt(7) + 1); // Youer - one-shot: don't leak the event-adjusted value into the next call
 +        // Paper start - Call EntityBreedEvent
 +        ServerPlayer player = this.getLoveCause();
 +        if (player == null) player = partner.getLoveCause();
@@ -163,8 +164,8 @@
          level.broadcastEntityEvent(this, (byte)18);
 -        if (level.getGameRules().get(GameRules.MOB_DROPS)) {
 -            level.addFreshEntity(new ExperienceOrb(level, this.getX(), this.getY(), this.getZ(), this.getRandom().nextInt(7) + 1));
-+        if (finalizeSpawnChildFromBreeding$counter.get() > 0 && level.getGameRules().get(GameRules.MOB_DROPS)) { // Paper - Call EntityBreedEvent
-+            level.addFreshEntity(new ExperienceOrb(level, this.position(), Vec3.ZERO, finalizeSpawnChildFromBreeding$counter.get(), org.bukkit.entity.ExperienceOrb.SpawnReason.BREED, player, offspring)); // Paper - Call EntityBreedEvent, add spawn context
++        if (experience > 0 && level.getGameRules().get(GameRules.MOB_DROPS)) { // Paper - Call EntityBreedEvent
++            level.addFreshEntity(new ExperienceOrb(level, this.position(), Vec3.ZERO, experience, org.bukkit.entity.ExperienceOrb.SpawnReason.BREED, player, offspring)); // Paper - Call EntityBreedEvent, add spawn context
          }
 +    }
 +

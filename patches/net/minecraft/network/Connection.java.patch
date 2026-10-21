@@ -1,11 +1,12 @@
 --- a/net/minecraft/network/Connection.java
 +++ b/net/minecraft/network/Connection.java
-@@ -65,9 +_,14 @@
+@@ -65,9 +_,15 @@
      private static final ProtocolInfo<ServerHandshakePacketListener> INITIAL_PROTOCOL = HandshakeProtocols.SERVERBOUND;
      private final PacketFlow receiving;
      private volatile boolean sendLoginDisconnect = true;
 -    private final Queue<Consumer<Connection>> pendingActions = Queues.newConcurrentLinkedQueue();
 +    private final Queue<WrappedConsumer> pendingActions = Queues.newConcurrentLinkedQueue(); // Paper - Optimize network
++    private final Queue<Runnable> pendingProtocolPackets = Queues.newConcurrentLinkedQueue(); // Youer - packets sent while switching protocols (upstream #538)
      public Channel channel;
      public SocketAddress address;
 +    // Spigot Start
@@ -243,7 +244,7 @@
              this.packetListener = packetListener;
              this.disconnectListener = null;
              UnconfiguredPipelineHandler.InboundConfigurationTask configMessage = UnconfiguredPipelineHandler.setupInboundProtocol(protocol);
-@@ -221,7 +_,12 @@
+@@ -221,13 +_,37 @@
              BundlerInfo bundlerInfo = protocol.bundlerInfo();
              if (bundlerInfo != null) {
                  PacketBundleUnpacker newUnbundler = new PacketBundleUnpacker(bundlerInfo);
@@ -257,6 +258,33 @@
              }
  
              boolean isLoginProtocol = protocol.id() == ConnectionProtocol.LOGIN;
+             syncAfterConfigurationChange(this.channel.writeAndFlush(configMessage.andThen(ctx -> this.sendLoginDisconnect = isLoginProtocol)));
+-        }
+-    }
++            this.flushPendingProtocolPackets(); // Youer
++        }
++    }
++
++    // Youer start - flush packets deferred during a protocol switch (upstream #538)
++    private void flushPendingProtocolPackets() {
++        if (this.pendingProtocolPackets.isEmpty() || this.channel == null || !this.channel.isOpen()) {
++            return;
++        }
++        this.channel.eventLoop().execute(() -> {
++            int size = this.pendingProtocolPackets.size();
++            for (int i = 0; i < size; i++) {
++                Runnable runnable = this.pendingProtocolPackets.poll();
++                if (runnable == null) {
++                    return;
++                }
++                runnable.run();
++            }
++        });
++    }
++    // Youer end
+ 
+     public void setListenerForServerboundHandshake(PacketListener packetListener) {
+         if (this.packetListener != null) {
 @@ -279,11 +_,38 @@
      }
  
@@ -353,7 +381,7 @@
  
      private void sendPacket(Packet<?> packet, @Nullable ChannelFutureListener listener, boolean flush) {
          this.sentPackets++;
-@@ -306,21 +_,42 @@
+@@ -306,21 +_,49 @@
      }
  
      private void doSendPacket(Packet<?> packet, @Nullable ChannelFutureListener listener, boolean flush) {
@@ -371,6 +399,13 @@
 +            packet.onPacketDispatchFinish(player, null);
 +            return;
 +        }
++        // Youer start - the outbound protocol is being switched: defer until the next protocol is set up instead of
++        // failing with "Pipeline has no outbound protocol configured" (upstream #538)
++        if (this.channel.pipeline().get("outbound_config") != null) {
++            this.pendingProtocolPackets.add(() -> this.doSendPacket(packet, listener, flush));
++            return;
++        }
++        // Youer end
 +        try {
 +            final ChannelFuture future;
 +            // Paper end - Optimize network
@@ -566,7 +601,7 @@
  
      public boolean isEncrypted() {
          return this.encrypted;
-@@ -538,44 +_,75 @@
+@@ -538,44 +_,76 @@
          }
      }
  
@@ -621,6 +656,7 @@
 +                // LOGGER.warn("handleDisconnection() called twice"); // Paper - Don't log useless message
              } else {
                  this.disconnectionHandled = true;
++                this.pendingProtocolPackets.clear(); // Youer
                  PacketListener packetListener = this.getPacketListener();
                  PacketListener disconnectListener = packetListener != null ? packetListener : this.disconnectListener;
                  if (disconnectListener != null) {

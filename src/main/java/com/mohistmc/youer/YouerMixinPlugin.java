@@ -20,6 +20,9 @@ public class YouerMixinPlugin implements IMixinConfigPlugin {
         Youer.LOGGER.info("YouerMixinPlugin loaded");
         mixins.add("dev.architectury.mixin.neoforge.neoforge.MixinChunkMap"); // Architectury 21+ (26.2)
         mixins.add("dev.architectury.mixin.forge.neoforge.MixinChunkMap"); // Architectury 20.x (26.1.2)
+        // ModernFix lowers worker thread priority through the vanilla 4-arg ForkJoinPool constructor in Util#makeExecutor;
+        // Paper replaces that call (and already deprioritizes worker threads), so the injection has no target.
+        mixins.add("org.embeddedt.modernfix.common.mixin.perf.thread_priorities.UtilMixin");
         Mixins.addBlacklist(mixins);
     }
 
@@ -30,9 +33,23 @@ public class YouerMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        if (mixinClassName.equals("com.mohistmc.youer.mixins.compat.spark.MixinNeoForgeWorldInfoProvider")) {
-            return hasClass("me.lucko.spark.neoforge.NeoForgeSparkMod");
+        // Youer start - skip compat.<modid> mixins whose mod is absent (upstream 1.21.1 480ea2a0c, #529).
+        // Ask the mod discovery result rather than Class.forName: mod classes are not reachable from
+        // here while mixin builds its configs, and a failed lookup must never drop a compat mixin.
+        String modId = compatModId(mixinClassName);
+        if (modId != null) {
+            try {
+                net.neoforged.fml.loading.LoadingModList loadingModList = net.neoforged.fml.loading.LoadingModList.get();
+                if (loadingModList != null) {
+                    return loadingModList.getModFileById(modId) != null;
+                }
+            } catch (Throwable ignored) {
+            }
+            if (modId.equals("spark")) {
+                return hasClass("me.lucko.spark.neoforge.NeoForgeSparkMod");
+            }
         }
+        // Youer end
         return true;
     }
 
@@ -53,6 +70,17 @@ public class YouerMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
+    }
+
+    private static final String COMPAT_PREFIX = "com.mohistmc.youer.mixins.compat.";
+
+    static String compatModId(String mixinClassName) {
+        if (!mixinClassName.startsWith(COMPAT_PREFIX)) {
+            return null;
+        }
+        String modId = mixinClassName.substring(COMPAT_PREFIX.length());
+        int separator = modId.indexOf('.');
+        return separator < 0 ? null : modId.substring(0, separator);
     }
 
     public boolean hasClass(String className) {

@@ -132,6 +132,17 @@ public final class MCUtil {
             if (reason != null) {
                 MinecraftServer.LOGGER.warn("Asynchronous " + reason + "! Blocking thread until it returns ", new IllegalStateException());
             }
+            // Youer start - run inline when stopServer() runs on this thread, like MinecraftServer#wrapRunnable, or we deadlock (upstream #560)
+            MinecraftServer server = MinecraftServer.getServer();
+            if (server != null && server.hasStopped() && Thread.currentThread().equals(server.shutdownThread)) {
+                try {
+                    return run.get();
+                } catch (Throwable t) {
+                    MinecraftServer.LOGGER.warn("Encountered exception", t);
+                    return null;
+                }
+            }
+            // Youer end
             Waitable<T> wait = new Waitable<>() {
                 @Override
                 protected T evaluate() {

@@ -87,26 +87,31 @@
          return wrapTags(registryKey, loader.build(loader.load(manager)));
      }
  
-@@ -142,15 +_,22 @@
+@@ -142,15 +_,27 @@
          return tags.entrySet().stream().collect(Collectors.toUnmodifiableMap(e -> TagKey.create(registryKey, e.getKey()), Entry::getValue));
      }
  
 -    private static <T> Optional<Registry.PendingTags<T>> loadPendingTags(ResourceManager manager, Registry<T> registry) {
-+    private static io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent.Cause loadPendingTags$cause = io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent.Cause.INITIAL;
++    // Youer - per thread and one-shot: tags of several registries load concurrently, and the vanilla 2-arg overload must not inherit a stale RELOAD
++    private static final ThreadLocal<io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent.Cause> loadPendingTags$cause = ThreadLocal.withInitial(() -> io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent.Cause.INITIAL);
 +    private static <T> Optional<Registry.PendingTags<T>> loadPendingTags(final ResourceManager manager, final Registry<T> registry) {
          ResourceKey<? extends Registry<T>> key = registry.key();
          TagLoader<Holder<T>> loader = new TagLoader<>(
              (TagLoader.ElementLookup<Holder<T>>)TagLoader.ElementLookup.fromFrozenRegistry(registry), Registries.tagsDirPath(key)
          );
 -        TagLoader.LoadResult<T> tags = new TagLoader.LoadResult<>(key, wrapTags(registry.key(), loader.build(loader.load(manager))));
-+        loader.eventConfig = io.papermc.paper.tag.PaperTagListenerManager.INSTANCE.createEventConfig(registry, loadPendingTags$cause); // Paper - tag lifecycle
++        loader.eventConfig = io.papermc.paper.tag.PaperTagListenerManager.INSTANCE.createEventConfig(registry, loadPendingTags$cause.get()); // Paper - tag lifecycle
 +        TagLoader.LoadResult<T> tags = new TagLoader.LoadResult<>(key, wrapTags(registry.key(), loader.build(loader.load(manager)))); // Paper - add registrar event cause
          return tags.tags().isEmpty() ? Optional.empty() : Optional.of(registry.prepareTagReload(tags));
      }
  
 +    private static <T> Optional<Registry.PendingTags<T>> loadPendingTags(final ResourceManager manager, final Registry<T> registry, final io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent.Cause cause) { // Paper - add registrar event cause
-+        loadPendingTags$cause = cause;
-+        return  loadPendingTags(manager, registry);
++        loadPendingTags$cause.set(cause);
++        try {
++            return loadPendingTags(manager, registry);
++        } finally {
++            loadPendingTags$cause.remove();
++        }
 +    }
 +
      public static List<HolderLookup.RegistryLookup<?>> buildUpdatedLookups(RegistryAccess.Frozen registries, List<Registry.PendingTags<?>> tags) {

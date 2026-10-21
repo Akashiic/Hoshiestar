@@ -553,7 +553,7 @@
              this.level.getBlockState(pos).onExplosionHit(this.level, pos, this, (stackx, position) -> addOrAppendStack(stacks, stackx, position));
          }
  
-@@ -225,15 +_,44 @@
+@@ -225,15 +_,50 @@
      private void createFire(List<BlockPos> targetBlocks) {
          for (BlockPos pos : targetBlocks) {
              if (this.level.random.nextInt(3) == 0 && this.level.getBlockState(pos).isAir() && this.level.getBlockState(pos.below()).isSolidRender()) {
@@ -576,6 +576,12 @@
 +        this.directMappedBlockCache = new ca.spottedleaf.moonrise.patches.collisions.ExplosionBlockCache[BLOCK_EXPLOSION_CACHE_WIDTH * BLOCK_EXPLOSION_CACHE_WIDTH * BLOCK_EXPLOSION_CACHE_WIDTH];
 +        this.mutablePos = new BlockPos.MutableBlockPos();
 +        // Paper end - collision optimisations
++        // Youer start - youer.yml events.explosion: suppress explosions entirely (entity damage + knockback, not just blocks)
++        if (com.mohistmc.youer.feature.ban.bans.BanEvents.banExplosion()) {
++            this.wasCanceled = true;
++            return 0;
++        }
++        // Youer end
 +        // Purpur start - add PreExplodeEvents
 +        if (this.source != null) {
 +            org.bukkit.Location location = new org.bukkit.Location(this.level.getWorld(), this.center.x, this.center.y, this.center.z);

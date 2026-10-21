@@ -328,7 +328,7 @@ public class NetworkRegistry {
 
             // These two checks can only be hit on receipt of a payload, as senders will be checked before reaching this method.
             if (registration == null) {
-                LOGGER.warn("No registration for payload {}; refusing to decode.", id);
+                if (Boolean.getBoolean("youer.debug")) LOGGER.warn("No registration for payload {}; refusing to decode.", id); // Youer - Bukkit plugin channels hit this constantly (upstream #504)
                 return null;
             }
 

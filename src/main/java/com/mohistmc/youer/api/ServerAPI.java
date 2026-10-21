@@ -20,7 +20,7 @@ public class ServerAPI {
     public static HashSet<String> modlists_Client = new HashSet<>();
     public static HashSet<String> modlists_Server = new HashSet<>();
     public static Set<String> modlists_Inside = Set.of("minecraft", "neoforge");
-    public static List<String> modlists_All = new ArrayList<>();
+    public static Set<String> modlists_All = ConcurrentHashMap.newKeySet(); // Youer - O(1) hasMod(), it is called from chunk load and worldgen (upstream #557)
     public static Map<String, String> forgecmdper = new ConcurrentHashMap<>();
     public static Map<net.minecraft.world.entity.EntityType<?>, String> entityTypeMap = new ConcurrentHashMap<>();
     public static Map<net.minecraft.world.entity.EntityType<?>, EntityType> entityTypeMap0 = new ConcurrentHashMap<>();

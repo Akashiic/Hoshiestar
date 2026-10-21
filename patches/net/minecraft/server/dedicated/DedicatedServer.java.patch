@@ -191,7 +191,7 @@
          LOGGER.info("Loading properties");
          DedicatedServerProperties properties = this.settings.getProperties();
          if (this.isSingleplayer()) {
-@@ -241,86 +_,199 @@
+@@ -241,86 +_,198 @@
              this.setLocalIp(properties.serverIp);
          }
  
@@ -425,7 +425,6 @@
 +        org.purpurmc.purpur.task.BossBarTask.startAll(); // Purpur - Implement TPSBar
 +        if (org.purpurmc.purpur.PurpurConfig.beeCountPayload) org.purpurmc.purpur.task.BeehiveTask.instance().register(); // Purpur - Give bee counts in beehives to Purpur clients
 +
-+        pufferfish$mobSpawnExecutor.start(); // Pufferfish - Async mob spawning
 +        this.saveEverything(false, true, true);
 +        this.notificationManager().serverStarted();
 +        if (net.neoforged.neoforge.common.config.NeoForgeServerConfig.INSTANCE.advertiseDedicatedServerToLan.get()) {

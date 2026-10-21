@@ -275,8 +275,12 @@
      }
  
      private static boolean containsInvalidValues(double x, double y, double z, float yRot, float xRot) {
-@@ -442,8 +_,20 @@
-             this.disconnect(Component.translatable("multiplayer.disconnect.invalid_vehicle_movement"));
+@@ -439,11 +_,23 @@
+     public void handleMoveVehicle(ServerboundMoveVehiclePacket packet) {
+         PacketUtils.ensureRunningOnSameThread(packet, this, this.player.level());
+         if (containsInvalidValues(packet.position().x(), packet.position().y(), packet.position().z(), packet.yRot(), packet.xRot())) {
+-            this.disconnect(Component.translatable("multiplayer.disconnect.invalid_vehicle_movement"));
++            this.disconnect(Component.translatable("multiplayer.disconnect.invalid_vehicle_movement"), org.bukkit.event.player.PlayerKickEvent.Cause.INVALID_VEHICLE_MOVEMENT); // Paper - kick event cause
          } else if (!this.updateAwaitingTeleport() && this.hasClientLoaded()) {
              Entity vehicle = this.player.getRootVehicle();
 +            // Paper start - Don't allow vehicle movement from players while teleporting
@@ -403,7 +407,7 @@
 +
 +                // Prevent 40 event-calls for less than a single pixel of movement >.>
 +                double delta = Mth.square(this.lastPosX - to.getX()) + Mth.square(this.lastPosY - to.getY()) + Mth.square(this.lastPosZ - to.getZ());
-+                float deltaAngle = Math.abs(this.lastYRot - to.getYaw()) + Math.abs(this.lastXRot - to.getPitch());
++                float deltaAngle = Math.abs(Mth.wrapDegrees(this.lastYRot - to.getYaw())) + Math.abs(this.lastXRot - to.getPitch()); // Youer - wrap yaw delta so a 359 -> 1 turn does not count as 358 degrees
 +
 +                if ((delta > 1f / 256 || deltaAngle > 10f) && !this.player.isImmobile()) {
 +                    this.lastPosX = to.getX();
@@ -1156,7 +1160,7 @@
 +
 +                                    // Prevent 40 event-calls for less than a single pixel of movement >.>
 +                                    double delta = Mth.square(this.lastPosX - to.getX()) + Mth.square(this.lastPosY - to.getY()) + Mth.square(this.lastPosZ - to.getZ());
-+                                    float deltaAngle = Math.abs(this.lastYRot - to.getYaw()) + Math.abs(this.lastXRot - to.getPitch());
++                                    float deltaAngle = Math.abs(Mth.wrapDegrees(this.lastYRot - to.getYaw())) + Math.abs(this.lastXRot - to.getPitch()); // Youer - wrap yaw delta so a 359 -> 1 turn does not count as 358 degrees
 +
 +                                    if ((delta > 1f / 256 || deltaAngle > 10.0F) && !this.player.isImmobile()) {
 +                                        this.lastPosX = to.getX();
@@ -1508,7 +1512,7 @@
                      return;
                  default:
                      throw new IllegalArgumentException("Invalid player action");
-@@ -1323,24 +_,50 @@
+@@ -1323,24 +_,56 @@
      private static boolean wasBlockPlacementAttempt(ServerPlayer player, ItemStack itemStack) {
          if (itemStack.isEmpty()) {
              return false;
@@ -1525,24 +1529,30 @@
 +            && !player.getCooldowns().isOnCooldown(itemStack);
 +    }
 +
-+    // Spigot start - limit place/interactions
++    // Paper start - limit place/interactions
 +    private int limitedPackets;
 +    private long lastLimitedPacket = -1;
 +
 +    private boolean checkLimit(long timestamp) {
-+        if (lastLimitedPacket != -1 && timestamp - lastLimitedPacket < 30 && limitedPackets++ >= 4) {
++        if (!io.papermc.paper.configuration.GlobalConfiguration.get().spamLimiter.incomingPacketThreshold.enabled()) {
++            return true;
++        }
++
++        final int threshold = io.papermc.paper.configuration.GlobalConfiguration.get().spamLimiter.incomingPacketThreshold.intValue();
++
++        if (this.lastLimitedPacket != -1 && timestamp - this.lastLimitedPacket < threshold && this.limitedPackets++ >= 8) {
 +            return false;
 +        }
 +
-+        if (lastLimitedPacket == -1 || timestamp - lastLimitedPacket >= 30) {
-+            lastLimitedPacket = timestamp;
-+            limitedPackets = 0;
++        if (this.lastLimitedPacket == -1 || timestamp - this.lastLimitedPacket >= threshold) {
++            this.lastLimitedPacket = timestamp;
++            this.limitedPackets = 0;
 +            return true;
 +        }
 +
 +        return true;
 +    }
-+    // Spigot end
++    // Paper end - limit place/interactions
  
      @Override
      public void handleUseItemOn(ServerboundUseItemOnPacket packet) {
@@ -1972,8 +1982,9 @@
 -    private void tryHandleChat(String message, boolean isCommand, Runnable chatHandler) {
 +    private void tryHandleChat(String message, boolean isCommand, Runnable chatHandler, boolean sync) { // CraftBukkit
          if (isChatMessageIllegal(message)) {
-             this.disconnect(Component.translatable("multiplayer.disconnect.illegal_characters"));
+-            this.disconnect(Component.translatable("multiplayer.disconnect.illegal_characters"));
 -        } else if (!isCommand && this.player.getChatVisibility() == ChatVisiblity.HIDDEN) {
++            this.disconnectAsync(Component.translatable("multiplayer.disconnect.illegal_characters"), org.bukkit.event.player.PlayerKickEvent.Cause.ILLEGAL_CHARACTERS); // Paper - add proper async disconnect
 +        } else if (this.player.isRemoved() || (!isCommand && this.player.getChatVisibility() == ChatVisiblity.HIDDEN)) { // CraftBukkit - dead men tell no tales
              this.send(new ClientboundSystemChatPacket(Component.translatable("chat.disabled.options").withStyle(ChatFormatting.RED), false));
          } else {
@@ -2232,7 +2243,7 @@
 -            if (trackedCount > 4096) {
 -                this.disconnect(Component.translatable("multiplayer.disconnect.too_many_pending_chats"));
 +                if (trackedCount > 4096) {
-+                    this.disconnect(Component.translatable("multiplayer.disconnect.too_many_pending_chats"));
++                    this.disconnectAsync(Component.translatable("multiplayer.disconnect.too_many_pending_chats"), org.bukkit.event.player.PlayerKickEvent.Cause.TOO_MANY_PENDING_CHATS); // Paper - kick event cause
 +                }
              }
          }
@@ -3063,6 +3074,20 @@
          if (!this.receivedMovementThisTick) {
              this.player.setKnownMovement(Vec3.ZERO);
          }
+@@ -2201,6 +_,13 @@
+         return this.player.hasInfiniteMaterials();
+     }
+ 
++    // Paper start - check if game master
++    @Override
++    public boolean canUseCommandBlocks() {
++        return this.player.canUseGameMasterBlocks();
++    }
++    // Paper end - check if game master
++
+     @Override
+     public ServerPlayer getPlayer() {
+         return this.player;
 @@ -2211,12 +_,23 @@
      }
  

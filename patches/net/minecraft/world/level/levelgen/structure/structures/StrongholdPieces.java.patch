@@ -1,18 +1,25 @@
 --- a/net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces.java
 +++ b/net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces.java
-@@ -863,10 +_,15 @@
+@@ -863,10 +_,18 @@
                  BlockPos pos = this.getWorldPos(5, 3, 6);
                  if (chunkBB.isInside(pos)) {
                      this.hasPlacedSpawner = true;
+-                    level.setBlock(pos, Blocks.SPAWNER.defaultBlockState(), 2);
+-                    if (level.getBlockEntity(pos) instanceof SpawnerBlockEntity spawner) {
+-                        spawner.setEntityId(EntityType.SILVERFISH, random);
+-                    }
++                    // Youer start - keep the vanilla placement when lithostitched is installed, its mixin targets it (upstream #557)
++                    if (com.mohistmc.youer.api.ServerAPI.hasMod("lithostitched")) {
++                        level.setBlock(pos, Blocks.SPAWNER.defaultBlockState(), 2);
++                        if (level.getBlockEntity(pos) instanceof SpawnerBlockEntity spawner) {
++                            spawner.setEntityId(EntityType.SILVERFISH, random);
++                        }
++                    } else {
++                    // Youer end
 +                    // CraftBukkit start
-+                    /*
-                     level.setBlock(pos, Blocks.SPAWNER.defaultBlockState(), 2);
-                     if (level.getBlockEntity(pos) instanceof SpawnerBlockEntity spawner) {
-                         spawner.setEntityId(EntityType.SILVERFISH, random);
-                     }
-+                    */
 +                    placeCraftSpawner(level, pos, org.bukkit.entity.EntityType.SILVERFISH, 2);
 +                    // CraftBukkit end
++                    } // Youer
                  }
              }
          }

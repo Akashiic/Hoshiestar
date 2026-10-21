@@ -148,12 +148,14 @@
              entity.ingredient = ingredient.getItem();
              setChanged(level, pos, selfState);
          }
-@@ -173,16 +_,43 @@
+@@ -173,16 +_,44 @@
          }
      }
  
 +    private static BrewingStandBlockEntity doBrew$brewingStandBlock;
      private static void doBrew(Level level, BlockPos pos, NonNullList<ItemStack> items) {
++        BrewingStandBlockEntity brewingstandblockentity = doBrew$brewingStandBlock;
++        doBrew$brewingStandBlock = null; // Youer - one-shot: static field, don't keep a removed block entity alive or hand it to the next brew
 +        if (net.neoforged.neoforge.event.EventHooks.onPotionAttemptBrew(items)) return;
          ItemStack ingredient = items.get(3);
          PotionBrewing potionBrewing = level.potionBrewing();
@@ -163,7 +165,6 @@
 -        }
 -
 +        // CraftBukkit start
-+        BrewingStandBlockEntity brewingstandblockentity = doBrew$brewingStandBlock;
 +        InventoryHolder owner = brewingstandblockentity == null ? null : brewingstandblockentity.getOwner();
 +        List<org.bukkit.inventory.ItemStack> brewResults = new ArrayList<>(3);
 +        for (int i = 0; i < 3; ++i) {

@@ -1,6 +1,6 @@
 --- a/net/minecraft/server/MinecraftServer.java
 +++ b/net/minecraft/server/MinecraftServer.java
-@@ -1,10 +_,18 @@
+@@ -1,10 +_,17 @@
  package net.minecraft.server;
  
 +import java.lang.management.ThreadMXBean;
@@ -14,7 +14,6 @@
 +import com.mohistmc.youer.api.ColorAPI;
 +import com.mohistmc.youer.feature.YouerPlugin;
 +import com.mohistmc.youer.feature.db.DatabaseManager;
-+import com.mohistmc.youer.util.AsyncExecutor;
 +import com.mohistmc.youer.util.tps.TPSCalculator;
  import com.mojang.authlib.GameProfile;
  import com.mojang.datafixers.DataFixer;
@@ -128,7 +127,7 @@
      private final ServerFunctionManager functionManager;
      private boolean enforceWhitelist;
      private boolean usingWhitelist;
-@@ -292,12 +_,219 @@
+@@ -292,12 +_,218 @@
      private final SuppressedExceptionCollector suppressedExceptions = new SuppressedExceptionCollector();
      private final DiscontinuousFrame tickFrame;
      private final PacketProcessor packetProcessor;
@@ -159,7 +158,6 @@
 +    public boolean isIteratingOverLevels = false; // Paper - Throw exception on world create while being ticked
 +    private final Set<String> pluginsBlockingSleep = new java.util.HashSet<>(); // Paper - API to allow/disallow tick sleeping
 +    public static final long SERVER_INIT = System.nanoTime(); // Paper - Lag compensation
-+    public AsyncExecutor pufferfish$mobSpawnExecutor = new AsyncExecutor("Pufferfish Async Mob Spawning Thread"); // Pufferfish - Optimize mob spawning
 +    public boolean lagging = false; // Purpur - Lagging threshold
 +    protected boolean upnp = false; // Purpur - UPnP Port Forwarding
 +    public final TPSCalculator tpsCalculator = new TPSCalculator(); // DivineMC - Lag compensation
@@ -1838,8 +1836,11 @@
                      return ReloadableServerResources.loadResources(
                              resources,
                              this.registries,
-@@ -1549,16 +_,36 @@
+@@ -1547,18 +_,39 @@
+                 }
+             )
              .thenAcceptAsync(newResources -> {
++                io.papermc.paper.command.brigadier.PaperBrigadier.moveBukkitCommands(this.resources.managers().getCommands(), newResources.managers().getCommands()); // Paper
                  this.resources.close();
                  this.resources = newResources;
 -                this.packRepository.setSelected(packsToEnable);

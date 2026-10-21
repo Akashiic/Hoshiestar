@@ -15,7 +15,7 @@
      public final Fluid content;
  
      public BucketItem(Fluid content, Item.Properties properties) {
-@@ -42,55 +_,79 @@
+@@ -42,55 +_,85 @@
      @Override
      public InteractionResult use(Level level, Player player, InteractionHand hand) {
          ItemStack itemStack = player.getItemInHand(hand);
@@ -57,7 +57,13 @@
 +            BlockState clicked = level.getBlockState(pos);
 +            BlockPos placePos = canBlockContainFluid(player, level, pos, clicked) && this.content == Fluids.WATER ? pos : directionOffsetPos;
 +            initBUkkit(direction, pos, hand);
-+            if (this.emptyContents(player, level, placePos, hitResult, itemStack)) {
++            boolean emptied;
++            try {
++                emptied = this.emptyContents(player, level, placePos, hitResult, itemStack);
++            } finally {
++                initBUkkit(null, null, InteractionHand.MAIN_HAND); // Youer - one-shot: BucketItem is shared by every player, don't leak into the next call
++            }
++            if (emptied) {
 +                this.checkExtraContent(player, level, itemStack, placePos);
 +                if (player instanceof ServerPlayer serverPlayer && this.content != Fluids.EMPTY) {
 +                    CriteriaTriggers.PLACED_BLOCK.trigger(serverPlayer, placePos, itemStack);
@@ -141,7 +147,7 @@
 +    public @Nullable Direction emptyContents$direction = null;
 +    public @Nullable BlockPos emptyContents$clicked = null;
 +    public InteractionHand emptyContents$interactionhand = InteractionHand.MAIN_HAND;
-+    public void initBUkkit(Direction direction, BlockPos clicked, InteractionHand interactionhand) {
++    public void initBUkkit(@Nullable Direction direction, @Nullable BlockPos clicked, InteractionHand interactionhand) {
 +        emptyContents$direction = direction;
 +        emptyContents$clicked = clicked;
 +        emptyContents$interactionhand = interactionhand;
@@ -160,7 +166,7 @@
              boolean canPlaceFluidInsideBlock = blockState.isAir() || placeLiquid && (!shiftKeyDown || hitResult == null);
 +            // CraftBukkit start
 +            if (canPlaceFluidInsideBlock && user instanceof Player player) {
-+                org.bukkit.event.player.PlayerBucketEmptyEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callPlayerBucketEmptyEvent(level, player, pos, emptyContents$clicked, emptyContents$direction, containerItem, emptyContents$interactionhand);
++                org.bukkit.event.player.PlayerBucketEmptyEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callPlayerBucketEmptyEvent(level, player, pos, emptyContents$clicked != null ? emptyContents$clicked : pos, emptyContents$direction != null ? emptyContents$direction : hitResult != null ? hitResult.getDirection() : Direction.UP, containerItem != null ? containerItem : new ItemStack(this), emptyContents$interactionhand); // Youer - fall back when called outside use() (mods, dispensers)
 +                if (event.isCancelled()) {
 +                    player.containerMenu.sendAllDataToRemote(); // SPIGOT-4541
 +                    return false;
