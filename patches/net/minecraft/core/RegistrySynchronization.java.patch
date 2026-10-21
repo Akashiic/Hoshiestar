@@ -4,9 +4,9 @@
                      registry.listElements()
                          .forEach(
                              element -> {
-+                                if (element.key().identifier().getNamespace().equals("paper")) {
-+                                    return;
-+                                }
++                                // Youer - do not skip "paper" entries (e.g. paper:raw chat type): the server keeps them in the
++                                // registry, so skipping them here shifts every following network id (say_command was sent as
++                                // team_msg_command_incoming). Vanilla and NeoForge clients accept data-driven entries, as on Paper.
                                  boolean canSkipContents = registry.registrationInfo(element.key())
                                      .flatMap(RegistrationInfo::knownPackInfo)
                                      .filter(clientKnownPacks::contains)

@@ -2668,12 +2668,14 @@
          return this.countPlayerPassengers() == 1;
      }
  
-@@ -3533,9 +_,38 @@
+@@ -3533,9 +_,40 @@
          return 0;
      }
  
 +    // CraftBukkit start
-+    private final CommandSource commandSource = new CommandSource() {
++    private final CommandSource commandSource = new YouerCommandSource(); // Youer - named class keeps vanilla Entity$N names
++
++    private final class YouerCommandSource implements CommandSource {
 +
 +        @Override
 +        public void sendSystemMessage(Component component) {
@@ -2698,7 +2700,7 @@
 +        public boolean shouldInformAdmins() {
 +            return true;
 +        }
-+    };
++    }
 +    // CraftBukkit end
 +
      public CommandSourceStack createCommandSourceStackForNameResolution(ServerLevel level) {

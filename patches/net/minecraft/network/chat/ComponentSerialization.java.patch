@@ -1,6 +1,6 @@
 --- a/net/minecraft/network/chat/ComponentSerialization.java
 +++ b/net/minecraft/network/chat/ComponentSerialization.java
-@@ -35,9 +_,31 @@
+@@ -35,9 +_,39 @@
  
  public class ComponentSerialization {
      public static final Codec<Component> CODEC = Codec.recursive("Component", ComponentSerialization::createCodec);
@@ -12,8 +12,17 @@
 +    public static final ThreadLocal<Boolean> DONT_RENDER_TRANSLATABLES = ThreadLocal.withInitial(() -> false);
 +    public static final StreamCodec<RegistryFriendlyByteBuf, Component> TRUSTED_STREAM_CODEC = createTranslationAware(net.minecraft.nbt.NbtAccounter::unlimitedHeap);
 +    private static StreamCodec<RegistryFriendlyByteBuf, Component> createTranslationAware(final java.util.function.Supplier<net.minecraft.nbt.NbtAccounter> sizeTracker) {
-+        return new StreamCodec<>() {
-+            final StreamCodec<ByteBuf, net.minecraft.nbt.Tag> streamCodec = ByteBufCodecs.tagCodec(sizeTracker);
++        return new TranslationAwareStreamCodec(sizeTracker);
++    }
++
++    // Youer - named class instead of an anonymous one so the vanilla ComponentSerialization$1 keeps its name
++    private static final class TranslationAwareStreamCodec implements StreamCodec<RegistryFriendlyByteBuf, Component> {
++            final StreamCodec<ByteBuf, net.minecraft.nbt.Tag> streamCodec;
++
++            TranslationAwareStreamCodec(final java.util.function.Supplier<net.minecraft.nbt.NbtAccounter> sizeTracker) {
++                this.streamCodec = ByteBufCodecs.tagCodec(sizeTracker);
++            }
++
 +            @Override
 +            public Component decode(RegistryFriendlyByteBuf registryFriendlyByteBuf) {
 +                net.minecraft.nbt.Tag tag = this.streamCodec.decode(registryFriendlyByteBuf);
@@ -28,7 +37,6 @@
 +                        .encodeStart(registryOps, object).getOrThrow(error -> new io.netty.handler.codec.EncoderException("Failed to encode: " + error + " " + object));
 +                this.streamCodec.encode(registryFriendlyByteBuf, tag);
 +            }
-+        };
 +    }
 +    // Paper end - adventure; use locale from bytebuf for translation
      public static final StreamCodec<RegistryFriendlyByteBuf, Optional<Component>> TRUSTED_OPTIONAL_STREAM_CODEC = TRUSTED_STREAM_CODEC.apply(

@@ -1604,7 +1604,7 @@
                  }
  
                  return damage;
-@@ -1894,24 +_,240 @@
+@@ -1894,24 +_,219 @@
          }
      }
  
@@ -1679,78 +1679,57 @@
 +    private org.bukkit.event.entity.EntityDamageEvent handleEntityDamage(final DamageSource damagesource, float f) {
 +        float originalDamage = f;
 +
-+        com.google.common.base.Function<Double, Double> freezing = new com.google.common.base.Function<Double, Double>() {
-+            @Override
-+            public Double apply(Double f) {
-+                if (damagesource.is(DamageTypeTags.IS_FREEZING) && LivingEntity.this.is(EntityTypeTags.FREEZE_HURTS_EXTRA_TYPES)) {
-+                    return -(f - (f * 5.0F));
-+                }
-+                return -0.0;
++        com.google.common.base.Function<Double, Double> freezing = x -> { // Youer - lambda, keeps vanilla LivingEntity$N names
++            if (damagesource.is(DamageTypeTags.IS_FREEZING) && LivingEntity.this.is(EntityTypeTags.FREEZE_HURTS_EXTRA_TYPES)) {
++                return -(x - (x * 5.0F));
 +            }
++            return -0.0;
 +        };
 +        float freezingModifier = freezing.apply((double) f).floatValue();
 +        f += freezingModifier;
 +
-+        com.google.common.base.Function<Double, Double> hardHat = new com.google.common.base.Function<Double, Double>() {
-+            @Override
-+            public Double apply(Double f) {
-+                if (damagesource.is(DamageTypeTags.DAMAGES_HELMET) && !LivingEntity.this.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) {
-+                    return -(f - (f * 0.75F));
-+                }
-+                return -0.0;
++        com.google.common.base.Function<Double, Double> hardHat = x -> { // Youer - lambda, keeps vanilla LivingEntity$N names
++            if (damagesource.is(DamageTypeTags.DAMAGES_HELMET) && !LivingEntity.this.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) {
++                return -(x - (x * 0.75F));
 +            }
++            return -0.0;
 +        };
 +        float hardHatModifier = hardHat.apply((double) f).floatValue();
 +        f += hardHatModifier;
 +
-+        com.google.common.base.Function<Double, Double> blocking = new com.google.common.base.Function<Double, Double>() {
-+            @Override
-+            public Double apply(Double f) {
-+                return -((double) LivingEntity.this.calculateItemBlocking(damagesource, f.floatValue()));
-+            }
++        com.google.common.base.Function<Double, Double> blocking = x -> { // Youer - lambda, keeps vanilla LivingEntity$N names
++            return -((double) LivingEntity.this.calculateItemBlocking(damagesource, x.floatValue()));
 +        };
 +        float blockingModifier = blocking.apply((double) f).floatValue();
 +        f += blockingModifier;
 +
-+        com.google.common.base.Function<Double, Double> armor = new com.google.common.base.Function<Double, Double>() {
-+            @Override
-+            public Double apply(Double f) {
-+                return -(f - LivingEntity.this.getDamageAfterArmorAbsorb(damagesource, f.floatValue()));
-+            }
++        com.google.common.base.Function<Double, Double> armor = x -> { // Youer - lambda, keeps vanilla LivingEntity$N names
++            return -(x - LivingEntity.this.getDamageAfterArmorAbsorb(damagesource, x.floatValue()));
 +        };
 +        float armorModifier = armor.apply((double) f).floatValue();
 +        f += armorModifier;
 +
-+        com.google.common.base.Function<Double, Double> resistance = new com.google.common.base.Function<Double, Double>() {
-+            @Override
-+            public Double apply(Double f) {
-+                if (!damagesource.is(DamageTypeTags.BYPASSES_EFFECTS) && LivingEntity.this.hasEffect(MobEffects.RESISTANCE) && !damagesource.is(DamageTypeTags.BYPASSES_RESISTANCE)) {
-+                    int i = (LivingEntity.this.getEffect(MobEffects.RESISTANCE).getAmplifier() + 1) * 5;
-+                    int j = 25 - i;
-+                    float f1 = f.floatValue() * (float) j;
++        com.google.common.base.Function<Double, Double> resistance = x -> { // Youer - lambda, keeps vanilla LivingEntity$N names
++            if (!damagesource.is(DamageTypeTags.BYPASSES_EFFECTS) && LivingEntity.this.hasEffect(MobEffects.RESISTANCE) && !damagesource.is(DamageTypeTags.BYPASSES_RESISTANCE)) {
++                int i = (LivingEntity.this.getEffect(MobEffects.RESISTANCE).getAmplifier() + 1) * 5;
++                int j = 25 - i;
++                float f1 = x.floatValue() * (float) j;
 +
-+                    return -(f - Math.max(f1 / 25.0F, 0.0F));
-+                }
-+                return -0.0;
++                return -(x - Math.max(f1 / 25.0F, 0.0F));
 +            }
++            return -0.0;
 +        };
 +        float resistanceModifier = resistance.apply((double) f).floatValue();
 +        f += resistanceModifier;
 +
-+        com.google.common.base.Function<Double, Double> magic = new com.google.common.base.Function<Double, Double>() {
-+            @Override
-+            public Double apply(Double f) {
-+                return -(f - LivingEntity.this.youer$damageAfterEnchantmentAbsorb(damagesource, f.floatValue())); // Youer - resistance is its own modifier
-+            }
++        com.google.common.base.Function<Double, Double> magic = x -> { // Youer - lambda, keeps vanilla LivingEntity$N names
++            return -(x - LivingEntity.this.youer$damageAfterEnchantmentAbsorb(damagesource, x.floatValue())); // Youer - resistance is its own modifier
 +        };
 +        float magicModifier = magic.apply((double) f).floatValue();
 +        f += magicModifier;
 +
-+        com.google.common.base.Function<Double, Double> absorption = new com.google.common.base.Function<Double, Double>() {
-+            @Override
-+            public Double apply(Double f) {
-+                return -(Math.max(f - Math.max(f - LivingEntity.this.getAbsorptionAmount(), 0.0F), 0.0F));
-+            }
++        com.google.common.base.Function<Double, Double> absorption = x -> { // Youer - lambda, keeps vanilla LivingEntity$N names
++            return -(Math.max(x - Math.max(x - LivingEntity.this.getAbsorptionAmount(), 0.0F), 0.0F));
 +        };
 +        float absorptionModifier = absorption.apply((double) f).floatValue();
 +

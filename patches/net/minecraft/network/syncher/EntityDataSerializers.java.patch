@@ -1,25 +1,21 @@
 --- a/net/minecraft/network/syncher/EntityDataSerializers.java
 +++ b/net/minecraft/network/syncher/EntityDataSerializers.java
-@@ -59,10 +_,27 @@
+@@ -59,10 +_,23 @@
      public static final EntityDataSerializer<Optional<Component>> OPTIONAL_COMPONENT = EntityDataSerializer.forValueType(
          ComponentSerialization.TRUSTED_OPTIONAL_STREAM_CODEC
      );
 +    // Paper start - do not obfuscate items sent as entity data
-+    public static final StreamCodec<RegistryFriendlyByteBuf, ItemStack> OVERSIZED_ITEM_CODEC = new net.minecraft.network.codec.StreamCodec<>() {
-+        @Override
-+        public net.minecraft.world.item.ItemStack decode(final net.minecraft.network.RegistryFriendlyByteBuf buffer) {
-+            return ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer);
-+        }
-+
-+        @Override
-+        public void encode(final net.minecraft.network.RegistryFriendlyByteBuf buffer, final net.minecraft.world.item.ItemStack value) {
++    // Youer - StreamCodec.of(...) instead of an anonymous class so the vanilla EntityDataSerializers$N names are unchanged
++    public static final StreamCodec<RegistryFriendlyByteBuf, ItemStack> OVERSIZED_ITEM_CODEC = StreamCodec.of(
++        (final RegistryFriendlyByteBuf buffer, final ItemStack value) -> {
 +            // If the codec is called during an obfuscation session, downgrade the context's obf level to OVERSIZED if it isn't already.
 +            // Entity data cannot be fully obfuscated as entities might render out specific values (e.g. count or custom name).
 +            try (final io.papermc.paper.util.SafeAutoClosable ignored = io.papermc.paper.util.sanitizer.ItemObfuscationSession.withContext(c -> c.level(io.papermc.paper.util.sanitizer.ItemObfuscationSession.ObfuscationLevel.OVERSIZED))) {
 +                ItemStack.OPTIONAL_STREAM_CODEC.encode(buffer, value);
 +            }
-+        }
-+    };
++        },
++        (final RegistryFriendlyByteBuf buffer) -> ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer)
++    );
 +    // Paper end - do not obfuscate items sent as entity data
      public static final EntityDataSerializer<ItemStack> ITEM_STACK = new EntityDataSerializer<ItemStack>() {
          @Override

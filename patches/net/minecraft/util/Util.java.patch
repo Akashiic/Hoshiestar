@@ -1,6 +1,6 @@
 --- a/net/minecraft/util/Util.java
 +++ b/net/minecraft/util/Util.java
-@@ -96,9 +_,25 @@
+@@ -96,9 +_,26 @@
      private static final int DEFAULT_MAX_THREADS = 255;
      private static final int DEFAULT_SAFE_FILE_OPERATION_RETRIES = 10;
      private static final String MAX_THREADS_SYSTEM_PROPERTY = "max.bg.threads";
@@ -10,20 +10,21 @@
 -    private static final TracingExecutor DOWNLOAD_POOL = makeIoExecutor("Download-", true);
 +    public static final TracingExecutor DIMENSION_DATA_IO_POOL = makeExtraIoExecutor("Dimension-Data-IO-Worker-"); // Paper - Separate dimension data IO pool
 +    // Paper start - Limit download pool size
-+    private static final TracingExecutor DOWNLOAD_POOL = new TracingExecutor(Executors.newFixedThreadPool(4, new java.util.concurrent.ThreadFactory() {
-+        private final AtomicInteger count = new AtomicInteger();
++    private static final TracingExecutor DOWNLOAD_POOL = makeDownloadPool();
 +
-+        @Override
-+        public Thread newThread(Runnable run) {
++    // Youer - lambda instead of an anonymous ThreadFactory so vanilla Util$N anonymous class names stay unchanged
++    private static TracingExecutor makeDownloadPool() {
++        final AtomicInteger count = new AtomicInteger();
++        return new TracingExecutor(Executors.newFixedThreadPool(4, run -> {
 +            Thread ret = new Thread(run);
 +            ret.setDaemon(true);
-+            ret.setName("Download-" + this.count.getAndIncrement());
++            ret.setName("Download-" + count.getAndIncrement());
 +            ret.setUncaughtExceptionHandler((Thread thread, Throwable throwable) -> {
 +                LOGGER.error("Uncaught exception in thread " + thread.getName(), throwable);
 +            });
 +            return ret;
-+        }
-+    }));
++        }));
++    }
 +    // Paper end - Limit download pool size
      private static final DateTimeFormatter FILENAME_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH.mm.ss", Locale.ROOT);
      public static final int LINEAR_LOOKUP_THRESHOLD = 8;

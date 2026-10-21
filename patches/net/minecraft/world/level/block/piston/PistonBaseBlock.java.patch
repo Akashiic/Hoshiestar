@@ -105,7 +105,7 @@
              return false;
          } else if (state.isAir()) {
              return true;
-@@ -264,97 +_,157 @@
+@@ -264,97 +_,141 @@
          PistonStructureResolver resolver = new PistonStructureResolver(level, pistonPos, direction, extending);
          if (!resolver.resolve()) {
              return false;
@@ -131,23 +131,7 @@
 +        final List<BlockPos> moved = resolver.getToPush();
 +        final List<BlockPos> broken = resolver.getToDestroy();
 +
-+        List<org.bukkit.block.Block> blocks = new java.util.AbstractList<>() {
-+
-+            @Override
-+            public int size() {
-+                return moved.size() + broken.size();
-+            }
-+
-+            @Override
-+            public org.bukkit.block.Block get(int index) {
-+                if (index >= this.size() || index < 0) {
-+                    throw new ArrayIndexOutOfBoundsException(index);
-+                }
-+
-+                BlockPos pos = index < moved.size() ? moved.get(index) : broken.get(index - moved.size());
-+                return org.bukkit.craftbukkit.block.CraftBlock.at(level, pos);
-+            }
-+        };
++        List<org.bukkit.block.Block> blocks = new YouerMovedBlockList(level, moved, broken); // Youer - named class keeps vanilla PistonBaseBlock$N names
 +
 +        final org.bukkit.event.block.BlockPistonEvent event;
 +        if (extending) {
@@ -364,11 +348,10 @@
      @Override
      protected BlockState mirror(BlockState state, Mirror mirror) {
          return state.rotate(mirror.getRotation(state.getValue(FACING)));
-@@ -380,5 +_,22 @@
-     @Override
+@@ -381,4 +_,50 @@
      protected boolean isPathfindable(BlockState state, PathComputationType type) {
          return false;
-+    }
+     }
 +
 +    // Neo: Extended piston multiblock can be relocated if and only if both halves are being relocated
 +    @Override
@@ -385,5 +368,34 @@
 +            return new net.neoforged.neoforge.common.util.BlockRelocability.Multiblock(java.util.Set.of(pos, neighborPos));
 +        // if this is extended but somebody already cut the block in half, no point in denying the relocation
 +        return net.neoforged.neoforge.common.util.BlockRelocability.Yes.INSTANCE;
-     }
++    }
++
++    // CraftBukkit start - lazy view of the pushed + destroyed blocks for BlockPistonEvent (Youer - named instead of anonymous)
++    private static final class YouerMovedBlockList extends java.util.AbstractList<org.bukkit.block.Block> {
++        private final Level level;
++        private final List<BlockPos> moved;
++        private final List<BlockPos> broken;
++
++        YouerMovedBlockList(final Level level, final List<BlockPos> moved, final List<BlockPos> broken) {
++            this.level = level;
++            this.moved = moved;
++            this.broken = broken;
++        }
++
++        @Override
++        public int size() {
++            return this.moved.size() + this.broken.size();
++        }
++
++        @Override
++        public org.bukkit.block.Block get(int index) {
++            if (index >= this.size() || index < 0) {
++                throw new ArrayIndexOutOfBoundsException(index);
++            }
++
++            BlockPos pos = index < this.moved.size() ? this.moved.get(index) : this.broken.get(index - this.moved.size());
++            return org.bukkit.craftbukkit.block.CraftBlock.at(this.level, pos);
++        }
++    }
++    // CraftBukkit end
  }

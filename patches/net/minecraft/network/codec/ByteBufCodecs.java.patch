@@ -15,55 +15,6 @@
                  if (result == null) {
                      throw new DecoderException("Expected non-null compound tag");
                  } else {
-@@ -370,6 +_,48 @@
-         };
-     }
- 
-+    // Paper start - Track codec depth
-+    static <B extends FriendlyByteBuf, V> StreamCodec<B, V> trackDepth(final StreamCodec<B, V> codec) {
-+        return new StreamCodec<>() {
-+            @Override
-+            public V decode(B buffer) {
-+                buffer.trackCodecDepth = true;
-+                try {
-+                    return codec.decode(buffer);
-+                } finally {
-+                    buffer.trackCodecDepth = false;
-+                    buffer.codecDepth = 0;
-+                }
-+            }
-+
-+            @Override
-+            public void encode(B buffer, V value) {
-+                codec.encode(buffer, value);
-+            }
-+        };
-+    }
-+
-+    static <B extends FriendlyByteBuf, V> StreamCodec<B, V> increaseDepth(final StreamCodec<B, V> codec) {
-+        return new StreamCodec<>() {
-+            @Override
-+            public V decode(B buffer) {
-+                if (!buffer.trackCodecDepth) {
-+                    return codec.decode(buffer);
-+                }
-+                if (++buffer.codecDepth > 64) {
-+                    throw new DecoderException("Too deep");
-+                }
-+                return codec.decode(buffer);
-+            }
-+
-+            @Override
-+            public void encode(B buffer, V value) {
-+                codec.encode(buffer, value);
-+            }
-+        };
-+    }
-+    // Paper end - Track codec depth
-+
-     static <B extends ByteBuf, V> StreamCodec<B, Optional<V>> optional(StreamCodec<? super B, V> original) {
-         return new StreamCodec<B, Optional<V>>() {
-             public Optional<V> decode(B input) {
 @@ -534,7 +_,7 @@
      }
  
@@ -146,3 +97,68 @@
                  Optional<TagKey<T>> key = value.unwrapKey();
                  if (key.isPresent()) {
                      VarInt.write(output, 0);
+@@ -669,4 +_,64 @@
+             }
+         };
+     }
++
++    // Paper start - Track codec depth
++    // Youer - kept at the end of the interface so vanilla anonymous classes keep their $N names (mod mixins target them, e.g. No Chat Reports -> ByteBufCodecs$34)
++    static <B extends FriendlyByteBuf, V> StreamCodec<B, V> trackDepth(final StreamCodec<B, V> codec) {
++        return new TrackDepthCodec<>(codec);
++    }
++
++    // Youer - named classes instead of anonymous ones, so they never take a vanilla ByteBufCodecs$N name
++    final class TrackDepthCodec<B extends FriendlyByteBuf, V> implements StreamCodec<B, V> {
++        private final StreamCodec<B, V> codec;
++
++        TrackDepthCodec(final StreamCodec<B, V> codec) {
++            this.codec = codec;
++        }
++
++        @Override
++        public V decode(B buffer) {
++            buffer.trackCodecDepth = true;
++            try {
++                return codec.decode(buffer);
++            } finally {
++                buffer.trackCodecDepth = false;
++                buffer.codecDepth = 0;
++            }
++        }
++
++        @Override
++        public void encode(B buffer, V value) {
++            codec.encode(buffer, value);
++        }
++    }
++
++    static <B extends FriendlyByteBuf, V> StreamCodec<B, V> increaseDepth(final StreamCodec<B, V> codec) {
++        return new IncreaseDepthCodec<>(codec);
++    }
++
++    final class IncreaseDepthCodec<B extends FriendlyByteBuf, V> implements StreamCodec<B, V> {
++        private final StreamCodec<B, V> codec;
++
++        IncreaseDepthCodec(final StreamCodec<B, V> codec) {
++            this.codec = codec;
++        }
++
++        @Override
++        public V decode(B buffer) {
++            if (!buffer.trackCodecDepth) {
++                return codec.decode(buffer);
++            }
++            if (++buffer.codecDepth > 64) {
++                throw new DecoderException("Too deep");
++            }
++            return codec.decode(buffer);
++        }
++
++        @Override
++        public void encode(B buffer, V value) {
++            codec.encode(buffer, value);
++        }
++    }
++    // Paper end - Track codec depth
+ }

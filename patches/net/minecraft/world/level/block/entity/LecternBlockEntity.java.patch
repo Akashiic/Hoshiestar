@@ -32,7 +32,7 @@
 -        }
 -
 +    // CraftBukkit start - add fields and methods
-+    public final Container bookAccess = new LecternInventory();
++    public final Container bookAccess = new LecternInventory() {}; // Youer - anonymous subclass occupies LecternBlockEntity$1 (vanilla bookAccess) so dataAccess stays $2
 +    public class LecternInventory implements Container {
 +
 +        public List<HumanEntity> transaction = new ArrayList<>();
@@ -111,12 +111,14 @@
          }
      }
  
-@@ -192,6 +_,35 @@
+@@ -192,6 +_,37 @@
          return book;
      }
  
 +    // CraftBukkit start
-+    private final CommandSource commandSource = new CommandSource() {
++    private final CommandSource commandSource = new YouerCommandSource(); // Youer - named class keeps vanilla LecternBlockEntity$N names
++
++    private final class YouerCommandSource implements CommandSource {
 +
 +        @Override
 +        public void sendSystemMessage(Component component) {
@@ -141,7 +143,7 @@
 +        public boolean shouldInformAdmins() {
 +            return false;
 +        }
-+    };
++    }
 +    // CraftBukkit end
 +
      private CommandSourceStack createCommandSourceStack(@Nullable Player player, ServerLevel level) {

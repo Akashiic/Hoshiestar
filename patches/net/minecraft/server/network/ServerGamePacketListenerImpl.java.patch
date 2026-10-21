@@ -127,7 +127,7 @@
  
      public ServerGamePacketListenerImpl(MinecraftServer server, Connection connection, ServerPlayer player, CommonListenerCookie cookie) {
          super(server, connection, cookie);
-@@ -283,8 +_,36 @@
+@@ -283,8 +_,29 @@
          player.connection = this;
          player.getTextFilter().join();
          this.signedMessageDecoder = SignedMessageChain.Decoder.unsigned(player.getUUID(), server::enforceSecureProfile);
@@ -154,14 +154,7 @@
 +    private final com.google.common.cache.LoadingCache<org.bukkit.craftbukkit.entity.CraftPlayer, Boolean> kickPermissionCache = com.google.common.cache.CacheBuilder.newBuilder()
 +            .maximumSize(1000)
 +            .expireAfterWrite(1, java.util.concurrent.TimeUnit.MINUTES)
-+            .build(
-+                    new com.google.common.cache.CacheLoader<>() {
-+                        @Override
-+                        public Boolean load(org.bukkit.craftbukkit.entity.CraftPlayer player) {
-+                            return player.hasPermission("purpur.bypassIdleKick");
-+                        }
-+                    }
-+            );
++            .build(com.google.common.cache.CacheLoader.from(player -> player.hasPermission("purpur.bypassIdleKick"))); // Youer - no anonymous class (keeps vanilla $N names)
 +    // Purpur end - AFK API
  
      @Override
@@ -2011,7 +2004,7 @@
                  this.disconnect(CHAT_VALIDATION_FAILED);
                  return Optional.empty();
              }
-@@ -1658,23 +_,96 @@
+@@ -1658,23 +_,91 @@
          return false;
      }
  
@@ -2073,12 +2066,7 @@
 +            LOGGER.warn(this.player.getScoreboardName() + " tried to send an empty message");
 +        } else if (getCraftPlayer().isConversing()) {
 +            final String conversationInput = s;
-+            this.server.processQueue.add(new Runnable() {
-+                @Override
-+                public void run() {
-+                    getCraftPlayer().acceptConversationInput(conversationInput);
-+                }
-+            });
++            this.server.processQueue.add(() -> getCraftPlayer().acceptConversationInput(conversationInput)); // Youer - lambda, keeps vanilla $N names
 +        } else if (this.player.getChatVisibility() == ChatVisiblity.SYSTEM) { // Re-add "Command Only" flag check
 +            this.send(new ClientboundSystemChatPacket(Component.translatable("chat.cannotSend").withStyle(ChatFormatting.RED), false));
 +        } else {
