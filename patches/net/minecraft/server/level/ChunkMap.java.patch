@@ -20,7 +20,7 @@
      public final ServerLevel level;
      private final ThreadedLevelLightEngine lightEngine;
      private final BlockableEventLoop<Runnable> mainThreadExecutor;
-@@ -137,20 +_,98 @@
+@@ -137,20 +_,99 @@
      private final PoiManager poiManager;
      public final LongSet toDrop = new LongOpenHashSet();
      private boolean modified;
@@ -41,6 +41,7 @@
 +    // Youer start - the vanilla holder map is gone with the Moonrise chunk system, but mods read it through
 +    // accessors (Lootr, JourneyMap: visibleChunkMap.values()); these read-only views resolve against Moonrise
 +    private final it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<ChunkHolder> updatingChunkMap = new YouerChunkHolderView(); // FTB Chunks admin command, ModernFix leak cleanup
++    private final it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<ChunkHolder> pendingUnloads = new it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<>(); // always empty: Moonrise unloads holders itself (ModernFix clears it on ServerStoppedEvent)
 +    private volatile it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunkMap = new YouerChunkHolderView();
 +
 +    private final class YouerChunkHolderView extends it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<ChunkHolder> {
