@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/inventory/TransientCraftingContainer.java
 +++ b/net/minecraft/world/inventory/TransientCraftingContainer.java
-@@ -13,6 +_,70 @@
+@@ -13,6 +_,66 @@
      private final int height;
      private final AbstractContainerMenu menu;
  
@@ -62,12 +62,20 @@
 +        this.currentRecipe = currentRecipe;
 +    }
 +
-+    public TransientCraftingContainer(AbstractContainerMenu menu, int width, int height, Player player) {
-+        this(menu, width, height);
-+        this.owner = player;
-+    }
 +    // CraftBukkit end
 +
      public TransientCraftingContainer(AbstractContainerMenu menu, int width, int height) {
          this(menu, width, height, NonNullList.withSize(width * height, ItemStack.EMPTY));
      }
+@@ -22,6 +_,11 @@
+         this.menu = menu;
+         this.width = width;
+         this.height = height;
++    }
++
++    public TransientCraftingContainer(AbstractContainerMenu menu, int width, int height, Player player) {
++        this(menu, width, height);
++        this.owner = player;
+     }
+ 
+     @Override

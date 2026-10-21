@@ -16,7 +16,7 @@
              )
              .apply(i, MerchantOffer::new)
      );
-@@ -37,6 +_,21 @@
+@@ -37,6 +_,16 @@
      public int demand;
      public float priceMultiplier;
      public int xp;
@@ -29,11 +29,6 @@
 +        return (this.bukkitHandle == null) ? this.bukkitHandle = new org.bukkit.craftbukkit.inventory.CraftMerchantRecipe(this) : this.bukkitHandle;
 +    }
 +
-+    public MerchantOffer(ItemCost baseCostA, Optional<ItemCost> costB, ItemStack result, int uses, int maxUses, int experience, float priceMultiplier, int demand, final boolean ignoreDiscounts, org.bukkit.craftbukkit.inventory.CraftMerchantRecipe bukkit) { // Paper
-+        this(baseCostA, costB, result, uses, maxUses, experience, priceMultiplier, demand);
-+        this.ignoreDiscounts = ignoreDiscounts; // Paper
-+        this.bukkitHandle = bukkit;
-+    }
 +    // CraftBukkit end
  
      private MerchantOffer(
@@ -46,11 +41,17 @@
      ) {
          this.baseCostA = baseCostA;
          this.costB = costB;
-@@ -60,6 +_,7 @@
+@@ -60,6 +_,13 @@
          this.demand = demand;
          this.priceMultiplier = priceMultiplier;
          this.xp = xp;
 +        this.ignoreDiscounts = ignoreDiscounts; // Paper
++    }
++
++    public MerchantOffer(ItemCost baseCostA, Optional<ItemCost> costB, ItemStack result, int uses, int maxUses, int experience, float priceMultiplier, int demand, final boolean ignoreDiscounts, org.bukkit.craftbukkit.inventory.CraftMerchantRecipe bukkit) { // Paper
++        this(baseCostA, costB, result, uses, maxUses, experience, priceMultiplier, demand);
++        this.ignoreDiscounts = ignoreDiscounts; // Paper
++        this.bukkitHandle = bukkit;
      }
  
      public MerchantOffer(ItemCost buy, ItemStack result, int maxUses, int xp, float priceMultiplier) {

@@ -127,7 +127,7 @@
      private final Set<Mob> navigatingMobs = new ObjectOpenHashSet<>();
      private volatile boolean isUpdatingNavigations;
      protected final Raids raids;
-@@ -215,17 +_,415 @@
+@@ -215,44 +_,501 @@
      private boolean handlingTick;
      private final List<CustomSpawner> customSpawners;
      private @Nullable EnderDragonFight dragonFight;
@@ -137,7 +137,6 @@
      private final StructureCheck structureCheck;
      private final boolean tickTime;
      private final LevelDebugSynchronizers debugSynchronizers = new LevelDebugSynchronizers(this);
--
 +    // NeoForge: If present, this level uses its own seed instead of the server's global seed
 +    private final java.util.OptionalLong seedOverride;
 +    /// {@return the override for the seed, specified in the [LevelStem] this level was constructed from}, if any
@@ -536,53 +535,18 @@
 +    }
 +    // Paper end - chunk tick iteration
 +
-+    // Paper start - ABI compat: restore the vanilla constructor signature for mods calling the original
+ 
      public ServerLevel(
-         MinecraftServer server,
-         Executor executor,
-         LevelStorageSource.LevelStorageAccess levelStorage,
+-        MinecraftServer server,
+-        Executor executor,
+-        LevelStorageSource.LevelStorageAccess levelStorage,
 -        ServerLevelData levelData,
-+        net.minecraft.world.level.storage.ServerLevelData levelData,
-         ResourceKey<Level> dimension,
-         LevelStem levelStem,
-         boolean isDebug,
-@@ -233,26 +_,128 @@
-         List<CustomSpawner> customSpawners,
-         boolean tickTime
-     ) {
--        super(levelData, dimension, server.registryAccess(), levelStem.type(), false, isDebug, biomeZoomSeed, server.getMaxChainedNeighborUpdates());
-+        this(server, executor, levelStorage, server.getWorldGenSettings(), dimension, levelStem, isDebug, biomeZoomSeed, customSpawners, tickTime,
-+                getStemKey(server, levelStem),
-+                getEnvironment(dimension),
-+                null, // Paper - generator
-+                null, // Paper - biomeProvider
-+                new SavedDataStorage(levelStorage.getDimensionPath(dimension).resolve(net.minecraft.world.level.storage.LevelResource.DATA.id()), server.getFixerUpper(), server.registryAccess()),
-+                new io.papermc.paper.world.PaperWorldLoader.LoadedWorldData(levelData.getLevelName(), java.util.UUID.randomUUID(), null, io.papermc.paper.world.saveddata.PaperLevelOverrides.createFromLiveLevelData((net.minecraft.world.level.storage.PrimaryLevelData) server.getWorldData())
-+                        .attach((net.minecraft.world.level.storage.PrimaryLevelData) server.getWorldData(), dimension)) // Youer - attach like PaperWorldLoader does, mod-created levels (AE2 spatial storage) use this constructor
-+        );
-+    }
-+
-+    private static ResourceKey<LevelStem> getStemKey(MinecraftServer server, LevelStem levelStem) {
-+        return server.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.LEVEL_STEM).getResourceKey(levelStem)
-+                .orElseGet(() -> server.getWorldGenSettings().dimensions().dimensions().entrySet().stream()
-+                        .filter(entry -> entry.getValue() == levelStem)
-+                        .map(java.util.Map.Entry::getKey)
-+                        .findFirst()
-+                        .orElse(LevelStem.OVERWORLD));
-+    }
-+
-+    private static org.bukkit.World.Environment getEnvironment(ResourceKey<Level> dimension) {
-+        // Youer start - Use NeoForgeInjectBukkit to resolve environments, including mod-registered custom enums
-+        return com.mohistmc.youer.neoforge.NeoForgeInjectBukkit.environment.entrySet().stream()
-+                .filter(entry -> net.minecraft.core.registries.Registries.levelStemToLevel(entry.getKey()).equals(dimension))
-+                .map(java.util.Map.Entry::getValue)
-+                .findFirst()
-+                .orElse(org.bukkit.World.Environment.CUSTOM);
-+        // Youer end - Use NeoForgeInjectBukkit to resolve environments, including mod-registered custom enums
-+    }
-+    // Paper end - ABI compat: restore the vanilla constructor signature for mods calling the original
-+
-+    public ServerLevel(
+-        ResourceKey<Level> dimension,
+-        LevelStem levelStem,
+-        boolean isDebug,
+-        long biomeZoomSeed,
+-        List<CustomSpawner> customSpawners,
+-        boolean tickTime
 +            MinecraftServer server,
 +            Executor executor,
 +            LevelStorageSource.LevelStorageAccess levelStorage,
@@ -601,7 +565,8 @@
 +            SavedDataStorage savedDataStorage,
 +            io.papermc.paper.world.PaperWorldLoader.LoadedWorldData loadedWorldData
 +            // Paper end - add parameters
-+    ) {
+     ) {
+-        super(levelData, dimension, server.registryAccess(), levelStem.type(), false, isDebug, biomeZoomSeed, server.getMaxChainedNeighborUpdates());
 +        // NeoForge: set seed override asap because things like the chunk cache constructor check level.getSeed()
 +        this.seedOverride = levelStem.seedOverride();
 +        biomeZoomSeed = net.minecraft.util.ExtraCodecs.fromOptionalLong.apply(levelStem.seedOverride()).map(net.minecraft.world.level.biome.BiomeManager::obfuscateSeed).orElse(biomeZoomSeed);
@@ -726,7 +691,7 @@
              this.chunkSource.chunkScanner(),
              this.registryAccess(),
              server.getStructureManager(),
-@@ -300,10 +_,34 @@
+@@ -300,10 +_,79 @@
  
          this.sleepStatus = new SleepStatus();
          this.gameEventDispatcher = new GameEventDispatcher(this);
@@ -753,6 +718,51 @@
 +        this.getCraftServer().addWorld(this.getWorld()); // CraftBukkit
 +        net.neoforged.neoforge.attachment.LevelAttachmentsSavedData.init(this);
 +    }
++
++    // Youer - declared after the main constructor: descriptor-less <init> mixin selectors bind to the first one (Comforts)
++    // Paper start - ABI compat: restore the vanilla constructor signature for mods calling the original
++    public ServerLevel(
++        MinecraftServer server,
++        Executor executor,
++        LevelStorageSource.LevelStorageAccess levelStorage,
++        net.minecraft.world.level.storage.ServerLevelData levelData,
++        ResourceKey<Level> dimension,
++        LevelStem levelStem,
++        boolean isDebug,
++        long biomeZoomSeed,
++        List<CustomSpawner> customSpawners,
++        boolean tickTime
++    ) {
++        this(server, executor, levelStorage, server.getWorldGenSettings(), dimension, levelStem, isDebug, biomeZoomSeed, customSpawners, tickTime,
++                getStemKey(server, levelStem),
++                getEnvironment(dimension),
++                null, // Paper - generator
++                null, // Paper - biomeProvider
++                new SavedDataStorage(levelStorage.getDimensionPath(dimension).resolve(net.minecraft.world.level.storage.LevelResource.DATA.id()), server.getFixerUpper(), server.registryAccess()),
++                new io.papermc.paper.world.PaperWorldLoader.LoadedWorldData(levelData.getLevelName(), java.util.UUID.randomUUID(), null, io.papermc.paper.world.saveddata.PaperLevelOverrides.createFromLiveLevelData((net.minecraft.world.level.storage.PrimaryLevelData) server.getWorldData())
++                        .attach((net.minecraft.world.level.storage.PrimaryLevelData) server.getWorldData(), dimension)) // Youer - attach like PaperWorldLoader does, mod-created levels (AE2 spatial storage) use this constructor
++        );
++    }
++
++    private static ResourceKey<LevelStem> getStemKey(MinecraftServer server, LevelStem levelStem) {
++        return server.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.LEVEL_STEM).getResourceKey(levelStem)
++                .orElseGet(() -> server.getWorldGenSettings().dimensions().dimensions().entrySet().stream()
++                        .filter(entry -> entry.getValue() == levelStem)
++                        .map(java.util.Map.Entry::getKey)
++                        .findFirst()
++                        .orElse(LevelStem.OVERWORLD));
++    }
++
++    private static org.bukkit.World.Environment getEnvironment(ResourceKey<Level> dimension) {
++        // Youer start - Use NeoForgeInjectBukkit to resolve environments, including mod-registered custom enums
++        return com.mohistmc.youer.neoforge.NeoForgeInjectBukkit.environment.entrySet().stream()
++                .filter(entry -> net.minecraft.core.registries.Registries.levelStemToLevel(entry.getKey()).equals(dimension))
++                .map(java.util.Map.Entry::getValue)
++                .findFirst()
++                .orElse(org.bukkit.World.Environment.CUSTOM);
++        // Youer end - Use NeoForgeInjectBukkit to resolve environments, including mod-registered custom enums
++    }
++    // Paper end - ABI compat: restore the vanilla constructor signature for mods calling the original
 +
 +    // Paper start
 +    @Override

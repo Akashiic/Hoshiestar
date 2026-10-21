@@ -20,7 +20,7 @@
      public final ServerLevel level;
      private final ThreadedLevelLightEngine lightEngine;
      private final BlockableEventLoop<Runnable> mainThreadExecutor;
-@@ -137,20 +_,97 @@
+@@ -137,20 +_,98 @@
      private final PoiManager poiManager;
      public final LongSet toDrop = new LongOpenHashSet();
      private boolean modified;
@@ -39,7 +39,8 @@
 -    private final AtomicInteger activeChunkWrites = new AtomicInteger();
 +    // Paper - rewrite chunk system
 +    // Youer start - the vanilla holder map is gone with the Moonrise chunk system, but mods read it through
-+    // accessors (Lootr, JourneyMap: visibleChunkMap.values()); this read-only view resolves against Moonrise
++    // accessors (Lootr, JourneyMap: visibleChunkMap.values()); these read-only views resolve against Moonrise
++    private final it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<ChunkHolder> updatingChunkMap = new YouerChunkHolderView(); // FTB Chunks admin command, ModernFix leak cleanup
 +    private volatile it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunkMap = new YouerChunkHolderView();
 +
 +    private final class YouerChunkHolderView extends it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<ChunkHolder> {

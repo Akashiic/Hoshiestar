@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/SimpleContainer.java
 +++ b/net/minecraft/world/SimpleContainer.java
-@@ -10,12 +_,98 @@
+@@ -10,16 +_,103 @@
  import net.minecraft.world.item.ItemStack;
  import net.minecraft.world.level.storage.ValueInput;
  import net.minecraft.world.level.storage.ValueOutput;
@@ -72,12 +72,6 @@
 +        return null;
 +    }
 +
-+    public SimpleContainer(SimpleContainer original) {
-+        this(original.size);
-+        for (int slot = 0; slot < original.size; slot++) {
-+            this.items.set(slot, original.items.get(slot).copy());
-+        }
-+    }
 +    // Paper end
 +
      public SimpleContainer(int size) {
@@ -99,6 +93,17 @@
          this.size = size;
          this.items = NonNullList.withSize(size, ItemStack.EMPTY);
      }
+ 
++    public SimpleContainer(SimpleContainer original) {
++        this(original.size);
++        for (int slot = 0; slot < original.size; slot++) {
++            this.items.set(slot, original.items.get(slot).copy());
++        }
++    }
++
+     public SimpleContainer(ItemStack... itemstacks) {
+         this.size = itemstacks.length;
+         this.items = NonNullList.of(ItemStack.EMPTY, itemstacks);
 @@ -109,8 +_,14 @@
  
      @Override
