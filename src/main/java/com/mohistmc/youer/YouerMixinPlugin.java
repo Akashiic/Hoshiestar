@@ -18,7 +18,8 @@ public class YouerMixinPlugin implements IMixinConfigPlugin {
     @Override
     public void onLoad(String mixinPackage) {
         Youer.LOGGER.info("YouerMixinPlugin loaded");
-        mixins.add("dev.architectury.mixin.neoforge.neoforge.MixinChunkMap");
+        mixins.add("dev.architectury.mixin.neoforge.neoforge.MixinChunkMap"); // Architectury 21+ (26.2)
+        mixins.add("dev.architectury.mixin.forge.neoforge.MixinChunkMap"); // Architectury 20.x (26.1.2)
         Mixins.addBlacklist(mixins);
     }
 
