@@ -1,6 +1,6 @@
 <div align="center">
   <h1 align="center">Youer 26.1.2</h1>
-  <h3 align="center">Minecraft NeoForge Hybrid server implementing the Paper API</h3>
+  <h3 align="center">Minecraft NeoForge Hybrid server implementing the Paper/Purpur API</h3>
 
   <p align="center">
     <a href="https://github.com/MohistMC/Youer/stargazers">
@@ -12,8 +12,8 @@
     <a href="https://www.azul.com/downloads/?version=java-25-lts#zulu">
       <img alt="JDK" src="https://img.shields.io/badge/JDK-25.0.1-007396?logo=java&logoColor=white&style=flat-square">
     </a>
-    <a href="https://docs.gradle.org/9.4.1/release-notes.html">
-      <img alt="Gradle" src="https://img.shields.io/badge/Gradle-9.4.1-02303A?logo=gradle&logoColor=white&style=flat-square">
+    <a href="https://docs.gradle.org/9.7.0/release-notes.html">
+      <img alt="Gradle" src="https://img.shields.io/badge/Gradle-9.7.0-02303A?logo=gradle&logoColor=white&style=flat-square">
     </a>
     <a href="https://discord.gg/mohistmc">
       <img alt="Discord" src="https://img.shields.io/discord/311256119005937665?color=5865F2&logo=discord&logoColor=white&style=flat-square">
@@ -30,20 +30,15 @@
 ## 📊 Progress Status
 
 ✅ **Core Integration**
-- [x] NeoForge ([02fa4bbcb](https://github.com/neoforged/NeoForge/commit/02fa4bbcb))
-- [x] Bukkit API ([e12da072](https://hub.spigotmc.org/stash/projects/SPIGOT/repos/bukkit/commits/e12da072))
-- [x] CraftBukkit ([f6faf9ed8](https://hub.spigotmc.org/stash/projects/SPIGOT/repos/craftbukkit/commits/f6faf9ed8))
-- [ ] Spigot ([566f9723](https://hub.spigotmc.org/stash/projects/SPIGOT/repos/spigot/commits/566f9723))
+- [x] NeoForge 26.1.2.122 ([02fa4bbcb](https://github.com/neoforged/NeoForge/commit/02fa4bbcb))
+- [x] Paper 26.1.2 ([e4e17fc90](https://github.com/PaperMC/Paper/commit/e4e17fc90), build #74)
+- [x] PurPur 26.1.2 (PurpurMC `ver/26.1.2`)
 
-- [ ] Paper ([27f926e7e](https://github.com/PaperMC/Paper/commit/27f926e7e))
-  - [ ] api
-  - [ ] server
-    - [ ] chunk_system
-    - [ ] chunk_tick_iteration
-    - [ ] starlight
-- [ ] PurPur ([803bf624](https://github.com/PurpurMC/Purpur/commit/803bf624))
-  - [ ] api
-  - [ ] server
+> **Port note:** the Paper/Purpur integration of this branch was backported from the
+> Youer `26.2` branch: Paper/Purpur API and CraftBukkit sources come from the official
+> `ver/26.1.2` branches of PaperMC/PurpurMC, and the Minecraft source patches from
+> Youer 26.2 adapted to Minecraft 26.1.2. Content that only exists in 26.2
+> (sulfur cube, potent sulfur, speleothem) is not included.
 
 🔄 **Compatible Progress**
 
