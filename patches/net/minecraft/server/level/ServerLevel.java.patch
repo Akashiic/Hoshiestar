@@ -546,7 +546,7 @@
          ResourceKey<Level> dimension,
          LevelStem levelStem,
          boolean isDebug,
-@@ -233,26 +_,127 @@
+@@ -233,26 +_,128 @@
          List<CustomSpawner> customSpawners,
          boolean tickTime
      ) {
@@ -557,7 +557,8 @@
 +                null, // Paper - generator
 +                null, // Paper - biomeProvider
 +                new SavedDataStorage(levelStorage.getDimensionPath(dimension).resolve(net.minecraft.world.level.storage.LevelResource.DATA.id()), server.getFixerUpper(), server.registryAccess()),
-+                new io.papermc.paper.world.PaperWorldLoader.LoadedWorldData(levelData.getLevelName(), java.util.UUID.randomUUID(), null, io.papermc.paper.world.saveddata.PaperLevelOverrides.createFromLiveLevelData((net.minecraft.world.level.storage.PrimaryLevelData) server.getWorldData()))
++                new io.papermc.paper.world.PaperWorldLoader.LoadedWorldData(levelData.getLevelName(), java.util.UUID.randomUUID(), null, io.papermc.paper.world.saveddata.PaperLevelOverrides.createFromLiveLevelData((net.minecraft.world.level.storage.PrimaryLevelData) server.getWorldData())
++                        .attach((net.minecraft.world.level.storage.PrimaryLevelData) server.getWorldData(), dimension)) // Youer - attach like PaperWorldLoader does, mod-created levels (AE2 spatial storage) use this constructor
 +        );
 +    }
 +

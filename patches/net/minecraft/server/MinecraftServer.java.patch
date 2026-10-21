@@ -99,10 +99,70 @@
      private @Nullable ServerStatus status;
      private ServerStatus.@Nullable Favicon statusIcon;
      private final RandomSource random = RandomSource.create();
-@@ -236,15 +_,17 @@
+@@ -235,16 +_,76 @@
+     private String localIp;
      private int port = -1;
      private final LayeredRegistryAccess<RegistryLayer> registries;
-     private Map<ResourceKey<Level>, ServerLevel> levels = Maps.newLinkedHashMap();
+-    private Map<ResourceKey<Level>, ServerLevel> levels = Maps.newLinkedHashMap();
++    private final Map<ResourceKey<Level>, ServerLevel> levels = new YouerLevelMap(); // Youer - copy-on-write like CraftBukkit, but mods may put/remove directly (AE2 spatial storage)
++
++    // Youer start - CraftBukkit swaps in an unmodifiable copy on every add/remove so iteration never sees concurrent
++    // modification; mods still write to the vanilla map, so do the copy-on-write inside the map itself
++    private final class YouerLevelMap extends java.util.AbstractMap<ResourceKey<Level>, ServerLevel> {
++        private volatile Map<ResourceKey<Level>, ServerLevel> snapshot = Collections.emptyMap();
++
++        @Override
++        public ServerLevel get(Object key) {
++            return this.snapshot.get(key);
++        }
++
++        @Override
++        public boolean containsKey(Object key) {
++            return this.snapshot.containsKey(key);
++        }
++
++        @Override
++        public int size() {
++            return this.snapshot.size();
++        }
++
++        @Override
++        public java.util.Set<Map.Entry<ResourceKey<Level>, ServerLevel>> entrySet() {
++            return this.snapshot.entrySet();
++        }
++
++        @Override
++        public java.util.Set<ResourceKey<Level>> keySet() {
++            return this.snapshot.keySet();
++        }
++
++        @Override
++        public java.util.Collection<ServerLevel> values() {
++            return this.snapshot.values();
++        }
++
++        @Override
++        public synchronized ServerLevel put(ResourceKey<Level> key, ServerLevel value) {
++            Map<ResourceKey<Level>, ServerLevel> copy = Maps.newLinkedHashMap(this.snapshot);
++            ServerLevel old = copy.put(key, value);
++            this.snapshot = Collections.unmodifiableMap(copy);
++            MinecraftServer.this.markWorldsDirty();
++            return old;
++        }
++
++        @Override
++        public synchronized ServerLevel remove(Object key) {
++            if (!this.snapshot.containsKey(key)) {
++                return null;
++            }
++            Map<ResourceKey<Level>, ServerLevel> copy = Maps.newLinkedHashMap(this.snapshot);
++            ServerLevel old = copy.remove(key);
++            this.snapshot = Collections.unmodifiableMap(copy);
++            MinecraftServer.this.markWorldsDirty();
++            return old;
++        }
++    }
++    // Youer end
 +    private final Map<UUID, Entity> globalEntityCache = new ConcurrentHashMap<>();
      private PlayerList playerList;
      private volatile boolean running = true;
@@ -1653,7 +1713,7 @@
          profiler.pop();
      }
  
-@@ -1200,6 +_,47 @@
+@@ -1200,6 +_,39 @@
          return this.levels.get(dimension);
      }
  
@@ -1681,19 +1741,11 @@
 +
 +    // CraftBukkit start
 +    public void addLevel(ServerLevel level) {
-+        Map<ResourceKey<Level>, ServerLevel> oldLevels = this.levels;
-+        Map<ResourceKey<Level>, ServerLevel> newLevels = Maps.newLinkedHashMap(oldLevels);
-+        newLevels.put(level.dimension(), level);
-+        this.levels = Collections.unmodifiableMap(newLevels);
-+        this.markWorldsDirty();
++        this.levels.put(level.dimension(), level); // Youer - copy-on-write inside YouerLevelMap (marks worlds dirty)
 +    }
 +
 +    public void removeLevel(ServerLevel level) {
-+        Map<ResourceKey<Level>, ServerLevel> oldLevels = this.levels;
-+        Map<ResourceKey<Level>, ServerLevel> newLevels = Maps.newLinkedHashMap(oldLevels);
-+        newLevels.remove(level.dimension());
-+        this.levels = Collections.unmodifiableMap(newLevels);
-+        this.markWorldsDirty();
++        this.levels.remove(level.dimension()); // Youer - copy-on-write inside YouerLevelMap (marks worlds dirty)
 +        this.clearEntityCacheForLevel(level); // Youer - clean up entity cache for removed level
 +    }
 +    // CraftBukkit end
