@@ -18,13 +18,13 @@ import java.util.stream.StreamSupport;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
+import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.craftbukkit.block.CraftBlock;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.ItemStack;
@@ -67,19 +67,19 @@ public class ShowsCommand extends Command {
         }
 
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.RED + "Usage: " + usageMessage);
+            sender.sendMessage(I18n.as("commands.usage", usageMessage));
             return false;
         }
 
 
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(ChatColor.RED + I18n.as("error.notplayer"));
+            sender.sendMessage(I18n.as("error.notplayer"));
             return false;
         }
 
         switch (args[0].toLowerCase(Locale.ENGLISH)) {
             case "sound" -> {
-                DemoGUI wh = new DemoGUI("Sounds");
+                DemoGUI wh = new DemoGUI(I18n.as("shows.sound"));
 
                 Map<String, List<Sound>> soundsByNamespace = new HashMap<>();
                 for (Sound s : Sound.values()) {
@@ -126,8 +126,9 @@ public class ShowsCommand extends Command {
                 StreamSupport.stream(WorldAPI.getServerLevel(player.getWorld()).getAllEntities().spliterator(), false)
                         .forEach(entity -> {
                             net.minecraft.world.entity.EntityType<?> type = entity.getType();
-                            long chunkX = entity.blockPosition().getX() >> 4;
-                            long chunkZ = entity.blockPosition().getZ() >> 4;
+                            var v = entity.getBukkitEntity().getLocation();
+                            long chunkX = (long) v.x() >> 4;
+                            long chunkZ = (long) v.z() >> 4;
                             String chunkKey = chunkX + "," + chunkZ;
 
                             entityChunkCount.computeIfAbsent(type, k -> new HashMap<>())
@@ -207,14 +208,13 @@ public class ShowsCommand extends Command {
                 for (TickingBlockEntity blockEntityTicker : serverLevel.blockEntityTickers) {
                     BlockPos pos = blockEntityTicker.getPos();
                     if (pos == null) continue;
-                    BlockState block = serverLevel.getBlockState(pos);
-                    net.minecraft.world.item.ItemStack itemStack = block.getBlock().asItem().getDefaultInstance();
-                    Material material = itemStack.getBukkitStack().getType();
+                    Block block = CraftBlock.at(serverLevel, pos);
+                    Material material = block.getType();
                     if (material.isAir() || material.asItemType() == null) continue;
                     collect.merge(material, 1, Integer::sum);
-
-                    long chunkX = pos.getX() >> 4;
-                    long chunkZ = pos.getZ() >> 4;
+                    var v = block.getLocation();
+                    long chunkX = (long) v.x() >> 4;
+                    long chunkZ = (long) v.z() >> 4;
                     String chunkKey = chunkX + "," + chunkZ;
                     blockEntityChunkCount.computeIfAbsent(material, k -> new HashMap<>())
                             .merge(chunkKey, 1, Integer::sum);
@@ -287,17 +287,17 @@ public class ShowsCommand extends Command {
                 return true;
             }
             default -> {
-                sender.sendMessage(ChatColor.RED + "Usage: " + usageMessage);
+                sender.sendMessage(I18n.as("commands.usage", usageMessage));
                 return false;
             }
         }
     }
 
     private void openSoundCategoryGUI(Player player, String namespace, List<Sound> sounds) {
-        DemoGUI categoryGUI = new DemoGUI(namespace + " Sounds");
+        DemoGUI categoryGUI = new DemoGUI(I18n.as("shows.sound.category.title", namespace));
 
         categoryGUI.setItem(47, new GUIItem(new ItemStackFactory(Material.ARROW)
-                .setDisplayName("§cBack")
+                .setDisplayName(I18n.as("shows.sound.back"))
                 .build()) {
             @Override
             public void ClickAction(ClickType type, Player u, ItemStack itemStack) {
@@ -311,7 +311,16 @@ public class ShowsCommand extends Command {
                     .build()) {
                 @Override
                 public void ClickAction(ClickType type, Player u, ItemStack itemStack) {
-                    player.playSound(player.getLocation(), s, 1f, 1.0f);
+                    if (type == ClickType.LEFT) {
+                        player.playSound(player.getLocation(), s, 1f, 1.0f);
+                    } else if (type == ClickType.RIGHT) {
+                        u.sendMessage(
+                            com.mohistmc.youer.api.ColorAPI.adventure(I18n.as("shows.sound.copy", s.name()))
+                                .clickEvent(net.kyori.adventure.text.event.ClickEvent.copyToClipboard(s.name()))
+                                .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
+                                    com.mohistmc.youer.api.ColorAPI.adventure("§7" + I18n.as("itemscmd.copy"))))
+                        );
+                    }
                 }
             });
         }

@@ -1,69 +1,66 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftCreakingHeart extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.CreakingHeart, org.bukkit.block.data.Orientable {
+import com.google.common.base.Preconditions;
+import io.papermc.paper.annotation.GeneratedClass;
+import java.util.Set;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.CreakingHeartBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.CreakingHeartState;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import org.bukkit.Axis;
+import org.bukkit.block.data.type.CreakingHeart;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftCreakingHeart() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftCreakingHeart extends CraftBlockData implements CreakingHeart {
+    private static final EnumProperty<Direction.Axis> AXIS = CreakingHeartBlock.AXIS;
 
-    public CraftCreakingHeart(net.minecraft.world.level.block.state.BlockState state) {
+    private static final EnumProperty<CreakingHeartState> STATE = CreakingHeartBlock.STATE;
+
+    private static final BooleanProperty NATURAL = CreakingHeartBlock.NATURAL;
+
+    public CraftCreakingHeart(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.type.CraftCreakingHeart
-
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.data.type.CreakingHeart.State> CREAKING_HEART_STATE = getEnum(net.minecraft.world.level.block.CreakingHeartBlock.class, "creaking_heart_state", org.bukkit.block.data.type.CreakingHeart.State.class);
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty NATURAL = getBoolean(net.minecraft.world.level.block.CreakingHeartBlock.class, "natural");
-
     @Override
-    public boolean isActive() {
-        return getCreakingHeartState() == State.AWAKE;
+    public Axis getAxis() {
+        return this.get(AXIS, Axis.class);
     }
 
     @Override
-    public void setActive(boolean active) {
-        setCreakingHeartState(State.AWAKE);
+    public void setAxis(final Axis axis) {
+        Preconditions.checkArgument(axis != null, "axis cannot be null!");
+        this.set(AXIS, axis);
+    }
+
+    @Override
+    public Set<Axis> getAxes() {
+        return this.getValues(AXIS, Axis.class);
+    }
+
+    @Override
+    public CreakingHeart.State getCreakingHeartState() {
+        return this.get(STATE, CreakingHeart.State.class);
+    }
+
+    @Override
+    public void setCreakingHeartState(final CreakingHeart.State state) {
+        Preconditions.checkArgument(state != null, "state cannot be null!");
+        this.set(STATE, state);
     }
 
     @Override
     public boolean isNatural() {
-        return get(NATURAL);
+        return this.get(NATURAL);
     }
 
     @Override
-    public void setNatural(boolean natural) {
-        set(NATURAL, natural);
-    }
-
-    @Override
-    public org.bukkit.block.data.type.CreakingHeart.State getCreakingHeartState() {
-        return get(CREAKING_HEART_STATE);
-    }
-
-    @Override
-    public void setCreakingHeartState(org.bukkit.block.data.type.CreakingHeart.State state) {
-        set(CREAKING_HEART_STATE, state);
-    }
-
-    // org.bukkit.craftbukkit.block.data.CraftOrientable
-
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.Axis> AXIS = getEnum(net.minecraft.world.level.block.CreakingHeartBlock.class, "axis", org.bukkit.Axis.class);
-
-    @Override
-    public org.bukkit.Axis getAxis() {
-        return get(AXIS);
-    }
-
-    @Override
-    public void setAxis(org.bukkit.Axis axis) {
-        set(AXIS, axis);
-    }
-
-    @Override
-    public java.util.Set<org.bukkit.Axis> getAxes() {
-        return getValues(AXIS);
+    public void setNatural(final boolean natural) {
+        this.set(NATURAL, natural);
     }
 }

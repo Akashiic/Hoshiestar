@@ -1,7 +1,8 @@
 package org.bukkit.craftbukkit.entity;
 
+import com.google.common.base.Preconditions;
 import java.util.UUID;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.Optionull;
 import net.minecraft.world.entity.EntityReference;
 import net.minecraft.world.entity.item.ItemEntity;
 import org.bukkit.craftbukkit.CraftServer;
@@ -11,83 +12,184 @@ import org.bukkit.inventory.ItemStack;
 
 public class CraftItem extends CraftEntity implements Item {
 
+    private final static int NO_AGE_TIME = Short.MIN_VALUE; // ItemEntity#INFINITE_LIFETIME
+    private final static int NO_PICKUP_TIME = Short.MAX_VALUE; // ItemEntity#INFINITE_PICKUP_DELAY
+
     public CraftItem(CraftServer server, ItemEntity entity) {
         super(server, entity);
     }
 
     @Override
     public ItemEntity getHandle() {
-        return (ItemEntity) entity;
+        return (ItemEntity) this.entity;
     }
 
     @Override
     public ItemStack getItemStack() {
-        return CraftItemStack.asCraftMirror(getHandle().getItem());
+        return CraftItemStack.asCraftMirror(this.getHandle().getItem());
     }
 
     @Override
     public void setItemStack(ItemStack stack) {
-        getHandle().setItem(CraftItemStack.asNMSCopy(stack));
+        this.getHandle().setItem(CraftItemStack.asNMSCopy(stack));
     }
 
     @Override
     public int getPickupDelay() {
-        return getHandle().pickupDelay;
+        return this.getHandle().pickupDelay;
     }
 
     @Override
     public void setPickupDelay(int delay) {
-        getHandle().pickupDelay = Math.min(delay, Short.MAX_VALUE);
+        this.getHandle().pickupDelay = Math.min(delay, NO_PICKUP_TIME);
     }
 
     @Override
     public void setUnlimitedLifetime(boolean unlimited) {
         if (unlimited) {
-            // See EntityItem#INFINITE_LIFETIME
-            getHandle().age = Short.MIN_VALUE;
+            this.getHandle().age = NO_AGE_TIME;
         } else {
-            getHandle().age = getTicksLived();
+            this.getHandle().age = this.getTicksLived();
         }
     }
 
     @Override
     public boolean isUnlimitedLifetime() {
-        return getHandle().age == Short.MIN_VALUE;
+        return this.getHandle().age == NO_AGE_TIME;
     }
 
     @Override
     public void setTicksLived(int value) {
         super.setTicksLived(value);
 
-        // Second field for EntityItem (don't set if lifetime is unlimited)
-        if (!isUnlimitedLifetime()) {
-            getHandle().age = value;
+        // Second field for ItemEntity (don't set if lifetime is unlimited)
+        if (!this.isUnlimitedLifetime()) {
+            this.getHandle().age = value;
+        }
+    }
+
+    @Override
+    public boolean canMobPickup() {
+        return this.getHandle().canMobPickup;
+    }
+
+    @Override
+    public void setCanMobPickup(boolean canMobPickup) {
+        this.getHandle().canMobPickup = canMobPickup;
+    }
+
+     @Override
+     public boolean canPlayerPickup() {
+        return this.getHandle().pickupDelay != NO_PICKUP_TIME;
+     }
+
+     @Override
+     public void setCanPlayerPickup(boolean canPlayerPickup) {
+        this.getHandle().pickupDelay = canPlayerPickup ? 0 : NO_PICKUP_TIME;
+     }
+
+     @Override
+     public boolean willAge() {
+        return this.getHandle().age != NO_AGE_TIME;
+     }
+
+     @Override
+     public void setWillAge(boolean willAge) {
+        this.getHandle().age = willAge ? 0 : NO_AGE_TIME;
+     }
+
+     @Override
+     public net.kyori.adventure.util.TriState getFrictionState() {
+        return this.getHandle().frictionState;
+     }
+
+     @Override
+     public void setFrictionState(net.kyori.adventure.util.TriState state) {
+         Preconditions.checkArgument(state != null, "state may not be null");
+         this.getHandle().frictionState = state;
+     }
+
+    @Override
+    public int getHealth() {
+        return this.getHandle().health;
+    }
+
+    @Override
+    public void setHealth(int health) {
+        if (health <= 0) {
+            this.getHandle().getItem().onDestroyed(this.getHandle());
+            this.getHandle().discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.PLUGIN);
+        } else {
+            this.getHandle().health = health;
         }
     }
 
     @Override
     public void setOwner(UUID uuid) {
-        getHandle().setTarget(uuid);
+        this.getHandle().setTarget(uuid);
     }
 
     @Override
     public UUID getOwner() {
-        return getHandle().target;
+        return this.getHandle().target;
     }
 
     @Override
     public void setThrower(UUID uuid) {
-        getHandle().thrower = (uuid != null) ? EntityReference.of(uuid) : null;
+        this.getHandle().thrower = uuid == null ? null : EntityReference.of(uuid);
     }
 
     @Override
     public UUID getThrower() {
-        EntityReference<Entity> thrower = getHandle().thrower;
-        return (thrower != null) ? thrower.getUUID() : null;
+        return Optionull.map(this.getHandle().thrower, EntityReference::getUUID);
+    }
+
+    // Purpur start - Item entity immunities
+    @Override
+    public void setImmuneToCactus(boolean immuneToCactus) {
+        this.getHandle().immuneToCactus = immuneToCactus;
     }
 
     @Override
-    public String toString() {
-        return "CraftItem";
+    public boolean isImmuneToCactus() {
+        return this.getHandle().immuneToCactus;
     }
+
+    @Override
+    public void setImmuneToExplosion(boolean immuneToExplosion) {
+        this.getHandle().immuneToExplosion = immuneToExplosion;
+    }
+
+    @Override
+    public boolean isImmuneToExplosion() {
+        return this.getHandle().immuneToExplosion;
+    }
+
+    // Purpur start - Fire Immunity API
+    @Override
+    public void setImmuneToFire(@org.jetbrains.annotations.Nullable Boolean immuneToFire) {
+        this.getHandle().immuneToFire = (immuneToFire != null && immuneToFire);
+    }
+    // Purpur end - Fire Immunity API
+
+    @Override
+    public void setImmuneToFire(boolean immuneToFire) {
+        this.setImmuneToFire((Boolean) immuneToFire); // Purpur - Fire Immunity API
+    }
+
+    @Override
+    public boolean isImmuneToFire() {
+        return this.getHandle().immuneToFire;
+    }
+
+    @Override
+    public void setImmuneToLightning(boolean immuneToLightning) {
+        this.getHandle().immuneToLightning = immuneToLightning;
+    }
+
+    @Override
+    public boolean isImmuneToLightning() {
+        return this.getHandle().immuneToLightning;
+    }
+    // Purpur end - Item entity immunities
 }

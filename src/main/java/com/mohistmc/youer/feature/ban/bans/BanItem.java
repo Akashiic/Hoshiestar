@@ -3,6 +3,7 @@ package com.mohistmc.youer.feature.ban.bans;
 import com.mohistmc.youer.YouerConfig;
 import com.mohistmc.youer.api.ItemAPI;
 import com.mohistmc.youer.feature.ban.BanConfig;
+import com.mohistmc.youer.feature.ban.BanType;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
@@ -29,10 +30,6 @@ public class BanItem {
         }
         if (check(itemStack)) {
             player.containerMenu.sendAllDataToRemote();
-            String message = BanConfig.BAN_MESSAGE.getMessage(itemStack.getBukkitStack().getType().name());
-            if (!message.isEmpty()) {
-                player.getBukkitEntity().sendMessage(message);
-            }
             return true;
         }
         return false;
@@ -40,15 +37,11 @@ public class BanItem {
 
     public static boolean check(net.minecraft.world.entity.player.Player player) {
         ItemStack main = player.getMainHandItem();
-        ItemStack off = player.getMainHandItem();
+        ItemStack off = player.getOffhandItem();
         if (player.getBukkitEntity().isOp()) return false;
         if (checkMoShou(main)) {
             if (player.getBukkitEntity().hasPermission(moshou_permission + main.asBukkitCopy().getType().name())) {
                 return false;
-            }
-            String message = BanConfig.BAN_MESSAGE.getMessage(main.getBukkitStack().getType().name());
-            if (!message.isEmpty()) {
-                player.getBukkitEntity().sendMessage(message);
             }
             player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
             return true;
@@ -57,28 +50,13 @@ public class BanItem {
             if (player.getBukkitEntity().hasPermission(moshou_permission + off.asBukkitCopy().getType().name())) {
                 return false;
             }
-            String message = BanConfig.BAN_MESSAGE.getMessage(off.getBukkitStack().getType().name());
-            if (!message.isEmpty()) {
-                player.getBukkitEntity().sendMessage(message);
-            }
             player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
             return true;
         }
         if (check(main)) {
-            String message = BanConfig.BAN_MESSAGE.getMessage(main.getBukkitStack().getType().name());
-            if (!message.isEmpty()) {
-                player.getBukkitEntity().sendMessage(message);
-            }
             return true;
         }
-        if (check(off)) {
-            String message = BanConfig.BAN_MESSAGE.getMessage(off.getBukkitStack().getType().name());
-            if (!message.isEmpty()) {
-                player.getBukkitEntity().sendMessage(message);
-            }
-            return true;
-        }
-        return false;
+        return check(off);
     }
 
     public static boolean check(ItemStack itemStack) {
@@ -91,9 +69,11 @@ public class BanItem {
     }
 
     public static boolean checkMoShou(org.bukkit.inventory.ItemStack itemStack) {
-        if (itemStack.getType().isAirSafe()) return false;
+        if (itemStack.isEmpty()) return false;
         if (!YouerConfig.ban_item_enable) return false;
-        return BanConfig.MOSHOU.getMoShouList().contains(itemStack.getType().getKey().toString());
+        var list = BanConfig.getListByType(BanType.ITEM_MOSHOU);
+        if (list.isEmpty()) return false;
+        return list.contains(itemStack.getType().key().asString());
     }
 
     public static boolean checkMoShou(ItemStack itemStack) {

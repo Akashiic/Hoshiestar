@@ -1,54 +1,64 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftUntintedParticleLeaves extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.Leaves, org.bukkit.block.data.Waterlogged {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.UntintedParticleLeavesBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import org.bukkit.block.data.type.Leaves;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftUntintedParticleLeaves() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftUntintedParticleLeaves extends CraftBlockData implements Leaves {
+    private static final IntegerProperty DISTANCE = UntintedParticleLeavesBlock.DISTANCE;
 
-    public CraftUntintedParticleLeaves(net.minecraft.world.level.block.state.BlockState state) {
+    private static final BooleanProperty PERSISTENT = UntintedParticleLeavesBlock.PERSISTENT;
+
+    private static final BooleanProperty WATERLOGGED = UntintedParticleLeavesBlock.WATERLOGGED;
+
+    public CraftUntintedParticleLeaves(BlockState state) {
         super(state);
-    }
-
-    // org.bukkit.craftbukkit.block.data.type.CraftLeaves
-
-    private static final net.minecraft.world.level.block.state.properties.IntegerProperty DISTANCE = getInteger(net.minecraft.world.level.block.UntintedParticleLeavesBlock.class, "distance");
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty PERSISTENT = getBoolean(net.minecraft.world.level.block.UntintedParticleLeavesBlock.class, "persistent");
-
-    @Override
-    public boolean isPersistent() {
-        return get(PERSISTENT);
-    }
-
-    @Override
-    public void setPersistent(boolean persistent) {
-        set(PERSISTENT, persistent);
     }
 
     @Override
     public int getDistance() {
-        return get(DISTANCE);
+        return this.get(DISTANCE);
     }
 
     @Override
-    public void setDistance(int distance) {
-        set(DISTANCE, distance);
+    public void setDistance(final int distance) {
+        this.set(DISTANCE, distance);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftWaterlogged
+    @Override
+    public int getMinimumDistance() {
+        return DISTANCE.min;
+    }
 
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty WATERLOGGED = getBoolean(net.minecraft.world.level.block.UntintedParticleLeavesBlock.class, "waterlogged");
+    @Override
+    public int getMaximumDistance() {
+        return DISTANCE.max;
+    }
+
+    @Override
+    public boolean isPersistent() {
+        return this.get(PERSISTENT);
+    }
+
+    @Override
+    public void setPersistent(final boolean persistent) {
+        this.set(PERSISTENT, persistent);
+    }
 
     @Override
     public boolean isWaterlogged() {
-        return get(WATERLOGGED);
+        return this.get(WATERLOGGED);
     }
 
     @Override
-    public void setWaterlogged(boolean waterlogged) {
-        set(WATERLOGGED, waterlogged);
+    public void setWaterlogged(final boolean waterlogged) {
+        this.set(WATERLOGGED, waterlogged);
     }
 }

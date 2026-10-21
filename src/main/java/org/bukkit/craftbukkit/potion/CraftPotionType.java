@@ -2,11 +2,13 @@ package org.bukkit.craftbukkit.potion;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
+import io.papermc.paper.registry.RegistryKey;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.alchemy.Potion;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
@@ -21,15 +23,18 @@ import org.bukkit.potion.PotionType;
 public class CraftPotionType implements PotionType.InternalPotionData {
 
     public static PotionType minecraftHolderToBukkit(Holder<Potion> minecraft) {
-        return minecraftToBukkit(minecraft.value());
+        return CraftPotionType.minecraftToBukkit(minecraft.value());
     }
 
     public static PotionType minecraftToBukkit(Potion minecraft) {
         Preconditions.checkArgument(minecraft != null);
 
         net.minecraft.core.Registry<Potion> registry = CraftRegistry.getMinecraftRegistry(Registries.POTION);
-        PotionType bukkit = Registry.POTION.get(CraftNamespacedKey.fromMinecraft(registry.getResourceKey(minecraft).orElseThrow().identifier()));
-
+        Identifier key = registry.getResourceKey(minecraft).orElseThrow().identifier();
+        PotionType bukkit = Registry.POTION.get(CraftNamespacedKey.fromMinecraft(key));
+        if (bukkit == null) {
+            bukkit = CraftPotionUtil.mods.get(key);
+        }
         Preconditions.checkArgument(bukkit != null);
 
         return bukkit;
@@ -47,7 +52,7 @@ public class CraftPotionType implements PotionType.InternalPotionData {
 
         net.minecraft.core.Registry<Potion> registry = CraftRegistry.getMinecraftRegistry(Registries.POTION);
 
-        if (registry.wrapAsHolder(bukkitToMinecraft(bukkit)) instanceof Holder.Reference<Potion> holder) {
+        if (registry.wrapAsHolder(CraftPotionType.bukkitToMinecraft(bukkit)) instanceof Holder.Reference<Potion> holder) {
             return holder;
         }
 
@@ -69,9 +74,10 @@ public class CraftPotionType implements PotionType.InternalPotionData {
         string = FieldRename.convertPotionTypeName(ApiVersion.CURRENT, string);
         string = string.toLowerCase(Locale.ROOT);
         NamespacedKey key = NamespacedKey.fromString(string);
+        if (key == null) return null; // Paper - Fixup NamespacedKey handling
 
         // Now also convert from when keys where saved
-        return CraftRegistry.get(Registry.POTION, key, ApiVersion.CURRENT);
+        return CraftRegistry.get(RegistryKey.POTION, key, ApiVersion.CURRENT);
     }
 
     private final NamespacedKey key;
@@ -87,36 +93,36 @@ public class CraftPotionType implements PotionType.InternalPotionData {
         this.potionEffects = Suppliers.memoize(() -> potion.getEffects().stream().map(CraftPotionUtil::toBukkit).toList());
         this.upgradeable = Suppliers.memoize(() -> Registry.POTION.get(new NamespacedKey(key.getNamespace(), "strong_" + key.getKey())) != null);
         this.extendable = Suppliers.memoize(() -> Registry.POTION.get(new NamespacedKey(key.getNamespace(), "long_" + key.getKey())) != null);
-        this.maxLevel = Suppliers.memoize(() -> isUpgradeable() ? 2 : 1);
+        this.maxLevel = Suppliers.memoize(() -> this.isUpgradeable() ? 2 : 1);
     }
 
     @Override
     public PotionEffectType getEffectType() {
-        return getPotionEffects().isEmpty() ? null : getPotionEffects().get(0).getType();
+        return this.getPotionEffects().isEmpty() ? null : this.getPotionEffects().getFirst().getType();
     }
 
     @Override
     public List<PotionEffect> getPotionEffects() {
-        return potionEffects.get();
+        return this.potionEffects.get();
     }
 
     @Override
     public boolean isInstant() {
-        return potion.hasInstantEffects();
+        return this.potion.hasInstantEffects();
     }
 
     @Override
     public boolean isUpgradeable() {
-        return upgradeable.get();
+        return this.upgradeable.get();
     }
 
     @Override
     public boolean isExtendable() {
-        return extendable.get();
+        return this.extendable.get();
     }
 
     @Override
     public int getMaxLevel() {
-        return maxLevel.get();
+        return this.maxLevel.get();
     }
 }

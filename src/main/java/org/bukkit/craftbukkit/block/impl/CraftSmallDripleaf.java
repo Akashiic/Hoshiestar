@@ -1,62 +1,68 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftSmallDripleaf extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.SmallDripleaf, org.bukkit.block.data.type.Dripleaf, org.bukkit.block.data.Bisected, org.bukkit.block.data.Directional, org.bukkit.block.data.Waterlogged {
+import com.google.common.base.Preconditions;
+import io.papermc.paper.annotation.GeneratedClass;
+import java.util.Set;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.SmallDripleafBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.type.SmallDripleaf;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftSmallDripleaf() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftSmallDripleaf extends CraftBlockData implements SmallDripleaf {
+    private static final EnumProperty<Direction> FACING = SmallDripleafBlock.FACING;
 
-    public CraftSmallDripleaf(net.minecraft.world.level.block.state.BlockState state) {
+    private static final EnumProperty<DoubleBlockHalf> HALF = SmallDripleafBlock.HALF;
+
+    private static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
+
+    public CraftSmallDripleaf(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftBisected
+    @Override
+    public BlockFace getFacing() {
+        return this.get(FACING, BlockFace.class);
+    }
 
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.data.Bisected.Half> HALF = getEnum(net.minecraft.world.level.block.SmallDripleafBlock.class, "half", org.bukkit.block.data.Bisected.Half.class);
+    @Override
+    public void setFacing(final BlockFace blockFace) {
+        Preconditions.checkArgument(blockFace != null, "blockFace cannot be null!");
+        Preconditions.checkArgument(blockFace.isCartesian() && blockFace.getModY() == 0, "Invalid face, only cartesian horizontal face are allowed for this property!");
+        this.set(FACING, blockFace);
+    }
+
+    @Override
+    public Set<BlockFace> getFaces() {
+        return this.getValues(FACING, BlockFace.class);
+    }
 
     @Override
     public org.bukkit.block.data.Bisected.Half getHalf() {
-        return get(HALF);
+        return this.get(HALF, org.bukkit.block.data.Bisected.Half.class);
     }
 
     @Override
-    public void setHalf(org.bukkit.block.data.Bisected.Half half) {
-        set(HALF, half);
+    public void setHalf(final org.bukkit.block.data.Bisected.Half half) {
+        Preconditions.checkArgument(half != null, "half cannot be null!");
+        this.set(HALF, half);
     }
-
-    // org.bukkit.craftbukkit.block.data.CraftDirectional
-
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.BlockFace> FACING = getEnum(net.minecraft.world.level.block.SmallDripleafBlock.class, "facing", org.bukkit.block.BlockFace.class);
-
-    @Override
-    public org.bukkit.block.BlockFace getFacing() {
-        return get(FACING);
-    }
-
-    @Override
-    public void setFacing(org.bukkit.block.BlockFace facing) {
-        set(FACING, facing);
-    }
-
-    @Override
-    public java.util.Set<org.bukkit.block.BlockFace> getFaces() {
-        return getValues(FACING);
-    }
-
-    // org.bukkit.craftbukkit.block.data.CraftWaterlogged
-
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty WATERLOGGED = getBoolean(net.minecraft.world.level.block.SmallDripleafBlock.class, "waterlogged");
 
     @Override
     public boolean isWaterlogged() {
-        return get(WATERLOGGED);
+        return this.get(WATERLOGGED);
     }
 
     @Override
-    public void setWaterlogged(boolean waterlogged) {
-        set(WATERLOGGED, waterlogged);
+    public void setWaterlogged(final boolean waterlogged) {
+        this.set(WATERLOGGED, waterlogged);
     }
 }

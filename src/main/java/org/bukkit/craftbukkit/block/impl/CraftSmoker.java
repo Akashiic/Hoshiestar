@@ -1,48 +1,53 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftSmoker extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.Furnace, org.bukkit.block.data.Directional, org.bukkit.block.data.Lightable {
+import com.google.common.base.Preconditions;
+import io.papermc.paper.annotation.GeneratedClass;
+import java.util.Set;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.SmokerBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.type.Furnace;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftSmoker() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftSmoker extends CraftBlockData implements Furnace {
+    private static final EnumProperty<Direction> FACING = SmokerBlock.FACING;
 
-    public CraftSmoker(net.minecraft.world.level.block.state.BlockState state) {
+    private static final BooleanProperty LIT = SmokerBlock.LIT;
+
+    public CraftSmoker(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftDirectional
-
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.BlockFace> FACING = getEnum(net.minecraft.world.level.block.SmokerBlock.class, "facing", org.bukkit.block.BlockFace.class);
-
     @Override
-    public org.bukkit.block.BlockFace getFacing() {
-        return get(FACING);
+    public BlockFace getFacing() {
+        return this.get(FACING, BlockFace.class);
     }
 
     @Override
-    public void setFacing(org.bukkit.block.BlockFace facing) {
-        set(FACING, facing);
+    public void setFacing(final BlockFace blockFace) {
+        Preconditions.checkArgument(blockFace != null, "blockFace cannot be null!");
+        Preconditions.checkArgument(blockFace.isCartesian() && blockFace.getModY() == 0, "Invalid face, only cartesian horizontal face are allowed for this property!");
+        this.set(FACING, blockFace);
     }
 
     @Override
-    public java.util.Set<org.bukkit.block.BlockFace> getFaces() {
-        return getValues(FACING);
+    public Set<BlockFace> getFaces() {
+        return this.getValues(FACING, BlockFace.class);
     }
-
-    // org.bukkit.craftbukkit.block.data.CraftLightable
-
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty LIT = getBoolean(net.minecraft.world.level.block.SmokerBlock.class, "lit");
 
     @Override
     public boolean isLit() {
-        return get(LIT);
+        return this.get(LIT);
     }
 
     @Override
-    public void setLit(boolean lit) {
-        set(LIT, lit);
+    public void setLit(final boolean lit) {
+        this.set(LIT, lit);
     }
 }

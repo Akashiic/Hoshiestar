@@ -39,7 +39,6 @@ import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginLoader;
 import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.plugin.SimplePluginManager;
-import org.bukkit.plugin.TimedRegisteredListener;
 import org.bukkit.plugin.UnknownDependencyException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -48,11 +47,13 @@ import org.yaml.snakeyaml.error.YAMLException;
 /**
  * Represents a Java plugin loader, allowing plugins in the form of .jar
  */
+@Deprecated(forRemoval = true) // Paper - The PluginLoader system will not function in the near future. This implementation will be moved.
 public final class JavaPluginLoader implements PluginLoader {
     final Server server;
     private final Pattern[] fileFilters = new Pattern[]{Pattern.compile("\\.jar$")};
     private final List<PluginClassLoader> loaders = new CopyOnWriteArrayList<PluginClassLoader>();
     private final LibraryLoader libraryLoader;
+    public static boolean SuppressLibraryLoaderLogger = false; // Purpur - Add log suppression for LibraryLoader
 
     /**
      * This class was not meant to be constructed explicitly
@@ -77,6 +78,7 @@ public final class JavaPluginLoader implements PluginLoader {
     @Override
     @NotNull
     public Plugin loadPlugin(@NotNull final File file) throws InvalidPluginException {
+        if (true) throw new UnsupportedOperationException(); // Paper
         Preconditions.checkArgument(file != null, "File cannot be null");
 
         if (!file.exists()) {
@@ -90,7 +92,7 @@ public final class JavaPluginLoader implements PluginLoader {
             throw new InvalidPluginException(ex);
         }
 
-        final File parentFile = file.getParentFile();
+        final File parentFile = this.server.getPluginsFolder(); // Paper
         final File dataFolder = new File(parentFile, description.getName());
         @SuppressWarnings("deprecation")
         final File oldDataFolder = new File(parentFile, description.getRawName());
@@ -140,7 +142,7 @@ public final class JavaPluginLoader implements PluginLoader {
 
         final PluginClassLoader loader;
         try {
-            loader = new PluginClassLoader(this, getClass().getClassLoader(), description, dataFolder, file, (libraryLoader != null) ? libraryLoader.createLoader(description) : null);
+            loader = new PluginClassLoader(getClass().getClassLoader(), description, dataFolder, file, (libraryLoader != null) ? libraryLoader.createLoader(description) : null, null, null); // Paper
         } catch (InvalidPluginException ex) {
             throw ex;
         } catch (Throwable ex) {
@@ -229,12 +231,12 @@ public final class JavaPluginLoader implements PluginLoader {
         Preconditions.checkArgument(plugin != null, "Plugin can not be null");
         Preconditions.checkArgument(listener != null, "Listener can not be null");
 
-        Map<Class<? extends Event>, Set<RegisteredListener>> ret = new HashMap<Class<? extends Event>, Set<RegisteredListener>>();
+        Map<Class<? extends Event>, Set<RegisteredListener>> ret = new HashMap<>();
         Set<Method> methods;
         try {
             Method[] publicMethods = listener.getClass().getMethods();
             Method[] privateMethods = listener.getClass().getDeclaredMethods();
-            methods = new HashSet<Method>(publicMethods.length + privateMethods.length, 1.0f);
+            methods = new HashSet<>(publicMethods.length + privateMethods.length, 1.0f);
             for (Method method : publicMethods) {
                 methods.add(method);
             }
@@ -263,7 +265,7 @@ public final class JavaPluginLoader implements PluginLoader {
             method.setAccessible(true);
             Set<RegisteredListener> eventSet = ret.get(eventClass);
             if (eventSet == null) {
-                eventSet = new HashSet<RegisteredListener>();
+                eventSet = new HashSet<>();
                 ret.put(eventClass, eventSet);
             }
 
@@ -291,7 +293,7 @@ public final class JavaPluginLoader implements PluginLoader {
 
             EventExecutor executor = new EventExecutor() {
                 @Override
-                public void execute(@NotNull Listener listener, @NotNull Event event) throws EventException {
+                public void execute(@NotNull Listener listener, @NotNull Event event) throws EventException { // Paper
                     try {
                         if (!eventClass.isAssignableFrom(event.getClass())) {
                             return;
@@ -328,7 +330,13 @@ public final class JavaPluginLoader implements PluginLoader {
             try {
                 jPlugin.setEnabled(true);
             } catch (Throwable ex) {
+                gg.pufferfish.pufferfish.sentry.SentryContext.setPluginContext(plugin); // Pufferfish
                 server.getLogger().log(Level.SEVERE, "Error occurred while enabling " + plugin.getDescription().getFullName() + " (Is it up to date?)", ex);
+                gg.pufferfish.pufferfish.sentry.SentryContext.removePluginContext(); // Pufferfish
+                // Paper start - Disable plugins that fail to load
+                this.server.getPluginManager().disablePlugin(jPlugin);
+                return;
+                // Paper end
             }
 
             // Perhaps abort here, rather than continue going, but as it stands,
@@ -353,7 +361,9 @@ public final class JavaPluginLoader implements PluginLoader {
             try {
                 jPlugin.setEnabled(false);
             } catch (Throwable ex) {
+                gg.pufferfish.pufferfish.sentry.SentryContext.setPluginContext(plugin); // Pufferfish
                 server.getLogger().log(Level.SEVERE, "Error occurred while disabling " + plugin.getDescription().getFullName() + " (Is it up to date?)", ex);
+                gg.pufferfish.pufferfish.sentry.SentryContext.removePluginContext(); // Pufferfish
             }
 
             if (cloader instanceof PluginClassLoader) {
@@ -368,8 +378,7 @@ public final class JavaPluginLoader implements PluginLoader {
 
                 try {
                     loader.close();
-                } catch (IOException ex) {
-                    //
+                } catch (IOException ignored) {
                 }
             }
         }

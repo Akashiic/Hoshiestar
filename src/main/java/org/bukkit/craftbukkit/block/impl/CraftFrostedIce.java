@@ -1,34 +1,34 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftFrostedIce extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.Ageable {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.FrostedIceBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import org.bukkit.block.data.Ageable;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftFrostedIce() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftFrostedIce extends CraftBlockData implements Ageable {
+    private static final IntegerProperty AGE = FrostedIceBlock.AGE;
 
-    public CraftFrostedIce(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftFrostedIce(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftAgeable
-
-    private static final net.minecraft.world.level.block.state.properties.IntegerProperty AGE = getInteger(net.minecraft.world.level.block.FrostedIceBlock.class, "age");
-
     @Override
     public int getAge() {
-        return get(AGE);
+        return this.get(AGE);
     }
 
     @Override
-    public void setAge(int age) {
-        set(AGE, age);
+    public void setAge(final int age) {
+        this.set(AGE, age);
     }
 
     @Override
     public int getMaximumAge() {
-        return getMax(AGE);
+        return AGE.max;
     }
 }

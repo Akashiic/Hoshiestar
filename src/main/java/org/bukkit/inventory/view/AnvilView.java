@@ -65,4 +65,58 @@ public interface AnvilView extends InventoryView {
      * @param levels the levels to set
      */
     void setMaximumRepairCost(int levels);
+
+    // Paper start - bypass anvil level restrictions
+    /**
+     * Returns whether this view will bypass the vanilla enchantment level restriction
+     * when applying enchantments to an item or not.
+     * <p>
+     * By default, vanilla will limit enchantments applied to items to the respective
+     * {@link org.bukkit.enchantments.Enchantment#getMaxLevel()}, even if the applied enchantment itself is above said
+     * limit.
+     * Disabling this limit via {@link AnvilView#bypassEnchantmentLevelRestriction(boolean)} allows for, e.g., enchanted
+     * books to be applied fully, even if their enchantments are beyond the limit.
+     *
+     * @return {@code true} if this view bypasses the vanilla restrictions.
+     */
+    boolean bypassesEnchantmentLevelRestriction();
+
+    /**
+     * Sets if enchantments applied via this anvil view may bypass vanilla's level restrictions.
+     *
+     * @param bypassEnchantmentLevelRestriction if this view bypasses the vanilla level restrictions.
+     * @see AnvilView#bypassesEnchantmentLevelRestriction()
+     */
+    void bypassEnchantmentLevelRestriction(boolean bypassEnchantmentLevelRestriction);
+    // Paper end - bypass anvil level restrictions
+
+    // Purpur start - Anvil API
+    /**
+     * Gets if the player viewing the anvil inventory can bypass experience cost
+     *
+     * @return whether the player viewing the anvil inventory can bypass the experience cost
+     */
+    boolean canBypassCost();
+
+    /**
+     * Set if the player viewing the anvil inventory can bypass the experience cost
+     *
+     * @param bypassCost whether the player viewing the anvil inventory can bypass the experience cost
+     */
+    void setBypassCost(boolean bypassCost);
+
+    /**
+     * Gets if the player viewing the anvil inventory can do unsafe enchants
+     *
+     * @return whether the player viewing the anvil inventory can do unsafe enchants
+     */
+    boolean canDoUnsafeEnchants();
+
+    /**
+     * Set if the player viewing the anvil inventory can do unsafe enchants
+     *
+     * @param canDoUnsafeEnchants whether the player viewing the anvil inventory can do unsafe enchants
+     */
+    void setDoUnsafeEnchants(boolean canDoUnsafeEnchants);
+    // Purpur end - Anvil API
 }

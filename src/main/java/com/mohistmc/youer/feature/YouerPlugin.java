@@ -11,9 +11,11 @@ import com.mohistmc.youer.feature.back.BackCommands;
 import com.mohistmc.youer.feature.back.BackConfig;
 import com.mohistmc.youer.feature.ban.BanListener;
 import com.mohistmc.youer.feature.commands.CommandsConfig;
+import com.mohistmc.youer.feature.db.DatabaseManager;
 import com.mohistmc.youer.feature.entitylimits.EntityLimitsCommands;
 import com.mohistmc.youer.feature.item.ItemsConfig;
 import com.mohistmc.youer.feature.menu.MenuCommand;
+import com.mohistmc.youer.feature.plugin.PluginHotReloadCommand;
 import com.mohistmc.youer.feature.tpa.TpaComamands;
 import com.mohistmc.youer.feature.tpa.TpacceptCommands;
 import com.mohistmc.youer.feature.tpa.TpadenyCommands;
@@ -41,6 +43,7 @@ public class YouerPlugin {
     public static Logger LOGGER = LogManager.getLogger("YouerPlugin");
 
     public static void init() {
+        DatabaseManager.init();
         if (CommandsConfig.INSTANCE.enable("worlds.enable")) {
             WorldManage.onEnable();
         }
@@ -48,6 +51,7 @@ public class YouerPlugin {
         BackConfig.init();
         WarpsConfig.init();
         EntityClear.start();
+        WorldBackup.start();
         GlobalVariableSystem.register();
     }
 
@@ -91,6 +95,8 @@ public class YouerPlugin {
         if (CommandsConfig.INSTANCE.enable("deepseek.enable")) {
             commands.put("deepseek", new DeepseekCommand("deepseek"));
         }
+        commands.put("plugin", new PluginHotReloadCommand("plugin"));
+
     }
 
     public static void registerListener(Event event) {

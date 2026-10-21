@@ -1,29 +1,29 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftRedStoneOre extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.Lightable {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.RedStoneOreBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import org.bukkit.block.data.Lightable;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftRedStoneOre() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftRedStoneOre extends CraftBlockData implements Lightable {
+    private static final BooleanProperty LIT = RedStoneOreBlock.LIT;
 
-    public CraftRedStoneOre(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftRedStoneOre(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftLightable
-
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty LIT = getBoolean(net.minecraft.world.level.block.RedStoneOreBlock.class, "lit");
-
     @Override
     public boolean isLit() {
-        return get(LIT);
+        return this.get(LIT);
     }
 
     @Override
-    public void setLit(boolean lit) {
-        set(LIT, lit);
+    public void setLit(final boolean lit) {
+        this.set(LIT, lit);
     }
 }

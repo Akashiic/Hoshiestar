@@ -1,34 +1,34 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftNetherWart extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.Ageable {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.NetherWartBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import org.bukkit.block.data.Ageable;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftNetherWart() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftNetherWart extends CraftBlockData implements Ageable {
+    private static final IntegerProperty AGE = NetherWartBlock.AGE;
 
-    public CraftNetherWart(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftNetherWart(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftAgeable
-
-    private static final net.minecraft.world.level.block.state.properties.IntegerProperty AGE = getInteger(net.minecraft.world.level.block.NetherWartBlock.class, "age");
-
     @Override
     public int getAge() {
-        return get(AGE);
+        return this.get(AGE);
     }
 
     @Override
-    public void setAge(int age) {
-        set(AGE, age);
+    public void setAge(final int age) {
+        this.set(AGE, age);
     }
 
     @Override
     public int getMaximumAge() {
-        return getMax(AGE);
+        return AGE.max;
     }
 }

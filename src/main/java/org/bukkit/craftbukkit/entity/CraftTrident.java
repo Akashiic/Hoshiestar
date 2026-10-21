@@ -14,21 +14,47 @@ public class CraftTrident extends CraftAbstractArrow implements Trident {
 
     @Override
     public ThrownTrident getHandle() {
-        return (ThrownTrident) super.getHandle();
+        return (ThrownTrident) this.entity;
     }
 
     @Override
     public ItemStack getItem() {
-        return CraftItemStack.asBukkitCopy(getHandle().pickupItemStack);
+        return CraftItemStack.asBukkitCopy(this.getHandle().pickupItemStack);
     }
 
     @Override
     public void setItem(ItemStack itemStack) {
-        getHandle().pickupItemStack = CraftItemStack.asNMSCopy(itemStack);
+        this.getHandle().pickupItemStack = CraftItemStack.asNMSCopy(itemStack);
     }
 
     @Override
-    public String toString() {
-        return "CraftTrident";
+    public boolean hasGlint() {
+        return this.getHandle().isFoil();
+    }
+
+    @Override
+    public void setGlint(boolean glint) {
+        this.getHandle().setFoil(glint);
+    }
+
+    @Override
+    public int getLoyaltyLevel() {
+        return this.getHandle().getLoyalty();
+    }
+
+    @Override
+    public void setLoyaltyLevel(int loyaltyLevel) {
+        com.google.common.base.Preconditions.checkArgument(loyaltyLevel >= 0 && loyaltyLevel <= 127, "The loyalty level has to be between 0 and 127");
+        this.getHandle().setLoyalty((byte) loyaltyLevel);
+    }
+
+    @Override
+    public boolean hasDealtDamage() {
+        return this.getHandle().dealtDamage;
+    }
+
+    @Override
+    public void setHasDealtDamage(boolean hasDealtDamage) {
+        this.getHandle().dealtDamage = hasDealtDamage;
     }
 }

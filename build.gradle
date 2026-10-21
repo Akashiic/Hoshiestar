@@ -1,5 +1,5 @@
 plugins {
-    id 'net.neoforged.gradleutils' version '5.1.0'
+    id 'net.neoforged.gradleutils' version '6.0.0'
 }
 
 project.version = project.neoforge_version
@@ -7,6 +7,11 @@ project.version = project.neoforge_version
 // Print version, generally useful to know - also appears on CI
 System.out.println("NeoForge version ${project.version}")
 System.out.println("Java version ${project.java_version}")
+
+// Youer start
+project.ext.gitAbbreviatedId = gradleutils.gitInfo.abbreviatedId
+System.out.println("Git Commit " + project.ext.gitAbbreviatedId)
+// Youer end
 
 allprojects {
     version = rootProject.version
@@ -19,6 +24,10 @@ allprojects {
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
         options.warnings = false
+        options.compilerArgs.addAll([
+                '--add-modules=jdk.incubator.vector'
+        ])
+        options.compilerArgs += "-Xlint:-removal"
     }
 }
 
@@ -37,5 +46,6 @@ sourceSets {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.warnings = false
-    options.compilerArgs << "-Xlint:none"
+    options.compilerArgs << '-Xmaxerrs' << '10000'
+    options.compilerArgs += "-Xlint:-removal"
 }

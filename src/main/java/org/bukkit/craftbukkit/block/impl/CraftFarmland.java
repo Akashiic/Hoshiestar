@@ -1,34 +1,34 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftFarmland extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.Farmland {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.FarmlandBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import org.bukkit.block.data.type.Farmland;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftFarmland() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftFarmland extends CraftBlockData implements Farmland {
+    private static final IntegerProperty MOISTURE = FarmlandBlock.MOISTURE;
 
-    public CraftFarmland(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftFarmland(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.type.CraftFarmland
-
-    private static final net.minecraft.world.level.block.state.properties.IntegerProperty MOISTURE = getInteger(net.minecraft.world.level.block.FarmlandBlock.class, "moisture");
-
     @Override
     public int getMoisture() {
-        return get(MOISTURE);
+        return this.get(MOISTURE);
     }
 
     @Override
-    public void setMoisture(int moisture) {
-        set(MOISTURE, moisture);
+    public void setMoisture(final int moisture) {
+        this.set(MOISTURE, moisture);
     }
 
     @Override
     public int getMaximumMoisture() {
-        return getMax(MOISTURE);
+        return MOISTURE.max;
     }
 }

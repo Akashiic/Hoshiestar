@@ -22,7 +22,6 @@ repositories {
             includeModule("net.neoforged", "minecraft-dependencies")
         }
     }
-    maven { url = 'https://maven.mohistmc.com/' }
 }
 
 dependencies {
@@ -39,5 +38,5 @@ dependencies {
 
     implementation "org.ow2.asm:asm:${gradle.parent.ext.asm_version}"
 
-    implementation "org.apache.maven:maven-artifact:3.8.5"
+    implementation "org.apache.maven:maven-artifact:3.9.16"
 }

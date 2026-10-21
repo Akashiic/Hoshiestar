@@ -3,7 +3,6 @@ package org.bukkit.craftbukkit.command;
 import com.mohistmc.youer.Youer;
 import com.mohistmc.youer.api.ColorAPI;
 import java.util.UUID;
-import org.bukkit.ChatColor;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.conversations.Conversation;
 import org.bukkit.conversations.ConversationAbandonedEvent;
@@ -23,7 +22,12 @@ public class CraftConsoleCommandSender extends ServerCommandSender implements Co
 
     @Override
     public void sendMessage(String message) {
-        sendRawMessage(message);
+        // Purpur start - Rebrand
+        String[] parts = message.split("\n");
+        for (String part : parts) {
+        this.sendRawMessage(part);
+        }
+        // Purpur end - Rebrand
     }
 
     @Override
@@ -39,13 +43,18 @@ public class CraftConsoleCommandSender extends ServerCommandSender implements Co
     @Override
     public void sendMessage(String... messages) {
         for (String message : messages) {
-            sendMessage(message);
+            this.sendMessage(message);
         }
     }
 
     @Override
     public String getName() {
         return "CONSOLE";
+    }
+
+    @Override
+    public net.kyori.adventure.text.Component name() {
+        return net.kyori.adventure.text.Component.text(this.getName());
     }
 
     @Override
@@ -60,26 +69,41 @@ public class CraftConsoleCommandSender extends ServerCommandSender implements Co
 
     @Override
     public boolean beginConversation(Conversation conversation) {
-        return conversationTracker.beginConversation(conversation);
+        return this.conversationTracker.beginConversation(conversation);
     }
 
     @Override
     public void abandonConversation(Conversation conversation) {
-        conversationTracker.abandonConversation(conversation, new ConversationAbandonedEvent(conversation, new ManuallyAbandonedConversationCanceller()));
+        this.conversationTracker.abandonConversation(conversation, new ConversationAbandonedEvent(conversation, new ManuallyAbandonedConversationCanceller()));
     }
 
     @Override
     public void abandonConversation(Conversation conversation, ConversationAbandonedEvent details) {
-        conversationTracker.abandonConversation(conversation, details);
+        this.conversationTracker.abandonConversation(conversation, details);
     }
 
     @Override
     public void acceptConversationInput(String input) {
-        conversationTracker.acceptConversationInput(input);
+        this.conversationTracker.acceptConversationInput(input);
     }
 
     @Override
     public boolean isConversing() {
-        return conversationTracker.isConversing();
+        return this.conversationTracker.isConversing();
+    }
+
+    @Override
+    public void sendMessage(final net.kyori.adventure.identity.Identity identity, final net.kyori.adventure.text.Component message, final net.kyori.adventure.audience.MessageType type) {
+        this.sendMessage(net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection().serialize(message)); // Purpur - Rebrand
+    }
+
+    @Override
+    public boolean hasPermission(String name) {
+        return io.papermc.paper.configuration.GlobalConfiguration.get().console.hasAllPermissions || super.hasPermission(name);
+    }
+
+    @Override
+    public boolean hasPermission(org.bukkit.permissions.Permission perm) {
+        return io.papermc.paper.configuration.GlobalConfiguration.get().console.hasAllPermissions || super.hasPermission(perm);
     }
 }

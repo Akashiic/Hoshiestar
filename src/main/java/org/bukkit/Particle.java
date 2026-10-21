@@ -3,12 +3,9 @@ package org.bukkit;
 import com.google.common.base.Preconditions;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.registry.RegistryAware;
-import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-public enum Particle implements Keyed, RegistryAware {
+public enum Particle implements Keyed {
     POOF("poof"),
     EXPLOSION("explosion"),
     EXPLOSION_EMITTER("explosion_emitter"),
@@ -30,7 +27,7 @@ public enum Particle implements Keyed, RegistryAware {
      */
     INSTANT_EFFECT("instant_effect", Spell.class),
     /**
-     * Uses {@link Color} as DataType
+     * Uses {@link Color} as DataType (with alpha support)
      */
     ENTITY_EFFECT("entity_effect", Color.class),
     WITCH("witch"),
@@ -46,7 +43,7 @@ public enum Particle implements Keyed, RegistryAware {
     LAVA("lava"),
     CLOUD("cloud"),
     /**
-     * Uses {@link Particle.DustOptions} as DataType
+     * Uses {@link DustOptions} as DataType
      */
     DUST("dust", DustOptions.class),
     ITEM_SNOWBALL("item_snowball"),
@@ -63,7 +60,7 @@ public enum Particle implements Keyed, RegistryAware {
     RAIN("rain"),
     ELDER_GUARDIAN("elder_guardian"),
     /**
-     * Uses {@link Float} as DataType
+     * Uses {@link Float} as DataType, for the power of the breath
      */
     DRAGON_BREATH("dragon_breath", Float.class),
     END_ROD("end_rod"),
@@ -131,12 +128,12 @@ public enum Particle implements Keyed, RegistryAware {
     SONIC_BOOM("sonic_boom"),
     SCULK_SOUL("sculk_soul"),
     /**
-     * Use {@link Float} as DataType
+     * Uses {@link Float} as DataType, the angle in radians
      */
     SCULK_CHARGE("sculk_charge", Float.class),
     SCULK_CHARGE_POP("sculk_charge_pop"),
     /**
-     * Use {@link Integer} as DataType
+     * Uses {@link Integer} as DataType
      */
     SHRIEK("shriek", Integer.class),
     CHERRY_LEAVES("cherry_leaves"),
@@ -164,12 +161,11 @@ public enum Particle implements Keyed, RegistryAware {
     /**
      * Uses {@link BlockData} as DataType
      */
-    @ApiStatus.Experimental
     BLOCK_CRUMBLE("block_crumble", BlockData.class),
+    FIREFLY("firefly"),
     /**
      * Uses {@link Trail} as DataType
      */
-    @ApiStatus.Experimental
     TRAIL("trail", Trail.class),
     OMINOUS_SPAWNING("ominous_spawning"),
     RAID_OMEN("raid_omen"),
@@ -178,7 +174,6 @@ public enum Particle implements Keyed, RegistryAware {
      * Uses {@link BlockData} as DataType
      */
     BLOCK_MARKER("block_marker", BlockData.class),
-    FIREFLY("firefly"),
     COPPER_FIRE_FLAME("copper_fire_flame"),
     PAUSE_MOB_GROWTH("pause_mob_growth"),
     RESET_MOB_GROWTH("reset_mob_growth"),
@@ -186,28 +181,23 @@ public enum Particle implements Keyed, RegistryAware {
 
     private final NamespacedKey key;
     private final Class<?> dataType;
-    final boolean register;
+    // Paper - all particles are registered
 
     Particle(String key) {
         this(key, Void.class);
     }
 
-    Particle(String key, boolean register) {
-        this(key, Void.class, register);
-    }
+    // Paper - all particles are registered
 
     Particle(String key, /*@NotNull*/ Class<?> data) {
-        this(key, data, true);
-    }
-
-    Particle(String key, /*@NotNull*/ Class<?> data, boolean register) {
+        // Paper - all particles are registered
         if (key != null) {
             this.key = NamespacedKey.minecraft(key);
         } else {
             this.key = null;
         }
         dataType = data;
-        this.register = register;
+        // Paper - all particles are registered
     }
 
     /**
@@ -221,38 +211,28 @@ public enum Particle implements Keyed, RegistryAware {
 
     @NotNull
     @Override
-    public NamespacedKey getKeyOrThrow() {
-        Preconditions.checkState(isRegistered(), "Cannot get key of this registry item, because it is not registered. Use #isRegistered() before calling this method.");
-        return this.key;
+    public NamespacedKey getKey() {
+        if (key == null) {
+            throw new UnsupportedOperationException("Cannot get key from legacy particle");
+        }
+
+        return key;
     }
 
-    @Nullable
-    @Override
-    public NamespacedKey getKeyOrNull() {
-        return this.key;
-    }
-
-    @Override
-    public boolean isRegistered() {
-        return this.key != null;
-    }
-
+    // Paper start - Particle API expansion
     /**
-     * {@inheritDoc}
+     * Creates a {@link com.destroystokyo.paper.ParticleBuilder}
      *
-     * @see #getKeyOrThrow()
-     * @see #isRegistered()
-     * @deprecated A key might not always be present, use {@link #getKeyOrThrow()} instead.
+     * @return a {@link com.destroystokyo.paper.ParticleBuilder} for the particle
      */
     @NotNull
-    @Override
-    @Deprecated(since = "1.21.4")
-    public NamespacedKey getKey() {
-        return getKeyOrThrow();
+    public com.destroystokyo.paper.ParticleBuilder builder() {
+        return new com.destroystokyo.paper.ParticleBuilder(this);
     }
+    // Paper end
 
     /**
-     * Options which can be applied to redstone dust particles - a particle
+     * Options which can be applied to dust particles - a particle
      * color and size.
      */
     public static class DustOptions {
@@ -314,7 +294,6 @@ public enum Particle implements Keyed, RegistryAware {
     /**
      * Options which can be applied to trail particles - a location, color and duration.
      */
-    @ApiStatus.Experimental
     public static class Trail {
 
         private final Location target;
@@ -357,11 +336,6 @@ public enum Particle implements Keyed, RegistryAware {
         }
     }
 
-    /**
-     * Options which can be applied to spell effect particles - a color and
-     * power.
-     */
-    @ApiStatus.Experimental
     public static class Spell {
 
         private final Color color;
@@ -377,15 +351,14 @@ public enum Particle implements Keyed, RegistryAware {
          *
          * @return particle color
          */
-        @NotNull
-        public Color getColor() {
+        public @NotNull Color getColor() {
             return color;
         }
 
         /**
-         * The power of the effect to be displayed.
+         * The power of the particles to be displayed.
          *
-         * @return power
+         * @return particle power
          */
         public float getPower() {
             return power;

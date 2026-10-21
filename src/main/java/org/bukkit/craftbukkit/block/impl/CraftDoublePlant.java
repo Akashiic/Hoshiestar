@@ -1,29 +1,32 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftDoublePlant extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.Bisected {
+import com.google.common.base.Preconditions;
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.DoublePlantBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import org.bukkit.block.data.Bisected;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftDoublePlant() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftDoublePlant extends CraftBlockData implements Bisected {
+    private static final EnumProperty<DoubleBlockHalf> HALF = DoublePlantBlock.HALF;
 
-    public CraftDoublePlant(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftDoublePlant(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftBisected
-
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.data.Bisected.Half> HALF = getEnum(net.minecraft.world.level.block.DoublePlantBlock.class, "half", org.bukkit.block.data.Bisected.Half.class);
-
     @Override
-    public org.bukkit.block.data.Bisected.Half getHalf() {
-        return get(HALF);
+    public Bisected.Half getHalf() {
+        return this.get(HALF, Bisected.Half.class);
     }
 
     @Override
-    public void setHalf(org.bukkit.block.data.Bisected.Half half) {
-        set(HALF, half);
+    public void setHalf(final Bisected.Half half) {
+        Preconditions.checkArgument(half != null, "half cannot be null!");
+        this.set(HALF, half);
     }
 }

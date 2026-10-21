@@ -1,69 +1,68 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftVault extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.Vault, org.bukkit.block.data.Directional {
+import com.google.common.base.Preconditions;
+import io.papermc.paper.annotation.GeneratedClass;
+import java.util.Set;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.VaultBlock;
+import net.minecraft.world.level.block.entity.vault.VaultState;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.type.Vault;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftVault() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftVault extends CraftBlockData implements Vault {
+    private static final EnumProperty<Direction> FACING = VaultBlock.FACING;
 
-    public CraftVault(net.minecraft.world.level.block.state.BlockState state) {
+    private static final BooleanProperty OMINOUS = VaultBlock.OMINOUS;
+
+    private static final EnumProperty<VaultState> STATE = BlockStateProperties.VAULT_STATE;
+
+    public CraftVault(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.type.CraftVault
-
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.data.type.Vault.State> VAULT_STATE = getEnum(net.minecraft.world.level.block.VaultBlock.class, "vault_state", org.bukkit.block.data.type.Vault.State.class);
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty OMINOUS = getBoolean(net.minecraft.world.level.block.VaultBlock.class, "ominous");
-
     @Override
-    public org.bukkit.block.data.type.Vault.State getVaultState() {
-        return get(VAULT_STATE);
+    public BlockFace getFacing() {
+        return this.get(FACING, BlockFace.class);
     }
 
     @Override
-    public org.bukkit.block.data.type.Vault.State getTrialSpawnerState() {
-        return getVaultState();
+    public void setFacing(final BlockFace blockFace) {
+        Preconditions.checkArgument(blockFace != null, "blockFace cannot be null!");
+        Preconditions.checkArgument(blockFace.isCartesian() && blockFace.getModY() == 0, "Invalid face, only cartesian horizontal face are allowed for this property!");
+        this.set(FACING, blockFace);
     }
 
     @Override
-    public void setVaultState(org.bukkit.block.data.type.Vault.State state) {
-        set(VAULT_STATE, state);
-    }
-
-    @Override
-    public void setTrialSpawnerState(org.bukkit.block.data.type.Vault.State state) {
-        setVaultState(state);
+    public Set<BlockFace> getFaces() {
+        return this.getValues(FACING, BlockFace.class);
     }
 
     @Override
     public boolean isOminous() {
-        return get(OMINOUS);
+        return this.get(OMINOUS);
     }
 
     @Override
-    public void setOminous(boolean ominous) {
-        set(OMINOUS, ominous);
-    }
-
-    // org.bukkit.craftbukkit.block.data.CraftDirectional
-
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.BlockFace> FACING = getEnum(net.minecraft.world.level.block.VaultBlock.class, "facing", org.bukkit.block.BlockFace.class);
-
-    @Override
-    public org.bukkit.block.BlockFace getFacing() {
-        return get(FACING);
+    public void setOminous(final boolean ominous) {
+        this.set(OMINOUS, ominous);
     }
 
     @Override
-    public void setFacing(org.bukkit.block.BlockFace facing) {
-        set(FACING, facing);
+    public Vault.State getVaultState() {
+        return this.get(STATE, Vault.State.class);
     }
 
     @Override
-    public java.util.Set<org.bukkit.block.BlockFace> getFaces() {
-        return getValues(FACING);
+    public void setVaultState(final Vault.State state) {
+        Preconditions.checkArgument(state != null, "state cannot be null!");
+        this.set(STATE, state);
     }
 }

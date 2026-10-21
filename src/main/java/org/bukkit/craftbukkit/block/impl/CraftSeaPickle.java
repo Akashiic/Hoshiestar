@@ -1,53 +1,52 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftSeaPickle extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.SeaPickle, org.bukkit.block.data.Waterlogged {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.SeaPickleBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import org.bukkit.block.data.type.SeaPickle;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftSeaPickle() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftSeaPickle extends CraftBlockData implements SeaPickle {
+    private static final IntegerProperty PICKLES = SeaPickleBlock.PICKLES;
 
-    public CraftSeaPickle(net.minecraft.world.level.block.state.BlockState state) {
+    private static final BooleanProperty WATERLOGGED = SeaPickleBlock.WATERLOGGED;
+
+    public CraftSeaPickle(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.type.CraftSeaPickle
-
-    private static final net.minecraft.world.level.block.state.properties.IntegerProperty PICKLES = getInteger(net.minecraft.world.level.block.SeaPickleBlock.class, "pickles");
-
     @Override
     public int getPickles() {
-        return get(PICKLES);
+        return this.get(PICKLES);
     }
 
     @Override
-    public void setPickles(int pickles) {
-        set(PICKLES, pickles);
+    public void setPickles(final int pickles) {
+        this.set(PICKLES, pickles);
     }
 
     @Override
     public int getMinimumPickles() {
-        return getMin(PICKLES);
+        return PICKLES.min;
     }
 
     @Override
     public int getMaximumPickles() {
-        return getMax(PICKLES);
+        return PICKLES.max;
     }
-
-    // org.bukkit.craftbukkit.block.data.CraftWaterlogged
-
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty WATERLOGGED = getBoolean(net.minecraft.world.level.block.SeaPickleBlock.class, "waterlogged");
 
     @Override
     public boolean isWaterlogged() {
-        return get(WATERLOGGED);
+        return this.get(WATERLOGGED);
     }
 
     @Override
-    public void setWaterlogged(boolean waterlogged) {
-        set(WATERLOGGED, waterlogged);
+    public void setWaterlogged(final boolean waterlogged) {
+        this.set(WATERLOGGED, waterlogged);
     }
 }

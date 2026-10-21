@@ -1,29 +1,29 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftSnowy extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.Snowable {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.SnowyBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import org.bukkit.block.data.Snowable;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftSnowy() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftSnowy extends CraftBlockData implements Snowable {
+    private static final BooleanProperty SNOWY = SnowyBlock.SNOWY;
 
-    public CraftSnowy(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftSnowy(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftSnowable
-
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty SNOWY = getBoolean(net.minecraft.world.level.block.SnowyBlock.class, "snowy");
-
     @Override
     public boolean isSnowy() {
-        return get(SNOWY);
+        return this.get(SNOWY);
     }
 
     @Override
-    public void setSnowy(boolean snowy) {
-        set(SNOWY, snowy);
+    public void setSnowy(final boolean snowy) {
+        this.set(SNOWY, snowy);
     }
 }

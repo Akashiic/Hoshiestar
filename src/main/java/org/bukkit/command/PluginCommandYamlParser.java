@@ -1,5 +1,6 @@
 package org.bukkit.command;
 
+import com.mohistmc.youer.api.ColorAPI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +68,7 @@ public class PluginCommandYamlParser {
             }
 
             if (permissionMessage != null) {
-                newCmd.setPermissionMessage(permissionMessage.toString());
+                newCmd.permissionMessage(ColorAPI.adventure(permissionMessage.toString())); // Paper
             }
 
             pluginCmds.add(newCmd);

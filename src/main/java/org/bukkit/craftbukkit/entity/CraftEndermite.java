@@ -11,21 +11,26 @@ public class CraftEndermite extends CraftMonster implements Endermite {
 
     @Override
     public net.minecraft.world.entity.monster.Endermite getHandle() {
-        return (net.minecraft.world.entity.monster.Endermite) super.getHandle();
-    }
-
-    @Override
-    public String toString() {
-        return "CraftEndermite";
+        return (net.minecraft.world.entity.monster.Endermite) this.entity;
     }
 
     @Override
     public boolean isPlayerSpawned() {
-        return false;
+        return getHandle().isPlayerSpawned(); // Purpur - Add back player spawned endermite API
     }
 
     @Override
     public void setPlayerSpawned(boolean playerSpawned) {
-        // Nop
+        getHandle().setPlayerSpawned(playerSpawned); // Purpur - Add back player spawned endermite API
+    }
+
+    @Override
+    public void setLifetimeTicks(int ticks) {
+        this.getHandle().life = ticks;
+    }
+
+    @Override
+    public int getLifetimeTicks() {
+        return this.getHandle().life;
     }
 }

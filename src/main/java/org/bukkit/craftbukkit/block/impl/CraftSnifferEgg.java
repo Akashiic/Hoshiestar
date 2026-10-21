@@ -1,34 +1,34 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftSnifferEgg extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.Hatchable {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.SnifferEggBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import org.bukkit.block.data.Hatchable;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftSnifferEgg() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftSnifferEgg extends CraftBlockData implements Hatchable {
+    private static final IntegerProperty HATCH = SnifferEggBlock.HATCH;
 
-    public CraftSnifferEgg(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftSnifferEgg(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftHatchable
-
-    private static final net.minecraft.world.level.block.state.properties.IntegerProperty HATCH = getInteger(net.minecraft.world.level.block.SnifferEggBlock.class, "hatch");
-
     @Override
     public int getHatch() {
-        return get(HATCH);
+        return this.get(HATCH);
     }
 
     @Override
-    public void setHatch(int hatch) {
-        set(HATCH, hatch);
+    public void setHatch(final int hatch) {
+        this.set(HATCH, hatch);
     }
 
     @Override
     public int getMaximumHatch() {
-        return getMax(HATCH);
+        return HATCH.max;
     }
 }

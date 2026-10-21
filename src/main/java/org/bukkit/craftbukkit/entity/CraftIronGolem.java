@@ -10,21 +10,29 @@ public class CraftIronGolem extends CraftGolem implements IronGolem {
 
     @Override
     public net.minecraft.world.entity.animal.golem.IronGolem getHandle() {
-        return (net.minecraft.world.entity.animal.golem.IronGolem) entity;
-    }
-
-    @Override
-    public String toString() {
-        return "CraftIronGolem";
+        return (net.minecraft.world.entity.animal.golem.IronGolem) this.entity;
     }
 
     @Override
     public boolean isPlayerCreated() {
-        return getHandle().isPlayerCreated();
+        return this.getHandle().isPlayerCreated();
     }
 
     @Override
     public void setPlayerCreated(boolean playerCreated) {
-        getHandle().setPlayerCreated(playerCreated);
+        this.getHandle().setPlayerCreated(playerCreated);
     }
+
+    // Purpur start - Summoner API
+    @Override
+    @org.jetbrains.annotations.Nullable
+    public java.util.UUID getSummoner() {
+        return getHandle().getSummoner();
+    }
+
+    @Override
+    public void setSummoner(@org.jetbrains.annotations.Nullable java.util.UUID summoner) {
+        getHandle().setSummoner(summoner);
+    }
+    // Purpur end - Summoner API
 }

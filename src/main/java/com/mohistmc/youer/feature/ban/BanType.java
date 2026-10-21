@@ -5,13 +5,15 @@ package com.mohistmc.youer.feature.ban;
  * @date 2023/7/27 15:10:13
  */
 public enum BanType {
-
     ITEM("ITEMS", "bans.add.item", "bans.remove.item"),
     ITEM_MOSHOU("ITEMS", "bans.add.item_moshou", "bans.remove.item_moshou"),
     ENTITY("ENTITYS", "bans.add.entity", "bans.remove.entity"),
     ENCHANTMENT("ENCHANTMENTS", "bans.add.enchantment", "bans.remove.enchantment"),
     RECIPE("RECIPES", "bans.add.recipe", "bans.remove.recipe"),
-    BLOCK("BLOCKS", "bans.add.block", "bans.remove.block");
+    BLOCK("BLOCKS", "bans.add.block", "bans.remove.block"),
+    WORLD("WORLDS", "bans.add.world", "bans.remove.world"),
+    STRUCTURE("STRUCTURE", "bans.add.structure", "bans.remove.structure"),
+    EFFECT("EFFECTS", "bans.add.effect", "bans.remove.effect");
 
     public final String key;
     public final String i18n_key_add;
@@ -23,3 +25,4 @@ public enum BanType {
         this.i18n_key_remove = i18n_key_remove;
     }
 }
+

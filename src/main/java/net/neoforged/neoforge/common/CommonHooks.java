@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -131,6 +132,7 @@ import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.PotionItem;
 import net.minecraft.world.item.SpawnEggItem;
 import net.minecraft.world.item.TippedArrowItem;
@@ -403,7 +405,35 @@ public class CommonHooks {
     }
 
     public static boolean onLivingDrops(LivingEntity entity, DamageSource source, Collection<ItemEntity> drops, boolean recentlyHit) {
-        return NeoForge.EVENT_BUS.post(new LivingDropsEvent(entity, source, drops, recentlyHit)).isCanceled();
+        // Paper start - Integrate with Paper's deathDropItems mechanism
+        // When deathDropItems is active during death, spawnAtLocation returns null
+        // in the deathDropItems path, causing NeoForge's captureDrops to remain empty.
+        // Pre-populate drops from deathDropItems so LivingDropsEvent has the actual items.
+        boolean hasDeathDrops = false;
+        if (entity.deathDropItems != null && !entity.deathDropItems.isEmpty()) {
+            hasDeathDrops = true;
+            for (Entity.DefaultDrop dd : entity.deathDropItems) {
+                net.minecraft.world.item.ItemStack stack = org.bukkit.craftbukkit.inventory.CraftItemStack.asNMSCopy(dd.stack());
+                if (!stack.isEmpty()) {
+                    ItemEntity itemEntity = new ItemEntity(entity.level(), entity.getX(), entity.getY(), entity.getZ(), stack);
+                    itemEntity.setDefaultPickUpDelay();
+                    drops.add(itemEntity);
+                }
+            }
+        }
+        // Paper end
+
+        boolean cancelled = NeoForge.EVENT_BUS.post(new LivingDropsEvent(entity, source, drops, recentlyHit)).isCanceled();
+
+        // Paper start - If items were pre-released (event not cancelled), clear deathDropItems
+        // to prevent the Paper death mechanism from creating duplicates in postDeathEventTasks.
+        // If the event was cancelled, keep deathDropItems intact for EntityDeathEvent fallback.
+        if (hasDeathDrops && !cancelled) {
+            entity.deathDropItems.clear();
+        }
+        // Paper end
+
+        return cancelled;
     }
 
     public static LivingFallEvent onLivingFall(LivingEntity entity, double distance, float damageMultiplier) {
@@ -480,12 +510,12 @@ public class CommonHooks {
     }
 
     public static ChatDecorator getServerChatSubmittedDecorator() {
-        return (sender, message) -> {
+        return (sender, message) -> CompletableFuture.supplyAsync(() -> {
             if (sender == null)
                 return message; // Vanilla should never get here with the patches we use, but let's be safe with dumb mods
 
             return onServerChatSubmittedEvent(sender, getRawText(message), message);
-        };
+        });
     }
 
     static final Pattern URL_PATTERN = Pattern.compile(
@@ -689,9 +719,9 @@ public class CommonHooks {
 
             boolean eventResult = false;
             if (blockSnapshots.size() > 1) {
-                eventResult = EventHooks.onMultiBlockPlace(player, blockSnapshots, side);
+                eventResult = EventHooks.onMultiBlockPlace(player, blockSnapshots, side, context.getHand());
             } else if (blockSnapshots.size() == 1) {
-                eventResult = EventHooks.onBlockPlace(player, blockSnapshots.get(0), side);
+                eventResult = EventHooks.onBlockPlace(player, blockSnapshots.get(0), side, context.getHand());
             }
 
             if (eventResult) {
@@ -701,6 +731,7 @@ public class CommonHooks {
                     level.restoringBlockSnapshots = true;
                     blocksnapshot.restore(blocksnapshot.getFlags() | Block.UPDATE_CLIENTS);
                     level.restoringBlockSnapshots = false;
+                    blocksnapshot.getState().getBlock().forgetPlacer(); // Purpur - Store placer on Block when placed
                 }
                 // inform the client that the item was not consumed
                 if (player instanceof ServerPlayer serverPlayer) {
@@ -717,7 +748,7 @@ public class CommonHooks {
                     BlockState oldBlock = snap.getState();
                     BlockState newBlock = level.getBlockState(snap.getPos());
                     newBlock.onPlace(level, snap.getPos(), oldBlock, false);
-
+                    newBlock.getBlock().forgetPlacer(); // Purpur - Store placer on Block when placed
                     level.markAndNotifyBlock(snap.getPos(), level.getChunkAt(snap.getPos()), oldBlock, newBlock, updateFlag, 512);
                 }
                 if (player != null)

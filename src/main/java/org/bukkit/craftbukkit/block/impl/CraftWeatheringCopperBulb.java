@@ -1,43 +1,41 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftWeatheringCopperBulb extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.CopperBulb, org.bukkit.block.data.Lightable, org.bukkit.block.data.Powerable {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.WeatheringCopperBulbBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import org.bukkit.block.data.type.CopperBulb;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftWeatheringCopperBulb() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftWeatheringCopperBulb extends CraftBlockData implements CopperBulb {
+    private static final BooleanProperty LIT = WeatheringCopperBulbBlock.LIT;
 
-    public CraftWeatheringCopperBulb(net.minecraft.world.level.block.state.BlockState state) {
+    private static final BooleanProperty POWERED = WeatheringCopperBulbBlock.POWERED;
+
+    public CraftWeatheringCopperBulb(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftLightable
-
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty LIT = getBoolean(net.minecraft.world.level.block.WeatheringCopperBulbBlock.class, "lit");
-
     @Override
     public boolean isLit() {
-        return get(LIT);
+        return this.get(LIT);
     }
 
     @Override
-    public void setLit(boolean lit) {
-        set(LIT, lit);
+    public void setLit(final boolean lit) {
+        this.set(LIT, lit);
     }
-
-    // org.bukkit.craftbukkit.block.data.CraftPowerable
-
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty POWERED = getBoolean(net.minecraft.world.level.block.WeatheringCopperBulbBlock.class, "powered");
 
     @Override
     public boolean isPowered() {
-        return get(POWERED);
+        return this.get(POWERED);
     }
 
     @Override
-    public void setPowered(boolean powered) {
-        set(POWERED, powered);
+    public void setPowered(final boolean powered) {
+        this.set(POWERED, powered);
     }
 }

@@ -47,17 +47,19 @@ public class WorldsGUI {
                     name1 = config.getString("worlds." + w.getName() + ".name", w.getName());
                     difficulty = config.getString("worlds." + w.getName() + ".difficulty");
                 }
-                infoLore.add(I18n.as("worldmanage.gui.lore0") + name1);
-                infoLore.add(I18n.as("worldmanage.gui.lore1") + infos);
-                infoLore.add(I18n.as("worldmanage.gui.lore2") + w.getWorldBorder().getSize());
-                infoLore.add(I18n.as("worldmanage.gui.lore3") + worldtype);
-                infoLore.add(I18n.as("worldmanage.gui.lore4") + difficulty);
+                infoLore.add(I18n.as("worldmanage.gui.lore0", name1));
+                infoLore.add(I18n.as("worldmanage.gui.lore1", infos));
+                infoLore.add(I18n.as("worldmanage.gui.lore2", w.getWorldBorder().getSize()));
+                infoLore.add(I18n.as("worldmanage.gui.lore3", worldtype));
+                infoLore.add(I18n.as("worldmanage.gui.lore4", difficulty));
+                /*
                 if (w.isMods()) {
                     infoLore.add("§bModid §8>> §7" + w.getModid());
                 }
                 if (w.isBukkit()) {
                     infoLore.add("§bPluginWorld §8>> §7" + w.isBukkit());
                 }
+                 */
                 if (config.get("worlds." + w.getName() + ".void") != null) {
                     infoLore.add("§bVoid §8>> §7" + config.getBoolean("worlds." + w.getName() + ".void"));
                 }
@@ -104,12 +106,6 @@ public class WorldsGUI {
     }
 
     public static Material getMaterial(World w) {
-        if (w.isFlat()) {
-            return Material.GREEN_CARPET;
-        }
-        if (w.isVoid()) {
-            return Material.BARRIER;
-        }
         return getMaterial(w.getEnvironment());
     }
 
@@ -158,8 +154,8 @@ public class WorldsGUI {
 
             World world = Bukkit.getWorld(worldName);
             if (world == null) {
-                String msg = String.format(I18n.as("worldlistener.ICL.worldCreateFailurePart1") + worldName) + I18n.as("worldlistener.ICL.worldCreateFailurePart2");
-                p.sendMessage(ChatColor.RED + msg);
+                String msg = I18n.as("worldlistener.ICL.worldCreateFailure", worldName);
+                p.sendMessage(msg);
                 return;
             }
 

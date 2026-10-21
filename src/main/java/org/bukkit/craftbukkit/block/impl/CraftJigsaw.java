@@ -1,29 +1,32 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftJigsaw extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.Jigsaw {
+import com.google.common.base.Preconditions;
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.core.FrontAndTop;
+import net.minecraft.world.level.block.JigsawBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import org.bukkit.block.data.type.Jigsaw;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftJigsaw() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftJigsaw extends CraftBlockData implements Jigsaw {
+    private static final EnumProperty<FrontAndTop> ORIENTATION = JigsawBlock.ORIENTATION;
 
-    public CraftJigsaw(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftJigsaw(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.type.CraftJigsaw
-
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.data.type.Jigsaw.Orientation> ORIENTATION = getEnum(net.minecraft.world.level.block.JigsawBlock.class, "orientation", org.bukkit.block.data.type.Jigsaw.Orientation.class);
-
     @Override
-    public org.bukkit.block.data.type.Jigsaw.Orientation getOrientation() {
-        return get(ORIENTATION);
+    public org.bukkit.block.Orientation getOrientation() {
+        return this.get(ORIENTATION, org.bukkit.block.Orientation.class);
     }
 
     @Override
-    public void setOrientation(org.bukkit.block.data.type.Jigsaw.Orientation orientation) {
-        set(ORIENTATION, orientation);
+    public void setOrientation(final org.bukkit.block.Orientation orientation) {
+        Preconditions.checkArgument(orientation != null, "orientation cannot be null!");
+        this.set(ORIENTATION, orientation);
     }
 }

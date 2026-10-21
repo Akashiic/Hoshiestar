@@ -4,28 +4,37 @@ import net.minecraft.world.entity.animal.golem.SnowGolem;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.entity.Snowman;
 
-public class CraftSnowman extends CraftGolem implements Snowman {
+public class CraftSnowman extends CraftGolem implements Snowman, com.destroystokyo.paper.entity.CraftRangedEntity<SnowGolem>, io.papermc.paper.entity.PaperShearable { // Paper
+
     public CraftSnowman(CraftServer server, SnowGolem entity) {
         super(server, entity);
     }
 
     @Override
+    public SnowGolem getHandle() {
+        return (SnowGolem) this.entity;
+    }
+
+    @Override
     public boolean isDerp() {
-        return !getHandle().hasPumpkin();
+        return !this.getHandle().hasPumpkin();
     }
 
     @Override
     public void setDerp(boolean derpMode) {
-        getHandle().setPumpkin(!derpMode);
+        this.getHandle().setPumpkin(!derpMode);
+    }
+
+    // Purpur start - Summoner API
+    @Override
+    @org.jetbrains.annotations.Nullable
+    public java.util.UUID getSummoner() {
+        return getHandle().getSummoner();
     }
 
     @Override
-    public SnowGolem getHandle() {
-        return (SnowGolem) entity;
+    public void setSummoner(@org.jetbrains.annotations.Nullable java.util.UUID summoner) {
+        getHandle().setSummoner(summoner);
     }
-
-    @Override
-    public String toString() {
-        return "CraftSnowman";
-    }
+    // Purpur end - Summoner API
 }

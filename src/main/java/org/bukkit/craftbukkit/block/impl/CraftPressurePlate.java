@@ -1,29 +1,29 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftPressurePlate extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.Powerable {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.PressurePlateBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import org.bukkit.block.data.Powerable;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftPressurePlate() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftPressurePlate extends CraftBlockData implements Powerable {
+    private static final BooleanProperty POWERED = PressurePlateBlock.POWERED;
 
-    public CraftPressurePlate(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftPressurePlate(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftPowerable
-
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty POWERED = getBoolean(net.minecraft.world.level.block.PressurePlateBlock.class, "powered");
-
     @Override
     public boolean isPowered() {
-        return get(POWERED);
+        return this.get(POWERED);
     }
 
     @Override
-    public void setPowered(boolean powered) {
-        set(POWERED, powered);
+    public void setPowered(final boolean powered) {
+        this.set(POWERED, powered);
     }
 }

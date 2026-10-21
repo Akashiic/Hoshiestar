@@ -102,11 +102,6 @@ public class ConfigByWorlds {
         if (config.get("worlds." + world.getName() + ".youer") == null) {
             config.set("worlds." + world.getName() + ".youer", false);
         }
-        if (world.isMods()) {
-            ConfigByWorlds.addWorld(world.getName(), false);
-            config.set("worlds." + world.getName() + ".ismods", world.isMods());
-            config.set("worlds." + world.getName() + ".modName", world.getModid());
-        }
         init();
 
     }
@@ -116,13 +111,13 @@ public class ConfigByWorlds {
         if (section != null) {
             for (String w : section.getKeys(false)) {
                 boolean canload = true;
-                if (Objects.equals(w, "DIM1")) {
+                if (Objects.equals(w, "the_nether")) {
                     if (!Bukkit.getAllowNether()) {
                         config.set("worlds." + w, null);
                         init();
                         canload = false;
                     }
-                } else if (Objects.equals(w, "DIM-1")) {
+                } else if (Objects.equals(w, "the_end")) {
                     if (!Bukkit.getAllowEnd()) {
                         config.set("worlds." + w, null);
                         init();
@@ -131,7 +126,7 @@ public class ConfigByWorlds {
                 }
                 String environment = "NORMAL";
                 boolean isMods = false;
-                boolean isMohist = false;
+                boolean isYouer = false;
                 String modName = null;
                 boolean keepspawninmemory = true;
                 boolean isVoid = false;
@@ -151,7 +146,7 @@ public class ConfigByWorlds {
                         modName = config.getString("worlds." + w + ".modName");
                     }
                     if (config.get("worlds." + w + ".youer") != null) {
-                        isMohist = config.getBoolean("worlds." + w + ".youer");
+                        isYouer = config.getBoolean("worlds." + w + ".youer");
                     }
                     if (config.get("worlds." + w + ".keepspawninmemory") != null) {
                         keepspawninmemory = config.getBoolean("worlds." + w + ".keepspawninmemory");
@@ -168,7 +163,7 @@ public class ConfigByWorlds {
                         init();
                         canload = false;
                     }
-                    if (!isMohist) {
+                    if (!isYouer) {
                         canload = false;
                     }
                     if (canload) {
@@ -180,14 +175,11 @@ public class ConfigByWorlds {
                         }
                         wc.seed(seed);
                         wc.environment(World.Environment.valueOf(environment));
-                        wc.keepSpawnInMemory(keepspawninmemory);
                         wc.createWorld();
                     }
                 }
                 World world = Bukkit.getWorld(w);
                 if (world != null) {
-                    world.setVoid(isVoid);
-                    world.setFlat(isFlat);
                     if (config.get("worlds." + w + ".worldborder") != null) {
                         world.getWorldBorder().setSize(config.getDouble("worlds." + w + ".worldborder"));
                     }
@@ -225,7 +217,7 @@ public class ConfigByWorlds {
     public static void getSpawn(String w, Player player) {
         World world = Bukkit.getWorld(w);
         if (f.exists() && world != null) {
-            if (config.getString("worlds." + world.getName()) != null) {
+            if (config.getString("worlds." + world.getName() + ".spawn") != null) {
                 double x = config.getDouble("worlds." + world.getName() + ".spawn.x");
                 double y = config.getDouble("worlds." + world.getName() + ".spawn.y");
                 double z = config.getDouble("worlds." + world.getName() + ".spawn.z");

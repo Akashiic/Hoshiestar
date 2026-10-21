@@ -1,40 +1,45 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftTrialSpawner extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.TrialSpawner {
+import com.google.common.base.Preconditions;
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.TrialSpawnerBlock;
+import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerState;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import org.bukkit.block.data.type.TrialSpawner;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftTrialSpawner() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftTrialSpawner extends CraftBlockData implements TrialSpawner {
+    private static final BooleanProperty OMINOUS = TrialSpawnerBlock.OMINOUS;
 
-    public CraftTrialSpawner(net.minecraft.world.level.block.state.BlockState state) {
+    private static final EnumProperty<TrialSpawnerState> STATE = TrialSpawnerBlock.STATE;
+
+    public CraftTrialSpawner(BlockState state) {
         super(state);
-    }
-
-    // org.bukkit.craftbukkit.block.data.type.CraftTrialSpawner
-
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.data.type.TrialSpawner.State> TRIAL_SPAWNER_STATE = getEnum(net.minecraft.world.level.block.TrialSpawnerBlock.class, "trial_spawner_state", org.bukkit.block.data.type.TrialSpawner.State.class);
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty OMINOUS = getBoolean(net.minecraft.world.level.block.TrialSpawnerBlock.class, "ominous");
-
-    @Override
-    public org.bukkit.block.data.type.TrialSpawner.State getTrialSpawnerState() {
-        return get(TRIAL_SPAWNER_STATE);
-    }
-
-    @Override
-    public void setTrialSpawnerState(org.bukkit.block.data.type.TrialSpawner.State state) {
-        set(TRIAL_SPAWNER_STATE, state);
     }
 
     @Override
     public boolean isOminous() {
-        return get(OMINOUS);
+        return this.get(OMINOUS);
     }
 
     @Override
-    public void setOminous(boolean ominous) {
-        set(OMINOUS, ominous);
+    public void setOminous(final boolean ominous) {
+        this.set(OMINOUS, ominous);
+    }
+
+    @Override
+    public TrialSpawner.State getTrialSpawnerState() {
+        return this.get(STATE, TrialSpawner.State.class);
+    }
+
+    @Override
+    public void setTrialSpawnerState(final TrialSpawner.State state) {
+        Preconditions.checkArgument(state != null, "state cannot be null!");
+        this.set(STATE, state);
     }
 }

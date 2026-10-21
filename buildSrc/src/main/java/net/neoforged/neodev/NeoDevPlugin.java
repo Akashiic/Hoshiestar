@@ -2,6 +2,7 @@ package net.neoforged.neodev;
 
 import java.io.File;
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -50,6 +51,12 @@ public class NeoDevPlugin implements Plugin<Project> {
     static final String GROUP = "neoforge development";
     static final String INTERNAL_GROUP = "neoforge development/internal";
 
+    static String timestamp = Instant.now().toString();
+    private static String resolveAbbreviatedId(Project project) {
+        Object value = project.getRootProject().findProperty("gitAbbreviatedId");
+        return value != null ? String.valueOf(value) : null;
+    }
+
     @Override
     public void apply(Project project) {
         project.getPlugins().apply(MinecraftDependenciesPlugin.class);
@@ -65,6 +72,9 @@ public class NeoDevPlugin implements Plugin<Project> {
 
         var extension = project.getExtensions().create(NeoDevExtension.NAME, NeoDevExtension.class);
         var configurations = NeoDevConfigurations.createAndSetup(project);
+
+        var abbreviatedId = project.getProviders().gradleProperty("git.abbreviatedId")
+            .orElse(project.provider(() -> resolveAbbreviatedId(project)));
 
         // Pre-create the "client" source set
         project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets().create("client");
@@ -296,12 +306,20 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.getArchiveClassifier().set("universal");
             task.manifest(manifest -> {
                 manifest.attributes(Map.of("FML-System-Mods", "neoforge"));
+                manifest.attributes(Map.of("Build-Time", timestamp));
+                manifest.attributes(Map.of("Git-Commit", abbreviatedId));
+                manifest.attributes(Map.of("Brand-Id", "mohistmc:youer"));
+                manifest.attributes(Map.of("Specification-Title", "Youer"));
+                manifest.attributes(Map.of("Specification-Vendor", "MohistMC"));
+                manifest.attributes(Map.of("Specification-Version", minecraftVersion));
+                manifest.attributes(Map.of("Implementation-Title", "Youer"));
+                manifest.attributes(Map.of("Implementation-Version", minecraftVersion));
+                manifest.attributes(Map.of("Implementation-Vendor", "MohistMC"));
             });
 
             task.from(project.zipTree(joinedJar.flatMap(AbstractArchiveTask::getArchiveFile)));
             task.exclude("net/minecraft/**");
-            task.exclude("com/**");
-            task.exclude("org/**"); // Youer
+            task.exclude("com/mojang/math/**");
             task.exclude("mcp/**");
             task.from(binaryPatchOutputs, spec -> {
                 spec.into("net/neoforged/neoforge/common/");
@@ -423,8 +441,8 @@ public class NeoDevPlugin implements Plugin<Project> {
             });
 
             // This is true by default (see gradle.properties), and needs to be disabled explicitly when building (see release.yml).
-            String installerDebugProperty = "neogradle.runtime.platform.installer.debug";
-            if (project.getProperties().containsKey(installerDebugProperty) && Boolean.parseBoolean(project.getProperties().get(installerDebugProperty).toString())) {
+            String installerDebugProperty = "include_artifacts_in_installer";
+            if (project.getProviders().gradleProperty(installerDebugProperty).map(Boolean::parseBoolean).getOrElse(false)) {
                 task.from(universalJar.flatMap(AbstractArchiveTask::getArchiveFile), spec -> {
                     spec.into(String.format("/maven/net/neoforged/neoforge/%s/", neoForgeVersion.get()));
                     spec.rename(name -> String.format("neoforge-%s-universal.jar", neoForgeVersion.get()));
@@ -456,11 +474,11 @@ public class NeoDevPlugin implements Plugin<Project> {
             });
 
             // This is true by default (see gradle.properties), and needs to be disabled explicitly when building (see release.yml).
-            String installerDebugProperty = "neogradle.runtime.platform.installer.debug";
-            if (project.getProperties().containsKey(installerDebugProperty) && Boolean.parseBoolean(project.getProperties().get(installerDebugProperty).toString())) {
+            String installerDebugProperty = "include_artifacts_in_installer";
+            if (project.getProviders().gradleProperty(installerDebugProperty).map(Boolean::parseBoolean).getOrElse(false)) {
                 task.from(universalJar.flatMap(AbstractArchiveTask::getArchiveFile), spec -> {
                     spec.into("data");
-                    spec.rename(_ -> String.format("neoforge-%s-universal.jar", neoForgeVersion.get()));
+                    spec.rename(name -> String.format("neoforge-%s-universal.jar", neoForgeVersion.get()));
                 });
             }
         });
@@ -723,6 +741,15 @@ public class NeoDevPlugin implements Plugin<Project> {
             var mainSourceSet = sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME);
             task.from(mainSourceSet.getJava().getClassesDirectory(), spec -> {
                 spec.exclude("net/neoforged/**");
+                spec.exclude("org/**");
+                spec.exclude("io/papermc/**");
+                spec.exclude("com/mohistmc/**");
+                spec.exclude("com/destroystokyo/**");
+                spec.exclude("ca/spottedleaf/**");
+                spec.exclude("alternate/current/wire/**");
+                spec.exclude("co/aikar/util/**");
+                spec.exclude("com/mojang/brigadier/**");
+                spec.exclude("gg/pufferfish/**");
             });
             if (type == BinaryPatchBaseType.CLIENT || type == BinaryPatchBaseType.JOINED) {
                 var clientSourceSet = sourceSets.getByName("client");

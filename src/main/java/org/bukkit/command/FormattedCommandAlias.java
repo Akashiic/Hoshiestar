@@ -1,6 +1,11 @@
 package org.bukkit.command;
 
 import java.util.ArrayList;
+import java.util.regex.Matcher; // Paper
+import java.util.regex.Pattern; // Paper
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
 
@@ -18,12 +23,12 @@ public class FormattedCommandAlias extends Command {
         ArrayList<String> commands = new ArrayList<String>();
         for (String formatString : formatStrings) {
             try {
-                commands.add(buildCommand(formatString, args));
+                commands.add(buildCommand(sender, formatString, args)); // Paper
             } catch (Throwable throwable) {
                 if (throwable instanceof IllegalArgumentException) {
                     sender.sendMessage(throwable.getMessage());
                 } else {
-                    sender.sendMessage(org.bukkit.ChatColor.RED + "An internal error occurred while attempting to perform this command");
+                    sender.sendMessage(Component.text("An internal error occurred while attempting to perform this command", NamedTextColor.RED));
                 }
                 return false;
             }
@@ -36,7 +41,10 @@ public class FormattedCommandAlias extends Command {
         return result;
     }
 
-    private String buildCommand(@NotNull String formatString, @NotNull String[] args) {
+    private String buildCommand(@NotNull CommandSender sender, @NotNull String formatString, @NotNull String[] args) { // Paper
+        if (formatString.contains("$sender")) { // Paper
+            formatString = formatString.replaceAll(Pattern.quote("$sender"), Matcher.quoteReplacement(sender.getName())); // Paper
+        } // Paper
         int index = formatString.indexOf('$');
         while (index != -1) {
             int start = index;
@@ -110,7 +118,7 @@ public class FormattedCommandAlias extends Command {
             index = formatString.indexOf('$', index);
         }
 
-        return formatString;
+        return formatString.trim(); // Paper - Causes an extra space at the end, breaks with brig commands
     }
 
     private static boolean inRange(int i, int j, int k) {

@@ -1,34 +1,34 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftCake extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.Cake {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.CakeBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import org.bukkit.block.data.type.Cake;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftCake() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftCake extends CraftBlockData implements Cake {
+    private static final IntegerProperty BITES = CakeBlock.BITES;
 
-    public CraftCake(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftCake(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.type.CraftCake
-
-    private static final net.minecraft.world.level.block.state.properties.IntegerProperty BITES = getInteger(net.minecraft.world.level.block.CakeBlock.class, "bites");
-
     @Override
     public int getBites() {
-        return get(BITES);
+        return this.get(BITES);
     }
 
     @Override
-    public void setBites(int bites) {
-        set(BITES, bites);
+    public void setBites(final int bites) {
+        this.set(BITES, bites);
     }
 
     @Override
     public int getMaximumBites() {
-        return getMax(BITES);
+        return BITES.max;
     }
 }

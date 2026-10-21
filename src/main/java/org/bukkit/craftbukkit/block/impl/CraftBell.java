@@ -1,62 +1,67 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftBell extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.Bell, org.bukkit.block.data.Directional, org.bukkit.block.data.Powerable {
+import com.google.common.base.Preconditions;
+import io.papermc.paper.annotation.GeneratedClass;
+import java.util.Set;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.BellBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BellAttachType;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.type.Bell;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftBell() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftBell extends CraftBlockData implements Bell {
+    private static final EnumProperty<BellAttachType> ATTACHMENT = BellBlock.ATTACHMENT;
 
-    public CraftBell(net.minecraft.world.level.block.state.BlockState state) {
+    private static final EnumProperty<Direction> FACING = BellBlock.FACING;
+
+    private static final BooleanProperty POWERED = BellBlock.POWERED;
+
+    public CraftBell(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.type.CraftBell
-
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.data.type.Bell.Attachment> ATTACHMENT = getEnum(net.minecraft.world.level.block.BellBlock.class, "attachment", org.bukkit.block.data.type.Bell.Attachment.class);
-
     @Override
-    public org.bukkit.block.data.type.Bell.Attachment getAttachment() {
-        return get(ATTACHMENT);
+    public Bell.Attachment getAttachment() {
+        return this.get(ATTACHMENT, Bell.Attachment.class);
     }
 
     @Override
-    public void setAttachment(org.bukkit.block.data.type.Bell.Attachment leaves) {
-        set(ATTACHMENT, leaves);
-    }
-
-    // org.bukkit.craftbukkit.block.data.CraftDirectional
-
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.BlockFace> FACING = getEnum(net.minecraft.world.level.block.BellBlock.class, "facing", org.bukkit.block.BlockFace.class);
-
-    @Override
-    public org.bukkit.block.BlockFace getFacing() {
-        return get(FACING);
+    public void setAttachment(final Bell.Attachment attachment) {
+        Preconditions.checkArgument(attachment != null, "attachment cannot be null!");
+        this.set(ATTACHMENT, attachment);
     }
 
     @Override
-    public void setFacing(org.bukkit.block.BlockFace facing) {
-        set(FACING, facing);
+    public BlockFace getFacing() {
+        return this.get(FACING, BlockFace.class);
     }
 
     @Override
-    public java.util.Set<org.bukkit.block.BlockFace> getFaces() {
-        return getValues(FACING);
+    public void setFacing(final BlockFace blockFace) {
+        Preconditions.checkArgument(blockFace != null, "blockFace cannot be null!");
+        Preconditions.checkArgument(blockFace.isCartesian() && blockFace.getModY() == 0, "Invalid face, only cartesian horizontal face are allowed for this property!");
+        this.set(FACING, blockFace);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftPowerable
-
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty POWERED = getBoolean(net.minecraft.world.level.block.BellBlock.class, "powered");
+    @Override
+    public Set<BlockFace> getFaces() {
+        return this.getValues(FACING, BlockFace.class);
+    }
 
     @Override
     public boolean isPowered() {
-        return get(POWERED);
+        return this.get(POWERED);
     }
 
     @Override
-    public void setPowered(boolean powered) {
-        set(POWERED, powered);
+    public void setPowered(final boolean powered) {
+        this.set(POWERED, powered);
     }
 }

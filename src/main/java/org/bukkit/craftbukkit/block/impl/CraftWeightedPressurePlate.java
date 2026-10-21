@@ -1,34 +1,34 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftWeightedPressurePlate extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.AnaloguePowerable {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.WeightedPressurePlateBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import org.bukkit.block.data.AnaloguePowerable;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftWeightedPressurePlate() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftWeightedPressurePlate extends CraftBlockData implements AnaloguePowerable {
+    private static final IntegerProperty POWER = WeightedPressurePlateBlock.POWER;
 
-    public CraftWeightedPressurePlate(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftWeightedPressurePlate(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftAnaloguePowerable
-
-    private static final net.minecraft.world.level.block.state.properties.IntegerProperty POWER = getInteger(net.minecraft.world.level.block.WeightedPressurePlateBlock.class, "power");
-
     @Override
     public int getPower() {
-        return get(POWER);
+        return this.get(POWER);
     }
 
     @Override
-    public void setPower(int power) {
-        set(POWER, power);
+    public void setPower(final int power) {
+        this.set(POWER, power);
     }
 
     @Override
     public int getMaximumPower() {
-        return getMax(POWER);
+        return POWER.max;
     }
 }

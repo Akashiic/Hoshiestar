@@ -16,8 +16,17 @@ import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.InventoryHolder;
 
 public class CraftInventoryCustom extends CraftInventory {
+
+    public CraftInventoryCustom(InventoryHolder owner, InventoryType type, Container delegate) {
+        super(new io.papermc.paper.inventory.PaperInventoryCustomHolderContainer(owner, delegate, type));
+    }
+
     public CraftInventoryCustom(InventoryHolder owner, InventoryType type) {
         super(new MinecraftInventory(owner, type));
+    }
+
+    public CraftInventoryCustom(InventoryHolder owner, InventoryType type, net.kyori.adventure.text.Component title) {
+        super(new MinecraftInventory(owner, type, title));
     }
 
     public CraftInventoryCustom(InventoryHolder owner, InventoryType type, String title) {
@@ -28,13 +37,36 @@ public class CraftInventoryCustom extends CraftInventory {
         super(new MinecraftInventory(owner, size));
     }
 
+    public CraftInventoryCustom(InventoryHolder owner, int size, net.kyori.adventure.text.Component title) {
+        super(new MinecraftInventory(owner, size, title));
+    }
+
     public CraftInventoryCustom(InventoryHolder owner, int size, String title) {
         super(new MinecraftInventory(owner, size, title));
     }
 
-
     public CraftInventoryCustom(InventoryHolder owner, NonNullList<ItemStack> items) {
         super(new MinecraftInventory(owner, items));
+    }
+
+    public String getTitle() {
+        if (this.inventory instanceof MinecraftInventory minecraftInventory) {
+            return minecraftInventory.getTitle();
+        } else if (this.inventory instanceof io.papermc.paper.inventory.PaperInventoryCustomHolderContainer customHolderContainer) {
+            return customHolderContainer.getTitle();
+        } else {
+            throw new UnsupportedOperationException(this.inventory.getClass() + " isn't a recognized Container type here");
+        }
+    }
+
+    public net.kyori.adventure.text.Component title() {
+        if (this.inventory instanceof MinecraftInventory minecraftInventory) {
+            return minecraftInventory.title();
+        } else if (this.inventory instanceof io.papermc.paper.inventory.PaperInventoryCustomHolderContainer customHolderContainer) {
+            return customHolderContainer.title();
+        } else {
+            throw new UnsupportedOperationException(this.inventory.getClass() + " isn't a recognized Container type here");
+        }
     }
 
     static class MinecraftInventory implements Container {
@@ -42,8 +74,14 @@ public class CraftInventoryCustom extends CraftInventory {
         private int maxStack = MAX_STACK;
         private final List<HumanEntity> viewers;
         private final String title;
+        private final net.kyori.adventure.text.Component adventure$title; // Paper
         private InventoryType type;
         private final InventoryHolder owner;
+
+        public MinecraftInventory(InventoryHolder owner, InventoryType type, net.kyori.adventure.text.Component title) {
+            this(owner, type.getDefaultSize(), title);
+            this.type = type;
+        }
 
         public MinecraftInventory(InventoryHolder owner, InventoryType type) {
             this(owner, type.getDefaultSize(), type.getDefaultTitle());
@@ -63,7 +101,18 @@ public class CraftInventoryCustom extends CraftInventory {
             Preconditions.checkArgument(title != null, "title cannot be null");
             this.items = NonNullList.withSize(size, ItemStack.EMPTY);
             this.title = title;
-            this.viewers = new ArrayList<HumanEntity>();
+            this.adventure$title = ColorAPI.adventure(title);
+            this.viewers = new ArrayList<>();
+            this.owner = owner;
+            this.type = InventoryType.CHEST;
+        }
+
+        public MinecraftInventory(final InventoryHolder owner, final int size, final net.kyori.adventure.text.Component title) {
+            Preconditions.checkArgument(title != null, "Title cannot be null");
+            this.items = NonNullList.withSize(size, ItemStack.EMPTY);
+            this.title = net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection().serialize(title);
+            this.adventure$title = title;
+            this.viewers = new ArrayList<>();
             this.owner = owner;
             this.type = InventoryType.CHEST;
         }
@@ -71,6 +120,7 @@ public class CraftInventoryCustom extends CraftInventory {
         public MinecraftInventory(InventoryHolder owner, NonNullList<ItemStack> items) {
             this.items = items;
             this.title = "Chest";
+            this.adventure$title = ColorAPI.adventure(title);
             this.viewers = new ArrayList<>();
             this.owner = owner;
             this.type = InventoryType.CHEST;
@@ -78,37 +128,37 @@ public class CraftInventoryCustom extends CraftInventory {
 
         @Override
         public int getContainerSize() {
-            return items.size();
+            return this.items.size();
         }
 
         @Override
-        public ItemStack getItem(int i) {
-            return items.get(i);
+        public ItemStack getItem(int slot) {
+            return this.items.get(slot);
         }
 
         @Override
-        public ItemStack removeItem(int i, int j) {
-            ItemStack stack = this.getItem(i);
+        public ItemStack removeItem(int slot, int amount) {
+            ItemStack stack = this.getItem(slot);
             ItemStack result;
             if (stack == ItemStack.EMPTY) return stack;
-            if (stack.getCount() <= j) {
-                this.setItem(i, ItemStack.EMPTY);
+            if (stack.getCount() <= amount) {
+                this.setItem(slot, ItemStack.EMPTY);
                 result = stack;
             } else {
-                result = CraftItemStack.copyNMSStack(stack, j);
-                stack.shrink(j);
+                result = CraftItemStack.copyNMSStack(stack, amount);
+                stack.shrink(amount);
             }
             this.setChanged();
             return result;
         }
 
         @Override
-        public ItemStack removeItemNoUpdate(int i) {
-            ItemStack stack = this.getItem(i);
+        public ItemStack removeItemNoUpdate(int slot) {
+            ItemStack stack = this.getItem(slot);
             ItemStack result;
             if (stack == ItemStack.EMPTY) return stack;
             if (stack.getCount() <= 1) {
-                this.setItem(i, null);
+                this.setItem(slot, null);
                 result = stack;
             } else {
                 result = CraftItemStack.copyNMSStack(stack, 1);
@@ -118,21 +168,21 @@ public class CraftInventoryCustom extends CraftInventory {
         }
 
         @Override
-        public void setItem(int i, ItemStack itemstack) {
-            items.set(i, itemstack);
-            if (itemstack != ItemStack.EMPTY && this.getMaxStackSize() > 0 && itemstack.getCount() > this.getMaxStackSize()) {
-                itemstack.setCount(this.getMaxStackSize());
+        public void setItem(int slot, ItemStack stack) {
+            this.items.set(slot, stack);
+            if (stack != ItemStack.EMPTY && this.getMaxStackSize() > 0 && stack.getCount() > this.getMaxStackSize()) {
+                stack.setCount(this.getMaxStackSize());
             }
         }
 
         @Override
         public int getMaxStackSize() {
-            return maxStack;
+            return this.maxStack;
         }
 
         @Override
         public void setMaxStackSize(int size) {
-            maxStack = size;
+            this.maxStack = size;
         }
 
         @Override
@@ -145,41 +195,36 @@ public class CraftInventoryCustom extends CraftInventory {
 
         @Override
         public List<ItemStack> getContents() {
-            return items;
+            return this.items;
         }
 
         @Override
-        public void onOpen(CraftHumanEntity who) {
-            viewers.add(who);
+        public void onOpen(CraftHumanEntity player) {
+            this.viewers.add(player);
         }
 
         @Override
-        public void onClose(CraftHumanEntity who) {
-            viewers.remove(who);
+        public void onClose(CraftHumanEntity player) {
+            this.viewers.remove(player);
         }
 
         @Override
         public List<HumanEntity> getViewers() {
-            return viewers;
+            return this.viewers;
         }
 
         public InventoryType getType() {
-            return type;
+            return this.type;
         }
 
         @Override
         public InventoryHolder getOwner() {
-            return owner;
-        }
-
-        @Override
-        public boolean canPlaceItem(int i, ItemStack itemstack) {
-            return true;
+            return this.owner;
         }
 
         @Override
         public void clearContent() {
-            items.clear();
+            this.items.clear();
         }
 
         @Override
@@ -187,14 +232,17 @@ public class CraftInventoryCustom extends CraftInventory {
             return null;
         }
 
+        public net.kyori.adventure.text.Component title() {
+            return this.adventure$title;
+        }
+
         public String getTitle() {
-            return title;
+            return this.title;
         }
 
         @Override
         public boolean isEmpty() {
-            Iterator iterator = this.items.iterator();
-
+            Iterator<ItemStack> iterator = this.items.iterator();
             ItemStack itemstack;
 
             do {
@@ -202,7 +250,7 @@ public class CraftInventoryCustom extends CraftInventory {
                     return true;
                 }
 
-                itemstack = (ItemStack) iterator.next();
+                itemstack = iterator.next();
             } while (itemstack.isEmpty());
 
             return false;

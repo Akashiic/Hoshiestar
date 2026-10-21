@@ -2,23 +2,16 @@ package com.mohistmc.youer.api;
 
 import com.mohistmc.mjson.Json;
 import com.mohistmc.tools.Base64Utils;
-import com.mohistmc.youer.Youer;
 import com.mohistmc.youer.feature.ban.BanConfig;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import com.mohistmc.youer.feature.ban.BanType;
 import java.net.URI;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import net.kyori.adventure.text.Component;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.SpawnEggItem;
 import org.apache.logging.log4j.LogManager;
@@ -35,8 +28,6 @@ import org.bukkit.inventory.ItemRarity;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
-import org.bukkit.util.io.BukkitObjectInputStream;
-import org.bukkit.util.io.BukkitObjectOutputStream;
 
 public class ItemAPI {
 
@@ -47,112 +38,40 @@ public class ItemAPI {
         return CraftItemStack.asNMSCopy(itemStack);
     }
 
-    public static net.minecraft.world.item.ItemStack toNMSItem(ItemStack itemStack) {
-        return CraftItemStack.asNMSCopy(itemStack);
-    }
-
-    public static ItemStack getBukkit(Material material) {
-        return new ItemStack(material);
-    }
-
-    public static String getNbtAsString(CompoundTag compoundTag) {
-        return compoundTag == null ? "null" : compoundTag.asString().get();
-    }
-
     /**
      * Parse Base64 into {@link org.bukkit.inventory.ItemStack}
-     * it should be noted that this method is only used for ItemStack without any NBT
      *
      * @param base64
      * @return
-     * @throws IOException
      */
-    public static ItemStack getBukkitByBase64(String base64) {
+    public static ItemStack base64(String base64) {
         try {
-            try (BukkitObjectInputStream dataInput = new BukkitObjectInputStream(new ByteArrayInputStream(Base64.getDecoder().decode(base64)))) {
-                return (ItemStack) dataInput.readObject();
-            }
-        } catch (ClassNotFoundException | IOException e) {
+            byte[] data = Base64.getDecoder().decode(base64);
+            return ItemStack.deserializeBytes(data);
+        } catch (Exception e) {
             LOGGER.error("Unable to decode class type.");
-            return getBukkit(Material.AIR);
+            return Material.AIR.buildItem();
         }
     }
 
     /**
      * Parse {@link org.bukkit.inventory.ItemStack} into Base64
-     * it should be noted that this method is only used for ItemStack without any NBT
      *
      * @param stack
      * @return
      */
-    public static String getBase64byBukkit(ItemStack stack) {
+    public static String base64(ItemStack stack) {
         try {
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            BukkitObjectOutputStream dataOutput = new BukkitObjectOutputStream(outputStream);
-            dataOutput.writeObject(stack);
-
-            // Serialize that array
-            dataOutput.close();
-            return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+            byte[] data = stack.serializeAsBytes();
+            return Base64.getEncoder().encodeToString(data);
         } catch (Exception e) {
-            return null;
-        }
-    }
-
-    public static String serializeNbt(CompoundTag nbtTagCompound) {
-        try {
-            ByteArrayOutputStream buf = new ByteArrayOutputStream();
-            NbtIo.writeCompressed(nbtTagCompound, buf);
-            return Base64.getEncoder().encodeToString(buf.toByteArray());
-        } catch (IOException ignored) {
-            return null;
-        }
-    }
-
-    public static CompoundTag deserializeNbt(String serializeNBT) {
-        if (serializeNBT != null) {
-            ByteArrayInputStream buf = new ByteArrayInputStream(Base64.getDecoder().decode(serializeNBT));
-            try {
-                return NbtIo.readCompressed(buf, NbtAccounter.unlimitedHeap());
-            } catch (IOException e) {
-                Youer.LOGGER.error("Reading nbt ", e);
-            }
-        }
-        return null;
-    }
-
-    public static byte[] nbtToByte(CompoundTag nbt) {
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            DataOutputStream dos = new DataOutputStream(baos);
-            nbt.write(dos);
-            byte[] outputByteArray = baos.toByteArray();
-            dos.close();
-            baos.close();
-            return outputByteArray;
-        } catch (IOException e) {
-            Youer.LOGGER.error("nbtToByte ", e);
-            return null;
-        }
-    }
-
-    public static CompoundTag byteToNbt(byte[] nbtByte) {
-        try {
-            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(nbtByte, 0, nbtByte.length);
-            DataInputStream dataInputStream = new DataInputStream(byteArrayInputStream);
-            CompoundTag reconstructedCompoundTag = NbtIo.read(dataInputStream);
-            dataInputStream.close();
-            byteArrayInputStream.close();
-            return reconstructedCompoundTag;
-        } catch (IOException e) {
-            Youer.LOGGER.error("byteToNbt ", e);
             return null;
         }
     }
 
     public static void name(ItemStack itemStack, String name) {
         ItemMeta im = itemStack.getItemMeta();
-        im.setDisplayName(ColorAPI.string(name));
+        im.displayName(ColorAPI.adventure(name));
         itemStack.setItemMeta(im);
     }
 
@@ -164,8 +83,8 @@ public class ItemAPI {
 
     public static void lore(ItemStack itemStack, List<String> lores) {
         ItemMeta im = itemStack.getItemMeta();
-        List<String> lores_ = lores.stream().map(ColorAPI::string).collect(Collectors.toList());
-        im.setLore(lores_);
+        List<Component> lores_ = lores.stream().map(ColorAPI::adventure).collect(Collectors.toList());
+        im.lore(lores_);
         itemStack.setItemMeta(im);
     }
 
@@ -176,8 +95,10 @@ public class ItemAPI {
     }
 
     public static boolean isBan(ItemStack itemStack) {
-        if (itemStack == null || BanConfig.ITEM.getItem().isEmpty()) return false;
-        return BanConfig.ITEM.getItem().contains(itemStack.getType().getKey().toString());
+        if (itemStack == null) return false;
+        var list = BanConfig.getListByType(BanType.ITEM);
+        if (list.isEmpty()) return false;
+        return list.contains(itemStack.getType().getKey().asString());
     }
 
     public static Material getEggMaterial(net.minecraft.world.entity.EntityType<?> entitytype) {
@@ -186,11 +107,11 @@ public class ItemAPI {
                 return Material.PLAYER_HEAD;
             }
             var getMaterial = SpawnEggItem.byId(entitytype);
-            if (getMaterial != null) {
+            if (getMaterial.isPresent()) {
                 return getMaterial.get().value().getDefaultInstance().getBukkitStack().getType();
             } else {
                 var key = net.minecraft.world.entity.EntityType.getKey(entitytype);
-                if (BuiltInRegistries.ITEM.get(key) == null) {
+                if (BuiltInRegistries.ITEM.get(key).isEmpty()) {
                     return Material.SPAWNER;
                 }
                 Material material = get(key);
@@ -218,7 +139,8 @@ public class ItemAPI {
     }
 
     public static Material get(Identifier key) {
-        return BuiltInRegistries.ITEM.get(key).get().value().getDefaultInstance().asBukkitCopy().getType();
+        var item = BuiltInRegistries.ITEM.get(key);
+        return item.map(i -> i.value().getDefaultInstance().asBukkitCopy().getType()).orElse(Material.AIR);
     }
 
     /**
@@ -283,9 +205,9 @@ public class ItemAPI {
             String textureValue = Base64Utils.decodeBase64(textureData);
             if (textureValue != null) {
                 Json json = Json.read(textureValue).at("textures").at("SKIN");
-                var playerProfile = Bukkit.createPlayerProfile(UUID.randomUUID());
+                var playerProfile = Bukkit.createProfile(UUID.randomUUID());
                 playerProfile.getTextures().setSkin(URI.create(json.asString("url")).toURL());
-                meta.setOwnerProfile(playerProfile);
+                meta.setPlayerProfile(playerProfile);
             }
         } catch (Exception ignored) {
         }

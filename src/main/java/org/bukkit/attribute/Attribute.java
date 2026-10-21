@@ -1,21 +1,23 @@
 package org.bukkit.attribute;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
+import io.papermc.paper.registry.RegistryKey;
 import java.util.Locale;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.key.KeyPattern;
 import org.bukkit.Bukkit;
 import org.bukkit.Keyed;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.Translatable;
-import org.bukkit.registry.RegistryAware;
+import org.bukkit.entity.EntityType;
 import org.bukkit.util.OldEnum;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Types of attributes which may be present on an {@link Attributable}.
  */
-public interface Attribute extends OldEnum<Attribute>, Keyed, Translatable, RegistryAware {
+public interface Attribute extends OldEnum<Attribute>, Keyed, Translatable, net.kyori.adventure.translation.Translatable { // Paper - Adventure translations
 
     /**
      * Maximum health of an Entity.
@@ -94,7 +96,7 @@ public interface Attribute extends OldEnum<Attribute>, Keyed, Translatable, Regi
      */
     Attribute BURNING_TIME = getAttribute("burning_time");
     /**
-     * The distance at which the camera is placed away.
+     * The camera distance of a player to their own entity.
      */
     Attribute CAMERA_DISTANCE = getAttribute("camera_distance");
     /**
@@ -150,30 +152,31 @@ public interface Attribute extends OldEnum<Attribute>, Keyed, Translatable, Regi
      */
     Attribute SPAWN_REINFORCEMENTS = getAttribute("spawn_reinforcements");
     /**
-     * Waypoint transmission range.
+     * Attribute controlling the range an entity transmits itself as a waypoint.
      */
     Attribute WAYPOINT_TRANSMIT_RANGE = getAttribute("waypoint_transmit_range");
     /**
-     * Waypoing receive range.
+     * Attribute controlling the range an entity receives other waypoints from.
      */
     Attribute WAYPOINT_RECEIVE_RANGE = getAttribute("waypoint_receive_range");
 
     @NotNull
-    private static Attribute getAttribute(@NotNull String key) {
-        return Registry.ATTRIBUTE.getOrThrow(NamespacedKey.minecraft(key));
+    private static Attribute getAttribute(@NotNull @KeyPattern.Value String key) {
+        return Registry.ATTRIBUTE.getOrThrow(Key.key(Key.MINECRAFT_NAMESPACE, key));
     }
 
     /**
-     * {@inheritDoc}
-     *
-     * @see #getKeyOrThrow()
-     * @see #isRegistered()
-     * @deprecated A key might not always be present, use {@link #getKeyOrThrow()} instead.
+     * {@return the sentiment of this attribute}
      */
     @NotNull
-    @Override
-    @Deprecated(since = "1.21.4")
-    NamespacedKey getKey();
+    Sentiment getSentiment();
+
+    /**
+     * {@return the default value of this attribute}
+     * <p>
+     * Default attribute values may differ between entity types, use {@link EntityType#getDefaultAttributes()} to get default attribute values for a specific entity type.
+     */
+    double getDefaultValue();
 
     /**
      * @param name of the attribute.
@@ -181,20 +184,33 @@ public interface Attribute extends OldEnum<Attribute>, Keyed, Translatable, Regi
      * @deprecated only for backwards compatibility, use {@link Registry#get(NamespacedKey)} instead.
      */
     @NotNull
-    @Deprecated(since = "1.21.3")
+    @Deprecated(since = "1.21.3", forRemoval = true) @org.jetbrains.annotations.ApiStatus.ScheduledForRemoval(inVersion = "1.22") // Paper - will be removed via asm-utils
     static Attribute valueOf(@NotNull String name) {
-        Attribute attribute = Bukkit.getUnsafe().get(Registry.ATTRIBUTE, NamespacedKey.fromString(name.toLowerCase(Locale.ROOT)));
+        final NamespacedKey key = NamespacedKey.fromString(name.toLowerCase(Locale.ROOT));
+        Attribute attribute = key == null ? null : Bukkit.getUnsafe().get(RegistryKey.ATTRIBUTE, key);
         Preconditions.checkArgument(attribute != null, "No attribute found with the name %s", name);
         return attribute;
     }
 
     /**
      * @return an array of all known attributes.
-     * @deprecated use {@link Registry#iterator()}.
+     * @deprecated use {@link Registry#stream()}.
      */
     @NotNull
-    @Deprecated(since = "1.21.3")
+    @Deprecated(since = "1.21.3", forRemoval = true) @org.jetbrains.annotations.ApiStatus.ScheduledForRemoval(inVersion = "1.22") // Paper - will be removed via asm-utils
     static Attribute[] values() {
-        return Lists.newArrayList(Registry.ATTRIBUTE).toArray(new Attribute[0]);
+        return Registry.ATTRIBUTE.stream().toArray(Attribute[]::new);
+    }
+
+    /**
+     * An attribute sentiment describes the intent behind the attribute, meaning
+     * whether it is supposed to be a positive, neutral, or negative attribute.
+     */
+    enum Sentiment {
+        // Start generate - AttributeSentiment
+        POSITIVE,
+        NEUTRAL,
+        NEGATIVE;
+        // End generate - AttributeSentiment
     }
 }

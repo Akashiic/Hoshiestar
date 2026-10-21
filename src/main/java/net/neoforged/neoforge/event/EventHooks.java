@@ -201,6 +201,7 @@ import net.neoforged.neoforge.resource.ListenerKey;
 import net.neoforged.neoforge.resource.ReloadListenerSort;
 import org.apache.commons.lang3.mutable.MutableFloat;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.Nullable;
 
 public class EventHooks {
@@ -211,9 +212,26 @@ public class EventHooks {
         return NeoForge.EVENT_BUS.post(event).isCanceled();
     }
 
+    public static boolean onMultiBlockPlace(@org.jetbrains.annotations.Nullable Entity entity, List<BlockSnapshot> blockSnapshots, Direction direction, InteractionHand hand) {
+        BlockSnapshot snap = blockSnapshots.get(0);
+        BlockState placedAgainst = snap.getLevel().getBlockState(snap.getPos().relative(direction.getOpposite()));
+        EntityMultiPlaceEvent event = new EntityMultiPlaceEvent(blockSnapshots, placedAgainst, entity);
+        event.setPlaceEventDirection(direction); // Mohist
+        event.setPlaceEventHand(hand); // Mohist
+        return NeoForge.EVENT_BUS.post(event).isCanceled();
+    }
+
     public static boolean onBlockPlace(@Nullable Entity entity, BlockSnapshot blockSnapshot, Direction direction) {
         BlockState placedAgainst = blockSnapshot.getLevel().getBlockState(blockSnapshot.getPos().relative(direction.getOpposite()));
         EntityPlaceEvent event = new BlockEvent.EntityPlaceEvent(blockSnapshot, placedAgainst, entity);
+        return NeoForge.EVENT_BUS.post(event).isCanceled();
+    }
+
+    public static boolean onBlockPlace(@org.jetbrains.annotations.Nullable Entity entity, @NotNull BlockSnapshot blockSnapshot, @NotNull Direction direction, InteractionHand hand) {
+        BlockState placedAgainst = blockSnapshot.getLevel().getBlockState(blockSnapshot.getPos().relative(direction.getOpposite()));
+        EntityPlaceEvent event = new BlockEvent.EntityPlaceEvent(blockSnapshot, placedAgainst, entity);
+        event.setPlaceEventDirection(direction); // Mohist
+        event.setPlaceEventHand(hand); // Mohist
         return NeoForge.EVENT_BUS.post(event).isCanceled();
     }
 
@@ -386,7 +404,7 @@ public class EventHooks {
      */
     public static PlayerSpawnPhantomsEvent firePlayerSpawnPhantoms(ServerPlayer player, ServerLevel level, BlockPos pos) {
         Difficulty difficulty = level.getCurrentDifficultyAt(pos).getDifficulty();
-        var event = new PlayerSpawnPhantomsEvent(player, 1 + level.getRandom().nextInt(difficulty.getId() + 1));
+        var event = new PlayerSpawnPhantomsEvent(player, level.purpurConfig.phantomSpawnMinPerAttempt + level.getRandom().nextInt((level.purpurConfig.phantomSpawnMaxPerAttempt < 0 ? difficulty.getId() : level.purpurConfig.phantomSpawnMaxPerAttempt - level.purpurConfig.phantomSpawnMinPerAttempt) + 1));
         NeoForge.EVENT_BUS.post(event);
         return event;
     }

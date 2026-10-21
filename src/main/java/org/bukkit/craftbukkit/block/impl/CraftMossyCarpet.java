@@ -1,45 +1,57 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftMossyCarpet extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.type.MossyCarpet {
+import com.google.common.base.Preconditions;
+import io.papermc.paper.annotation.GeneratedClass;
+import java.util.Map;
+import java.util.stream.Collectors;
+import net.minecraft.world.level.block.MossyCarpetBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.WallSide;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.type.MossyCarpet;
+import org.bukkit.craftbukkit.block.CraftBlock;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftMossyCarpet() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftMossyCarpet extends CraftBlockData implements MossyCarpet {
+    private static final BooleanProperty BASE = MossyCarpetBlock.BASE;
 
-    public CraftMossyCarpet(net.minecraft.world.level.block.state.BlockState state) {
+    private static final Map<BlockFace, EnumProperty<WallSide>> PROPERTY_BY_DIRECTION = MossyCarpetBlock.PROPERTY_BY_DIRECTION.entrySet().stream()
+            .collect(Collectors.toMap(entry -> CraftBlock.notchToBlockFace(entry.getKey()), entry -> entry.getValue()));
+
+    public CraftMossyCarpet(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.type.CraftMossyCarpet
-
-    private static final net.minecraft.world.level.block.state.properties.BooleanProperty BOTTOM = getBoolean(net.minecraft.world.level.block.MossyCarpetBlock.class, "bottom");
-    private static final org.bukkit.craftbukkit.block.data.CraftBlockStateEnum<?, org.bukkit.block.data.type.MossyCarpet.Height>[] HEIGHTS = new org.bukkit.craftbukkit.block.data.CraftBlockStateEnum[]{
-        getEnum(net.minecraft.world.level.block.MossyCarpetBlock.class, "north", org.bukkit.block.data.type.MossyCarpet.Height.class),
-        getEnum(net.minecraft.world.level.block.MossyCarpetBlock.class, "east", org.bukkit.block.data.type.MossyCarpet.Height.class),
-        getEnum(net.minecraft.world.level.block.MossyCarpetBlock.class, "south", org.bukkit.block.data.type.MossyCarpet.Height.class),
-        getEnum(net.minecraft.world.level.block.MossyCarpetBlock.class, "west", org.bukkit.block.data.type.MossyCarpet.Height.class)
-    };
-
     @Override
     public boolean isBottom() {
-        return get(BOTTOM);
+        return this.get(BASE);
     }
 
     @Override
-    public void setBottom(boolean up) {
-        set(BOTTOM, up);
+    public void setBottom(final boolean bottom) {
+        this.set(BASE, bottom);
     }
 
     @Override
-    public org.bukkit.block.data.type.MossyCarpet.Height getHeight(org.bukkit.block.BlockFace face) {
-        return get(HEIGHTS[face.ordinal()]);
+    public org.bukkit.block.data.type.Wall.Height getHeight(final BlockFace blockFace) {
+        Preconditions.checkArgument(blockFace != null, "blockFace cannot be null!");
+        EnumProperty<WallSide> property = PROPERTY_BY_DIRECTION.get(blockFace);
+        Preconditions.checkArgument(property != null, "Invalid blockFace, only %s are allowed!", PROPERTY_BY_DIRECTION.keySet().stream().map(Enum::name).collect(Collectors.joining(", ")));
+        return this.get(property, org.bukkit.block.data.type.Wall.Height.class);
     }
 
     @Override
-    public void setHeight(org.bukkit.block.BlockFace face, org.bukkit.block.data.type.MossyCarpet.Height height) {
-        set(HEIGHTS[face.ordinal()], height);
+    public void setHeight(final BlockFace blockFace,
+            final org.bukkit.block.data.type.Wall.Height height) {
+        Preconditions.checkArgument(blockFace != null, "blockFace cannot be null!");
+        Preconditions.checkArgument(height != null, "height cannot be null!");
+        EnumProperty<WallSide> property = PROPERTY_BY_DIRECTION.get(blockFace);
+        Preconditions.checkArgument(property != null, "Invalid blockFace, only %s are allowed!", PROPERTY_BY_DIRECTION.keySet().stream().map(Enum::name).collect(Collectors.joining(", ")));
+        this.set(property, height);
     }
 }

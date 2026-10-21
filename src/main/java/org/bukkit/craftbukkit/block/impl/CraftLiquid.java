@@ -1,34 +1,39 @@
-/**
- * Automatically generated file, changes will be lost.
- */
 package org.bukkit.craftbukkit.block.impl;
 
-public final class CraftLiquid extends org.bukkit.craftbukkit.block.data.CraftBlockData implements org.bukkit.block.data.Levelled {
+import io.papermc.paper.annotation.GeneratedClass;
+import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import org.bukkit.block.data.Levelled;
+import org.bukkit.craftbukkit.block.data.CraftBlockData;
+import org.jspecify.annotations.NullMarked;
 
-    public CraftLiquid() {
-        super();
-    }
+@NullMarked
+@GeneratedClass
+public class CraftLiquid extends CraftBlockData implements Levelled {
+    private static final IntegerProperty LEVEL = LiquidBlock.LEVEL;
 
-    public CraftLiquid(net.minecraft.world.level.block.state.BlockState state) {
+    public CraftLiquid(BlockState state) {
         super(state);
     }
 
-    // org.bukkit.craftbukkit.block.data.CraftLevelled
-
-    private static final net.minecraft.world.level.block.state.properties.IntegerProperty LEVEL = getInteger(net.minecraft.world.level.block.LiquidBlock.class, "level");
-
     @Override
     public int getLevel() {
-        return get(LEVEL);
+        return this.get(LEVEL);
     }
 
     @Override
-    public void setLevel(int level) {
-        set(LEVEL, level);
+    public void setLevel(final int level) {
+        this.set(LEVEL, level);
+    }
+
+    @Override
+    public int getMinimumLevel() {
+        return LEVEL.min;
     }
 
     @Override
     public int getMaximumLevel() {
-        return getMax(LEVEL);
+        return LEVEL.max;
     }
 }
