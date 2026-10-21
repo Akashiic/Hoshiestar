@@ -23,6 +23,12 @@ public class YouerMixinPlugin implements IMixinConfigPlugin {
         // ModernFix lowers worker thread priority through the vanilla 4-arg ForkJoinPool constructor in Util#makeExecutor;
         // Paper replaces that call (and already deprioritizes worker threads), so the injection has no target.
         mixins.add("org.embeddedt.modernfix.common.mixin.perf.thread_priorities.UtilMixin");
+        // ModernFix stronghold cache wraps ensureStructuresGenerated() in ServerLevel#<init> and captures the ResourceKey
+        // argument by type; Paper's constructor takes two ResourceKeys (dimension, typeKey), so the capture is ambiguous.
+        // Skip the whole feature (its mixins depend on each other); only a startup-time cache is lost.
+        mixins.add("org.embeddedt.modernfix.common.mixin.perf.cache_strongholds.ServerLevelMixin");
+        mixins.add("org.embeddedt.modernfix.common.mixin.perf.cache_strongholds.ChunkGeneratorMixin"); // needs the path set above
+        mixins.add("org.embeddedt.modernfix.common.mixin.perf.cache_strongholds.ConcentricRingsStructurePlacementMixin");
         // FerriteCore "fastmap" replaces StateHolder's property table; Moonrise (Paper) already does the same optimisation
         // (optimise blockstate property access) and nulls propertyValues, so both mixins of that module must be skipped.
         mixins.add("malte0811.ferritecore.mixin.fastmap.FastMapStateHolderMixin");
