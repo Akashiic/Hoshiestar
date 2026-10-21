@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/level/block/FarmlandBlock.java
 +++ b/net/minecraft/world/level/block/FarmlandBlock.java
-@@ -94,31 +_,78 @@
+@@ -94,31 +_,79 @@
      @Override
      protected void randomTick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
          int moisture = state.getValue(MOISTURE);
@@ -22,6 +22,7 @@
      @Override
      public void fallOn(Level level, BlockState state, BlockPos pos, Entity entity, double fallDistance) {
 +        super.fallOn(level, state, pos, entity, fallDistance); // CraftBukkit - moved here as game rules / events shouldn't affect fall damage.
++        if (com.mohistmc.youer.feature.ban.bans.BanEvents.banFarmlandTrample()) return; // Youer - youer.yml events.farmlandTrample (after fall damage)
          if (level instanceof ServerLevel serverLevel
 -            && level.getRandom().nextFloat() < fallDistance - 0.5
 -            && entity instanceof LivingEntity

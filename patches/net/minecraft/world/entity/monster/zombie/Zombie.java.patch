@@ -216,12 +216,13 @@
          ZombieVillager zombieVillager = villager.convertTo(
              EntityType.ZOMBIE_VILLAGER,
              ConversionParams.single(villager, true, true),
-@@ -267,17 +_,25 @@
+@@ -267,17 +_,26 @@
                  zombie.setGossips(villager.getGossips().copy());
                  zombie.setTradeOffers(villager.getOffers().copy());
                  zombie.setVillagerXp(villager.getVillagerXp());
 -                if (!this.isSilent()) {
 -                    level.levelEvent(null, 1026, this.blockPosition(), 0);
++                net.neoforged.neoforge.event.EventHooks.onLivingConvert(villager, zombie); // Neo - restore LivingConversionEvent.Post
 +                // CraftBukkit start
 +                if (!silent) {
 +                    level.levelEvent(null, 1026, blockPosition, 0);

@@ -987,7 +987,7 @@
 +
 +        final double stepHeight;
 +
-+        if ((!collidedDownwards && !this.onGround) || (!collidedX && !collidedZ) || (stepHeight = (double)this.maxUpStep()) <= 0.0) {
++        if ((!collidedDownwards && !this.onGround()) || (!collidedX && !collidedZ) || (stepHeight = (double)this.maxUpStep()) <= 0.0) { // Youer - call onGround() like vanilla so mod hooks (e.g. Aether II) still apply
 +            return collided;
 +        }
 +

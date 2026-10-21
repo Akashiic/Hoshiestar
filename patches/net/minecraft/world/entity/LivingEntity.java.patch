@@ -919,7 +919,12 @@
                      if (!blocked) {
                          this.indicateDamage(xd, zd);
                      }
-@@ -1239,14 +_,17 @@
+@@ -1235,18 +_,21 @@
+             if (this.isDeadOrDying()) {
+                 if (!this.checkTotemDeathProtection(source)) {
+                     if (tookFullDamage) {
+-                        this.makeSound(this.getDeathSound());
++                        // this.makeSound(this.getDeathSound()); // Paper - moved into CraftEventFactory event caller (avoids playing the death sound twice)
                          this.playSecondaryHurtSound(source);
                      }
  
@@ -1284,7 +1289,7 @@
                      this.level().addFreshEntity(itemEntity);
                  }
              }
-@@ -1469,27 +_,44 @@
+@@ -1469,27 +_,51 @@
      }
  
      protected void dropAllDeathLoot(ServerLevel level, DamageSource source) {
@@ -1328,7 +1333,14 @@
 -            ExperienceOrb.award(level, this.position(), this.getExperienceReward(level, killer));
 +        // CraftBukkit start - Update getExpReward() above if the removed if() changes!
 +        if (!(this instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon)) { // CraftBukkit - SPIGOT-2420: Special case ender dragon will drop the xp over time
-+            int reward = net.neoforged.neoforge.event.EventHooks.getExperienceDrop(this, this.getLastHurtByPlayer(), this.getExperienceReward(level, killer));
++            // Youer start - honour EntityDeathEvent#setDroppedExp (expToDrop, already gated by getExpReward's vanilla
++            // conditions) and only fire NeoForge's LivingExperienceDropEvent when vanilla would drop experience
++            int reward = this.expToDrop;
++            if (!this.wasExperienceConsumed()
++                && (this.isAlwaysExperienceDropper() || this.lastHurtByPlayerMemoryTime > 0 && this.shouldDropExperience() && level.getGameRules().get(GameRules.MOB_DROPS))) {
++                reward = net.neoforged.neoforge.event.EventHooks.getExperienceDrop(this, this.getLastHurtByPlayer(), reward);
++            }
++            // Youer end
 +            ExperienceOrb.fake_award.set(true);
 +            ExperienceOrb.award((ServerLevel) this.level(), this.position(), reward);
 +            ExperienceOrb.awardWithDirection(level, this.position(), Vec3.ZERO, ExperienceOrb.fake_award_amount.getAndSet(0), this instanceof ServerPlayer ? org.bukkit.entity.ExperienceOrb.SpawnReason.PLAYER_DEATH : org.bukkit.entity.ExperienceOrb.SpawnReason.ENTITY_DEATH, killer, this); // Paper

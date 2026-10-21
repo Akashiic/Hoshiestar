@@ -464,7 +464,7 @@
          if (profiledDuration != null) {
              profiledDuration.finish(true);
          }
-@@ -422,36 +_,153 @@
+@@ -422,36 +_,156 @@
          }
      }
  
@@ -600,6 +600,9 @@
 +    }
 +
 +    public void initWorld(ServerLevel overworld, org.bukkit.@Nullable WorldCreator worldCreator) {
++        // Youer - the Paper world loading rework dropped NeoForge's LevelEvent.Load; fire it once per level (startup and
++        // plugin-created worlds both go through addLevel + initWorld), before spawn preparation like vanilla NeoForge
++        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.level.LevelEvent.Load(overworld));
 +        final net.minecraft.world.level.storage.ServerLevelData levelData = overworld.serverLevelData;
 +        final WorldOptions worldOptions = overworld.worldGenSettings.options();
 +        final boolean isDebug = this.worldData.isDebugWorld();

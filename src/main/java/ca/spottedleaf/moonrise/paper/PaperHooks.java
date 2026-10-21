@@ -78,6 +78,9 @@ public final class PaperHooks extends BaseChunkSystemHooks implements PlatformHo
 
     @Override
     public void chunkFullStatusComplete(final LevelChunk newChunk, final ProtoChunk original) {
+        // Youer - Moonrise's ChunkFullTask replaces ChunkStatusTasks#full, which is where NeoForge fires ChunkEvent.Load
+        // (needed e.g. by CapabilityHooks#invalidateCapsOnChunkLoad); fire it here like Moonrise's NeoForge platform does
+        NeoForge.EVENT_BUS.post(new ChunkEvent.Load(newChunk, !(original instanceof net.minecraft.world.level.chunk.ImposterProtoChunk)));
     }
 
     @Override
@@ -260,7 +263,7 @@ public final class PaperHooks extends BaseChunkSystemHooks implements PlatformHo
 
     @Override
     public boolean hasMainChunkLoadHook() {
-        return false;
+        return true; // Youer - mainChunkLoad fires NeoForge's ChunkDataEvent.Load (and the Architectury compat hook); false skipped it entirely
     }
 
     @Override

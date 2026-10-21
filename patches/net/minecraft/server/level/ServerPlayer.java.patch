@@ -2017,12 +2017,22 @@
              }
  
              if (newCamera != null) {
-@@ -1948,11 +_,11 @@
+@@ -1948,11 +_,21 @@
      }
  
      public @Nullable Component getTabListDisplayName() {
 -        return null;
-+        return listName; // CraftBukkit
++        // CraftBukkit - a name set through Player#setPlayerListName wins
++        if (this.listName != null) {
++            return this.listName;
++        }
++        // Youer start - otherwise keep NeoForge's PlayerEvent.TabListNameFormat working
++        if (!this.hasTabListName) {
++            this.tabListDisplayName = net.neoforged.neoforge.event.EventHooks.getPlayerTabListDisplayName(this);
++            this.hasTabListName = true;
++        }
++        return this.tabListDisplayName;
++        // Youer end
      }
  
      public int getTabListOrder() {

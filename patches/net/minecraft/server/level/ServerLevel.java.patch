@@ -1439,7 +1439,7 @@
              if (progressListener != null) {
                  progressListener.progressStartNoAbort(Component.translatable("menu.savingLevel"));
              }
-@@ -874,13 +_,18 @@
+@@ -874,13 +_,19 @@
                  progressListener.progressStage(Component.translatable("menu.savingChunks"));
              }
  
@@ -1450,6 +1450,7 @@
 -                this.entityManager.autoSave();
 +            if (!close) { chunkSource.save(flush); } // Paper - add close param
 +            // Paper - rewrite chunk system
++            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.level.LevelEvent.Save(this)); // Youer - restore NeoForge hook dropped by the port
 +        }
 +        // Paper start - add close param
 +        if (close) {
@@ -2203,7 +2204,13 @@
  
      public boolean anyPlayerCloseEnoughForSpawning(BlockPos pos) {
          return this.anyPlayerCloseEnoughForSpawning(ChunkPos.containing(pos));
-@@ -1780,7 +_,10 @@
+@@ -1775,12 +_,16 @@
+     }
+ 
+     public boolean canSpreadFireAround(BlockPos pos) {
++        if (com.mohistmc.youer.feature.ban.bans.BanEvents.banFireTick()) return false; // Youer - youer.yml events.fire_tick
+         int spreadRadius = this.getGameRules().get(GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER);
+         return spreadRadius == -1 || this.chunkSource.chunkMap.anyPlayerCloseEnoughTo(pos, spreadRadius);
      }
  
      public boolean canSpawnEntitiesInChunk(ChunkPos pos) {

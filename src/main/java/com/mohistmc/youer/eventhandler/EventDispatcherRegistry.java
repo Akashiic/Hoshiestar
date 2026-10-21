@@ -21,14 +21,13 @@ import com.mohistmc.youer.Youer;
 import com.mohistmc.youer.eventhandler.dispatcher.BlockEventDispatcher;
 import com.mohistmc.youer.eventhandler.dispatcher.EntityEventDispatcher;
 import com.mohistmc.youer.eventhandler.dispatcher.PlayerEventDispatcher;
-import com.mohistmc.youer.eventhandler.dispatcher.WorldEventDispatcher;
 import net.neoforged.neoforge.common.NeoForge;
 
 public class EventDispatcherRegistry {
 
     public static void init() {
         NeoForge.EVENT_BUS.register(new PlayerEventDispatcher());
-        NeoForge.EVENT_BUS.register(new WorldEventDispatcher());
+        // WorldEventDispatcher removed: Paper fires WorldLoadEvent itself; re-firing it from LevelEvent.Load would deliver it twice
         // NeoForge.EVENT_BUS.register(new ItemEventDispatcher());
         NeoForge.EVENT_BUS.register(new EntityEventDispatcher());
         NeoForge.EVENT_BUS.register(new BlockEventDispatcher());

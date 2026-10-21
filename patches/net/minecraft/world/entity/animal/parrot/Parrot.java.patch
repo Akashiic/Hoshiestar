@@ -69,7 +69,7 @@
  
              if (!this.level().isClientSide()) {
 -                if (this.random.nextInt(10) == 0) {
-+                if (((this.level().purpurConfig.alwaysTameInCreative && player.hasInfiniteMaterials()) || this.random.nextInt(10) == 0) && !org.bukkit.craftbukkit.event.CraftEventFactory.callEntityTameEvent(this, player).isCancelled()) { // CraftBukkit // Purpur - Config to always tame in Creative
++                if (((this.level().purpurConfig.alwaysTameInCreative && player.hasInfiniteMaterials()) || this.random.nextInt(10) == 0) && !net.neoforged.neoforge.event.EventHooks.onAnimalTame(this, player) && !org.bukkit.craftbukkit.event.CraftEventFactory.callEntityTameEvent(this, player).isCancelled()) { // Neo - onAnimalTame // CraftBukkit // Purpur - Config to always tame in Creative
                      this.tame(player);
                      this.level().broadcastEntityEvent(this, (byte)7);
                  } else {
