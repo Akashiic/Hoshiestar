@@ -1,0 +1,24 @@
+--- a/net/minecraft/network/protocol/game/ClientboundSetPlayerTeamPacket.java
++++ b/net/minecraft/network/protocol/game/ClientboundSetPlayerTeamPacket.java
+@@ -57,6 +_,12 @@
+         );
+     }
+ 
++    // Paper start - Multiple Entries with Scoreboards
++    public static ClientboundSetPlayerTeamPacket createMultiplePlayerPacket(PlayerTeam team, Collection<String> players, ClientboundSetPlayerTeamPacket.Action action) {
++        return new ClientboundSetPlayerTeamPacket(team.getName(), action == ClientboundSetPlayerTeamPacket.Action.ADD ? METHOD_JOIN : METHOD_LEAVE, Optional.empty(), players);
++    }
++    // Paper end - Multiple Entries with Scoreboards
++
+     private ClientboundSetPlayerTeamPacket(RegistryFriendlyByteBuf input) {
+         this.name = input.readUtf();
+         this.method = input.readByte();
+@@ -181,7 +_,7 @@
+         }
+ 
+         public Team.CollisionRule getCollisionRule() {
+-            return this.collisionRule;
++            return !io.papermc.paper.configuration.GlobalConfiguration.get().collisions.enablePlayerCollisions ? PlayerTeam.CollisionRule.NEVER : this.collisionRule; // Paper - Configurable player collision
+         }
+ 
+         public Component getPlayerPrefix() {

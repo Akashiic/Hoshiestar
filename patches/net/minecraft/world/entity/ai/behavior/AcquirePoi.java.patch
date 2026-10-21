@@ -1,0 +1,148 @@
+--- a/net/minecraft/world/entity/ai/behavior/AcquirePoi.java
++++ b/net/minecraft/world/entity/ai/behavior/AcquirePoi.java
+@@ -62,53 +_,62 @@
+                     toAcquire -> (level, body, timestamp) -> {
+                         if (onlyIfAdult && body.isBaby()) {
+                             return false;
+-                        } else {
+-                            RandomSource random = level.getRandom();
+-                            if (nextScheduledStart.longValue() == 0L) {
+-                                nextScheduledStart.setValue(level.getGameTime() + random.nextInt(20));
+-                                return false;
+-                            } else if (level.getGameTime() < nextScheduledStart.longValue()) {
+-                                return false;
+-                            } else {
+-                                nextScheduledStart.setValue(timestamp + 20L + random.nextInt(20));
+-                                PoiManager poiManager = level.getPoiManager();
+-                                batchCache.long2ObjectEntrySet().removeIf(entry -> !entry.getValue().isStillValid(timestamp));
+-                                Predicate<BlockPos> cacheTest = pos -> {
+-                                    AcquirePoi.JitteredLinearRetry retryMarker = batchCache.get(pos.asLong());
+-                                    if (retryMarker == null) {
+-                                        return true;
+-                                    } else if (!retryMarker.shouldRetry(timestamp)) {
+-                                        return false;
+-                                    } else {
+-                                        retryMarker.markAttempt(timestamp);
+-                                        return true;
+-                                    }
+-                                };
+-                                Set<Pair<Holder<PoiType>, BlockPos>> poiPositions = poiManager.findAllClosestFirstWithType(
+-                                        poiType, cacheTest, body.blockPosition(), 48, PoiManager.Occupancy.HAS_SPACE
+-                                    )
+-                                    .limit(5L)
+-                                    .filter(px -> validPoi.test(level, (BlockPos)px.getSecond()))
+-                                    .collect(Collectors.toSet());
+-                                Path path = findPathToPois(body, poiPositions);
+-                                if (path != null && path.canReach()) {
+-                                    BlockPos targetPos = path.getTarget();
+-                                    poiManager.getType(targetPos).ifPresent(type -> {
+-                                        poiManager.take(poiType, (t, poiPos) -> poiPos.equals(targetPos), targetPos, 1);
+-                                        toAcquire.set(GlobalPos.of(level.dimension(), targetPos));
+-                                        onPoiAcquisitionEvent.ifPresent(event -> level.broadcastEntityEvent(body, event));
+-                                        batchCache.clear();
+-                                        level.debugSynchronizers().updatePoi(targetPos);
+-                                    });
+-                                } else {
+-                                    for (Pair<Holder<PoiType>, BlockPos> p : poiPositions) {
+-                                        batchCache.computeIfAbsent(p.getSecond().asLong(), key -> new AcquirePoi.JitteredLinearRetry(random, timestamp));
+-                                    }
+-                                }
+-
++                        }
++
++                        RandomSource random = level.getRandom();
++                        if (nextScheduledStart.longValue() == 0L) {
++                            nextScheduledStart.setValue(level.getGameTime() + random.nextInt(20));
++                            return false;
++                        }
++
++                        if (level.getGameTime() < nextScheduledStart.longValue()) {
++                            return false;
++                        }
++
++                        nextScheduledStart.setValue(timestamp + 20L + random.nextInt(20));
++                        if (level.paperConfig().entities.behavior.stuckEntityPoiRetryDelay.enabled() && body.getNavigation().isStuck()) nextScheduledStart.add(level.paperConfig().entities.behavior.stuckEntityPoiRetryDelay.intValue()); // Paper - Next stuck check delay config
++                        PoiManager poiManager = level.getPoiManager();
++                        batchCache.long2ObjectEntrySet().removeIf(entry -> !entry.getValue().isStillValid(timestamp));
++                        Predicate<BlockPos> cacheTest = pos -> {
++                            AcquirePoi.JitteredLinearRetry retryMarker = batchCache.get(pos.asLong());
++                            if (retryMarker == null) {
+                                 return true;
+                             }
+-                        }
++
++                            if (!retryMarker.shouldRetry(timestamp)) {
++                                return false;
++                            }
++
++                            retryMarker.markAttempt(timestamp);
++                            return true;
++                        };
++                        // Paper start - optimise POI searches
++                        java.util.List<Pair<Holder<PoiType>, BlockPos>> poiPositionsRaw = new java.util.ArrayList<>();
++                        ca.spottedleaf.moonrise.patches.poi_lookup.PoiAccess.findNearestPoiPositions(poiManager, poiType, cacheTest, body.blockPosition(), level.purpurConfig.villagerAcquirePoiSearchRadius, Double.MAX_VALUE, PoiManager.Occupancy.HAS_SPACE, ca.spottedleaf.moonrise.patches.poi_lookup.PoiAccess.LOAD_FOR_SEARCHING, 5, poiPositionsRaw); // Purpur - Configurable villager search radius
++                        Set<Pair<Holder<PoiType>, BlockPos>> poiPositions = new java.util.HashSet<>(poiPositionsRaw.size());
++                        for (Pair<Holder<PoiType>, BlockPos> pair : poiPositionsRaw) {
++                            if (validPoi.test(level, pair.getSecond())) {
++                                poiPositions.add(pair);
++                            }
++                        }
++                        // Paper end - optimise POI searches
++                        Path path = findPathToPois(body, poiPositions);
++                        if (path != null && path.canReach()) {
++                            BlockPos targetPos = path.getTarget();
++                            poiManager.getType(targetPos).ifPresent(type -> {
++                                poiManager.take(poiType, (t, poiPos) -> poiPos.equals(targetPos), targetPos, 1);
++                                toAcquire.set(GlobalPos.of(level.dimension(), targetPos));
++                                onPoiAcquisitionEvent.ifPresent(event -> level.broadcastEntityEvent(body, event));
++                                batchCache.clear();
++                                level.debugSynchronizers().updatePoi(targetPos);
++                            });
++                        } else {
++                            for (Pair<Holder<PoiType>, BlockPos> p : poiPositions) {
++                                batchCache.computeIfAbsent(p.getSecond().asLong(), key -> new AcquirePoi.JitteredLinearRetry(random, timestamp));
++                            }
++                        }
++
++                        return true;
+                     }
+                 )
+         );
+@@ -120,17 +_,17 @@
+     public static @Nullable Path findPathToPois(Mob body, Set<Pair<Holder<PoiType>, BlockPos>> pois) {
+         if (pois.isEmpty()) {
+             return null;
+-        } else {
+-            Set<BlockPos> targets = new HashSet<>();
+-            int maxRange = 1;
+-
+-            for (Pair<Holder<PoiType>, BlockPos> p : pois) {
+-                maxRange = Math.max(maxRange, p.getFirst().value().validRange());
+-                targets.add(p.getSecond());
+-            }
+-
+-            return body.getNavigation().createPath(targets, maxRange);
+-        }
++        }
++
++        Set<BlockPos> targets = new HashSet<>();
++        int maxRange = 1;
++
++        for (Pair<Holder<PoiType>, BlockPos> p : pois) {
++            maxRange = Math.max(maxRange, p.getFirst().value().validRange());
++            targets.add(p.getSecond());
++        }
++
++        return body.getNavigation().createPath(targets, maxRange);
+     }
+ 
+     private static class JitteredLinearRetry {
+@@ -142,7 +_,7 @@
+         private long nextScheduledAttemptTimestamp;
+         private int currentDelay;
+ 
+-        JitteredLinearRetry(RandomSource random, long firstAttemptTimestamp) {
++        public JitteredLinearRetry(RandomSource random, long firstAttemptTimestamp) {
+             this.random = random;
+             this.markAttempt(firstAttemptTimestamp);
+         }

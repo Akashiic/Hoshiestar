@@ -8,16 +8,22 @@
  import org.slf4j.Logger;
  
  public class ServerRecipeBook extends RecipeBook {
-@@ -63,7 +_,7 @@
- 
+@@ -64,17 +_,21 @@
          for (RecipeHolder<?> recipe : recipes) {
              ResourceKey<Recipe<?>> id = recipe.id();
--            if (!this.known.contains(id) && !recipe.value().isSpecial()) {
-+            if (!this.known.contains(id) && !recipe.value().isSpecial() && CraftEventFactory.handlePlayerRecipeListUpdateEvent(player, id.identifier())) { // CraftBukkit
+             if (!this.known.contains(id) && !recipe.value().isSpecial()) {
++                // Paper start - PlayerRecipeDiscoverEvent event
++                final org.bukkit.event.player.PlayerRecipeDiscoverEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callPlayerRecipeListUpdateEvent(player, recipe);
++                if (event.isCancelled()) continue;
++                // Paper end - PlayerRecipeDiscoverEvent event
                  this.add(id);
                  this.addHighlight(id);
                  this.displayResolver
-@@ -74,7 +_,7 @@
+                     .displaysForRecipe(
+-                        id, display -> recipesToAdd.add(new ClientboundRecipeBookAddPacket.Entry(display, recipe.value().showNotification(), true))
++                        id, display -> recipesToAdd.add(new ClientboundRecipeBookAddPacket.Entry(display, event.shouldShowNotification(), true)) // Paper - set notification from the event
+                     );
+                 CriteriaTriggers.RECIPE_UNLOCKED.trigger(player, recipe);
              }
          }
  
@@ -35,3 +41,11 @@
              player.connection.send(new ClientboundRecipeBookRemovePacket(recipesToRemove));
          }
  
+@@ -104,6 +_,7 @@
+     ) {
+         for (ResourceKey<Recipe<?>> recipe : recipes) {
+             if (!validator.test(recipe)) {
++                if (!org.purpurmc.purpur.PurpurConfig.loggerSuppressUnrecognizedRecipeErrors) // Purpur - Logger settings (suppressing pointless logs)
+                 LOGGER.error("Tried to load unrecognized recipe: {} removed now.", recipe);
+             } else {
+                 recipeAddingMethod.accept(recipe);

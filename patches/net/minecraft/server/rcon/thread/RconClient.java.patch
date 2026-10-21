@@ -35,15 +35,19 @@
      }
  
      @Override
-@@ -67,7 +_,7 @@
+@@ -67,9 +_,9 @@
                                  String command = PktUtils.stringFromByteArray(this.buf, offset, read);
  
                                  try {
 -                                    this.sendCmdResponse(requestid, this.serverInterface.runCommand(command));
-+                                    this.sendCmdResponse(requestid, this.serverInterface.runCommand(this.rconConsoleSource, command));
-                                 } catch (Exception var15) {
-                                     this.sendCmdResponse(requestid, "Error executing: " + command + " (" + var15.getMessage() + ")");
+-                                } catch (Exception var15) {
+-                                    this.sendCmdResponse(requestid, "Error executing: " + command + " (" + var15.getMessage() + ")");
++                                    this.sendCmdResponse(requestid, this.serverInterface.runCommand(this.rconConsoleSource, command)); // CraftBukkit
++                                } catch (Exception e) {
++                                    this.sendCmdResponse(requestid, "Error executing: " + command + " (" + e.getMessage() + ")");
                                  }
+                                 break;
+                             }
 @@ -123,13 +_,14 @@
      }
  

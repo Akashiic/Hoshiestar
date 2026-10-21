@@ -1,6 +1,11 @@
 --- a/net/minecraft/CrashReport.java
 +++ b/net/minecraft/CrashReport.java
-@@ -34,6 +_,7 @@
+@@ -30,10 +_,12 @@
+     private boolean trackingStackTrace = true;
+     private StackTraceElement[] uncategorizedStackTrace = new StackTraceElement[0];
+     private final SystemReport systemReport = new SystemReport();
++    private List<String> extraInfo = List.of("", "DO NOT REPORT THIS TO PAPER! REPORT TO PURPUR INSTEAD!", ""); // Purpur - Rebrand
+ 
      public CrashReport(String title, Throwable t) {
          this.title = title;
          this.exception = t;
@@ -53,3 +58,30 @@
      }
  
      public String getFriendlyReport(ReportType reportType, List<String> extraComments) {
+@@ -128,7 +_,7 @@
+     }
+ 
+     public String getFriendlyReport(ReportType reportType) {
+-        return this.getFriendlyReport(reportType, List.of());
++        return this.getFriendlyReport(reportType, extraInfo); // Purpur - Rebrand
+     }
+ 
+     public @Nullable Path getSaveFile() {
+@@ -158,7 +_,7 @@
+     }
+ 
+     public boolean saveToFile(Path file, ReportType reportType) {
+-        return this.saveToFile(file, reportType, List.of());
++        return this.saveToFile(file, reportType, extraInfo); // Purpur - Rebrand
+     }
+ 
+     public SystemReport getSystemReport() {
+@@ -217,7 +_,7 @@
+     }
+ 
+     public static void preload() {
+-        MemoryReserve.allocate();
++        //MemoryReserve.allocate(); // Paper - Disable memory reserve allocating
+         new CrashReport("Don't panic!", new Throwable()).getFriendlyReport(ReportType.CRASH);
+     }
+ }

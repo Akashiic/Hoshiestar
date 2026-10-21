@@ -1,6 +1,6 @@
 --- a/net/minecraft/core/Holder.java
 +++ b/net/minecraft/core/Holder.java
-@@ -247,6 +_,14 @@
+@@ -247,8 +_,16 @@
              }
          }
  
@@ -13,8 +13,11 @@
 +        }
 +
          void bindTags(Collection<TagKey<T>> tags) {
-             this.tags = Set.copyOf(tags);
+-            this.tags = Set.copyOf(tags);
++            this.tags = it.unimi.dsi.fastutil.objects.ReferenceSets.unmodifiable(new it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet<>(tags)); // Paper - use reference set because TagKey are interned
          }
+ 
+         public void bindComponents(DataComponentMap components) {
 @@ -268,6 +_,32 @@
          @Override
          public String toString() {

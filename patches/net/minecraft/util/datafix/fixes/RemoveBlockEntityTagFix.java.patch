@@ -1,0 +1,10 @@
+--- a/net/minecraft/util/datafix/fixes/RemoveBlockEntityTagFix.java
++++ b/net/minecraft/util/datafix/fixes/RemoveBlockEntityTagFix.java
+@@ -14,6 +_,7 @@
+ import net.minecraft.util.datafix.schemas.NamespacedSchema;
+ 
+ public class RemoveBlockEntityTagFix extends DataFix {
++    public static final org.bukkit.craftbukkit.persistence.CraftPersistentDataTypeRegistry DATA_TYPE_REGISTRY = new org.bukkit.craftbukkit.persistence.CraftPersistentDataTypeRegistry(); // Paper - call event on block entity removal
+     private final Set<String> blockEntityIdsToDrop;
+ 
+     public RemoveBlockEntityTagFix(Schema outputSchema, Set<String> blockEntityIdsToDrop) {

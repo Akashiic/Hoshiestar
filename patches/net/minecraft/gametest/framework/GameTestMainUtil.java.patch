@@ -16,12 +16,3 @@
              String universePath = options.valueOf(universe);
              createOrResetDir(universePath);
              onUniverseCreated.accept(universePath);
-@@ -83,7 +_,7 @@
-                 copyPacks(universePath, packFolder);
-             }
- 
--            LevelStorageSource.LevelStorageAccess levelStorageSource = LevelStorageSource.createDefault(Paths.get(universePath)).createAccess("gametestworld");
-+            LevelStorageSource.LevelStorageAccess levelStorageSource = LevelStorageSource.createDefault(Paths.get(universePath)).createAccess("gametestworld",  LevelStem.OVERWORLD);
-             PackRepository packRepository = ServerPacksSource.createPackRepository(levelStorageSource);
-             MinecraftServer.spin(
-                 thread -> GameTestServer.create(

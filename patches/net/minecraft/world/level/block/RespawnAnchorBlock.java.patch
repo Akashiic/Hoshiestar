@@ -1,14 +1,54 @@
 --- a/net/minecraft/world/level/block/RespawnAnchorBlock.java
 +++ b/net/minecraft/world/level/block/RespawnAnchorBlock.java
-@@ -107,7 +_,7 @@
-                         LevelData.RespawnData.of(serverLevel.dimension(), pos, 0.0F, 0.0F), false
-                     );
-                     if (respawnConfig == null || !respawnConfig.isSamePosition(newRespawnConfig)) {
+@@ -96,27 +_,33 @@
+     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+         if (state.getValue(CHARGE) == 0) {
+             return InteractionResult.PASS;
+-        } else if (level instanceof ServerLevel serverLevel) {
++        }
++
++        if (level instanceof ServerLevel serverLevel) {
+             if (!canSetSpawn(serverLevel, pos)) {
+                 this.explode(state, serverLevel, pos);
+                 return InteractionResult.SUCCESS_SERVER;
+-            } else {
+-                if (player instanceof ServerPlayer serverPlayer) {
+-                    ServerPlayer.RespawnConfig respawnConfig = serverPlayer.getRespawnConfig();
+-                    ServerPlayer.RespawnConfig newRespawnConfig = new ServerPlayer.RespawnConfig(
+-                        LevelData.RespawnData.of(serverLevel.dimension(), pos, 0.0F, 0.0F), false
+-                    );
+-                    if (respawnConfig == null || !respawnConfig.isSamePosition(newRespawnConfig)) {
 -                        serverPlayer.setRespawnPosition(newRespawnConfig, true);
-+                        serverPlayer.setRespawnPosition(newRespawnConfig, true, org.bukkit.event.player.PlayerSpawnChangeEvent.Cause.RESPAWN_ANCHOR); // CraftBukkit
-                         serverLevel.playSound(
-                             null, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, SoundEvents.RESPAWN_ANCHOR_SET_SPAWN, SoundSource.BLOCKS, 1.0F, 1.0F
-                         );
+-                        serverLevel.playSound(
+-                            null, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, SoundEvents.RESPAWN_ANCHOR_SET_SPAWN, SoundSource.BLOCKS, 1.0F, 1.0F
+-                        );
+-                        return InteractionResult.SUCCESS_SERVER;
++            }
++
++            if (player instanceof ServerPlayer serverPlayer) {
++                ServerPlayer.RespawnConfig respawnConfig = serverPlayer.getRespawnConfig();
++                ServerPlayer.RespawnConfig newRespawnConfig = new ServerPlayer.RespawnConfig(
++                    LevelData.RespawnData.of(serverLevel.dimension(), pos, 0.0F, 0.0F), false
++                );
++                if (respawnConfig == null || !respawnConfig.isSamePosition(newRespawnConfig)) {
++                    // Paper start - Add PlayerSetSpawnEvent
++                    if (!serverPlayer.setRespawnPosition(newRespawnConfig, true, com.destroystokyo.paper.event.player.PlayerSetSpawnEvent.Cause.RESPAWN_ANCHOR)) {
++                        return InteractionResult.FAIL;
+                     }
++                    // Paper end - Add PlayerSetSpawnEvent
++                    serverLevel.playSound(
++                        null, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, SoundEvents.RESPAWN_ANCHOR_SET_SPAWN, SoundSource.BLOCKS, 1.0F, 1.0F
++                    );
++                    return InteractionResult.SUCCESS_SERVER;
+                 }
+-
+-                return InteractionResult.CONSUME;
+             }
++
++            return InteractionResult.CONSUME;
+         } else {
+             return InteractionResult.CONSUME;
+         }
 @@ -148,6 +_,7 @@
      }
  
@@ -17,12 +57,14 @@
          level.removeBlock(pos, false);
          boolean anyWaterNeighbors = Direction.Plane.HORIZONTAL.stream().map(pos::relative).anyMatch(neighborPos -> isWaterThatWouldFlow(neighborPos, level));
          final boolean inWater = anyWaterNeighbors || level.getFluidState(pos.above()).is(FluidTags.WATER);
-@@ -164,7 +_,7 @@
+@@ -163,8 +_,8 @@
+                     : super.getBlockExplosionResistance(explosion, levelx, testPos, block, fluid);
              }
          };
-         Vec3 boomPos = pos.getCenter();
+-        Vec3 boomPos = pos.getCenter();
 -        level.explode(null, level.damageSources().badRespawnPointExplosion(boomPos), damageCalculator, boomPos, 5.0F, true, Level.ExplosionInteraction.BLOCK);
-+        level.explode(null, level.damageSources().badRespawnPointExplosion(boomPos, blockState), damageCalculator, boomPos, 5.0F, true, Level.ExplosionInteraction.BLOCK); // CraftBukkit - add state
++        Vec3 boomPos = Vec3.atCenterOf(pos);
++        level.explode(null, level.damageSources().badRespawnPointExplosion(boomPos).causingBlockSnapshot(blockState), damageCalculator, boomPos, (float) level.purpurConfig.respawnAnchorExplosionPower, level.purpurConfig.respawnAnchorExplosionFire, level.purpurConfig.respawnAnchorExplosionEffect); // CraftBukkit - add state
      }
  
      public static boolean canSetSpawn(ServerLevel level, BlockPos pos) {

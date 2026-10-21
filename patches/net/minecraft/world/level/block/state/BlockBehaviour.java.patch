@@ -1,6 +1,13 @@
 --- a/net/minecraft/world/level/block/state/BlockBehaviour.java
 +++ b/net/minecraft/world/level/block/state/BlockBehaviour.java
-@@ -82,6 +_,11 @@
+@@ -1,5 +_,6 @@
+ package net.minecraft.world.level.block.state;
+ 
++import com.mohistmc.youer.util.tps.TPSCalculator;
+ import com.mojang.serialization.Codec;
+ import com.mojang.serialization.MapCodec;
+ import com.mojang.serialization.codecs.RecordCodecBuilder;
+@@ -82,12 +_,17 @@
  import net.minecraft.world.phys.shapes.VoxelShape;
  import org.jspecify.annotations.Nullable;
  
@@ -12,21 +19,33 @@
  public abstract class BlockBehaviour implements FeatureElement {
      protected static final Direction[] UPDATE_SHAPE_ORDER = new Direction[]{
          Direction.WEST, Direction.EAST, Direction.NORTH, Direction.SOUTH, Direction.DOWN, Direction.UP
-@@ -167,6 +_,12 @@
-     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+     };
+     public final boolean hasCollision;
+-    protected final float explosionResistance;
++    public float explosionResistance;
+     protected final boolean isRandomlyTicking;
+     protected final SoundType soundType;
+     protected final float friction;
+@@ -165,32 +_,40 @@
      }
  
+     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+-    }
++        org.spigotmc.AsyncCatcher.catchOp("block onPlace"); // Spigot
++    }
++
 +    // CraftBukkit start
-+    protected void onPlace(BlockState blockstate, Level level, BlockPos blockpos, BlockState blockstate1, boolean flag, @Nullable UseOnContext context) {
-+        this.onPlace(blockstate, level, blockpos, blockstate1, flag);
++    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston, net.minecraft.world.item.context.@Nullable UseOnContext context) {
++        this.onPlace(state, level, pos, oldState, movedByPiston);
 +    }
 +    // CraftBukkit end
-+
+ 
      protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos, boolean movedByPiston) {
      }
  
-@@ -174,23 +_,24 @@
-         if (!state.isAir() && explosion.getBlockInteraction() != Explosion.BlockInteraction.TRIGGER_BLOCK) {
+     protected void onExplosionHit(BlockState state, ServerLevel level, BlockPos pos, Explosion explosion, BiConsumer<ItemStack, BlockPos> onHit) {
+-        if (!state.isAir() && explosion.getBlockInteraction() != Explosion.BlockInteraction.TRIGGER_BLOCK) {
++        if (!state.isAir() && explosion.getBlockInteraction() != Explosion.BlockInteraction.TRIGGER_BLOCK && state.isDestroyable()) { // Paper - Protect Bedrock and End Portal/Frames from being destroyed
              Block block = state.getBlock();
              boolean doDropExperienceHack = explosion.getIndirectSourceEntity() instanceof Player;
 -            if (block.dropFromExplosion(explosion)) {
@@ -55,14 +74,36 @@
          }
      }
  
-@@ -343,8 +_,8 @@
+@@ -254,7 +_,7 @@
+     }
+ 
+     protected boolean canBeReplaced(BlockState state, BlockPlaceContext context) {
+-        return state.canBeReplaced() && (context.getItemInHand().isEmpty() || !context.getItemInHand().is(this.asItem()));
++        return state.canBeReplaced() && (context.getItemInHand().isEmpty() || !context.getItemInHand().is(this.asItem())) && (state.isDestroyable() || (context.getPlayer() != null && context.getPlayer().getAbilities().instabuild)); // Paper - Protect Bedrock and End Portal/Frames from being destroyed
+     }
+ 
+     protected boolean canBeReplaced(BlockState state, Fluid fluid) {
+@@ -338,13 +_,20 @@
+     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+     }
+ 
++    // DivineMC start - Lag compensation
++    private float lagCompensation(float original, Player player) {
++        if (player.level().isClientSide()) return original;
++        return original * TPSCalculator.MAX_TPS / (float) ((ServerLevel) player.level()).tpsCalculator.getMostAccurateTPS();
++    }
++    // DivineMC end - Lag compensation
++
+     protected float getDestroyProgress(BlockState state, Player player, BlockGetter level, BlockPos pos) {
+         float destroySpeed = state.getDestroySpeed(level, pos);
          if (destroySpeed == -1.0F) {
-             return 0.0F;
+-            return 0.0F;
++            return lagCompensation(0.0F, player); // DivineMC - Lag compensation
          } else {
 -            int modifier = player.hasCorrectToolForDrops(state) ? 30 : 100;
 -            return player.getDestroySpeed(state) / destroySpeed / modifier;
 +            int i = net.neoforged.neoforge.event.EventHooks.doPlayerHarvestCheck(player, state, level, pos) ? 30 : 100;
-+            return player.getDestroySpeed(state, pos) / destroySpeed / (float)i;
++            return lagCompensation(player.getDestroySpeed(state, pos) / destroySpeed / (float)i, player); // DivineMC - Lag compensation
          }
      }
  
@@ -80,17 +121,128 @@
      protected ItemStack getCloneItemStack(LevelReader level, BlockPos pos, BlockState state, boolean includeData) {
          return new ItemStack(this.asItem());
      }
-@@ -404,6 +_,10 @@
+@@ -404,7 +_,11 @@
          return this.properties.destroyTime;
      }
  
+-    public abstract static class BlockStateBase extends StateHolder<Block, BlockState> implements TypedInstance<Block> {
 +    protected boolean isAir(BlockState state) {
 +        return ((BlockStateBase)state).isAir;
 +    }
 +
-     public abstract static class BlockStateBase extends StateHolder<Block, BlockState> implements TypedInstance<Block> {
++    public abstract static class BlockStateBase extends StateHolder<Block, BlockState> implements TypedInstance<Block>, ca.spottedleaf.moonrise.patches.starlight.blockstate.StarlightAbstractBlockState, ca.spottedleaf.moonrise.patches.collisions.block.CollisionBlockState { // Paper - rewrite chunk system // Paper - optimise collisions
          private static final Direction[] DIRECTIONS = Direction.values();
          private static final VoxelShape[] EMPTY_OCCLUSION_SHAPES = Util.make(new VoxelShape[DIRECTIONS.length], s -> Arrays.fill(s, Shapes.empty()));
+         private static final VoxelShape[] FULL_BLOCK_OCCLUSION_SHAPES = Util.make(new VoxelShape[DIRECTIONS.length], s -> Arrays.fill(s, Shapes.block()));
+@@ -439,6 +_,76 @@
+         private boolean propagatesSkylightDown;
+         private int lightDampening;
+ 
++        // Paper start - rewrite chunk system
++        private boolean isConditionallyFullOpaque;
++
++        @Override
++        public final boolean starlight$isConditionallyFullOpaque() {
++            return this.isConditionallyFullOpaque;
++        }
++        // Paper end - rewrite chunk system
++        // Paper start - optimise collisions
++        private static final int RANDOM_OFFSET = 704237939;
++        private static final Direction[] DIRECTIONS_CACHED = Direction.values();
++        private static final java.util.concurrent.atomic.AtomicInteger ID_GENERATOR = new java.util.concurrent.atomic.AtomicInteger();
++        private final int id1 = it.unimi.dsi.fastutil.HashCommon.murmurHash3(it.unimi.dsi.fastutil.HashCommon.murmurHash3(ID_GENERATOR.getAndIncrement() + RANDOM_OFFSET) + RANDOM_OFFSET);
++        private final int id2 = it.unimi.dsi.fastutil.HashCommon.murmurHash3(it.unimi.dsi.fastutil.HashCommon.murmurHash3(ID_GENERATOR.getAndIncrement() + RANDOM_OFFSET) + RANDOM_OFFSET);
++        private boolean occludesFullBlock;
++        private boolean emptyCollisionShape;
++        private boolean emptyConstantCollisionShape;
++        private VoxelShape constantCollisionShape;
++
++        private static void initCaches(final VoxelShape shape, final boolean neighbours) {
++            ((ca.spottedleaf.moonrise.patches.collisions.shape.CollisionVoxelShape)shape).moonrise$isFullBlock();
++            ((ca.spottedleaf.moonrise.patches.collisions.shape.CollisionVoxelShape)shape).moonrise$occludesFullBlock();
++            shape.toAabbs();
++            if (!shape.isEmpty()) {
++                shape.bounds();
++            }
++            if (neighbours) {
++                for (final Direction direction : DIRECTIONS_CACHED) {
++                    initCaches(((ca.spottedleaf.moonrise.patches.collisions.shape.CollisionVoxelShape)shape).moonrise$getFaceShapeClamped(direction), false);
++                    initCaches(shape.getFaceShape(direction), false);
++                }
++            }
++        }
++
++        @Override
++        public final boolean moonrise$hasCache() {
++            return this.cache != null;
++        }
++
++        @Override
++        public final boolean moonrise$occludesFullBlock() {
++            return this.occludesFullBlock;
++        }
++
++        @Override
++        public final boolean moonrise$emptyCollisionShape() {
++            return this.emptyCollisionShape;
++        }
++
++        @Override
++        public final boolean moonrise$emptyContextCollisionShape() {
++            return this.emptyConstantCollisionShape;
++        }
++
++        @Override
++        public final int moonrise$uniqueId1() {
++            return this.id1;
++        }
++
++        @Override
++        public final int moonrise$uniqueId2() {
++            return this.id2;
++        }
++
++        @Override
++        public final VoxelShape moonrise$getConstantContextCollisionShape() {
++            return this.constantCollisionShape;
++        }
++        // Paper end - optimise collisions
++
+         protected BlockStateBase(Block owner, Property<?>[] propertyKeys, Comparable<?>[] propertyValues) {
+             super(owner, propertyKeys, propertyValues);
+             BlockBehaviour.Properties properties = owner.properties;
+@@ -463,6 +_,16 @@
+             this.replaceable = properties.replaceable;
+         }
+ 
++        // Paper start - Perf: impl cached craft block data, lazy load to fix issue with loading at the wrong time
++        private org.bukkit.craftbukkit.block.data.@Nullable CraftBlockData cachedBlockData;
++
++        public org.bukkit.craftbukkit.block.data.CraftBlockData asBlockData() {
++            if (this.cachedBlockData == null) this.cachedBlockData = org.bukkit.craftbukkit.block.data.CraftBlockData.createData(this.asState());
++            return (org.bukkit.craftbukkit.block.data.CraftBlockData) this.cachedBlockData.clone();
++        }
++        // Paper end - Perf: impl cached craft block data, lazy load to fix issue with loading at the wrong time
++
++
+         private boolean calculateSolid() {
+             if (this.owner.properties.forceSolidOn) {
+                 return true;
+@@ -481,12 +_,14 @@
+             }
+         }
+ 
++        protected boolean shapeExceedsCube = true; // Paper - moved from actual method to here
+         public void initCache() {
+             this.fluidState = this.owner.getFluidState(this.asState());
+             this.isRandomlyTicking = this.owner.isRandomlyTicking(this.asState());
+             if (!this.getBlock().hasDynamicShape()) {
+                 this.cache = new BlockBehaviour.BlockStateBase.Cache(this.asState());
+             }
++            this.shapeExceedsCube = this.cache == null || this.cache.largeCollisionShape; // Paper - moved from actual method to here
+ 
+             this.legacySolid = this.calculateSolid();
+             this.occlusionShape = this.canOcclude ? this.owner.getOcclusionShape(this.asState()) : Shapes.empty();
 @@ -499,7 +_,12 @@
                  this.occlusionShapesByFace = new VoxelShape[DIRECTIONS.length];
  
@@ -105,21 +257,51 @@
                  }
              }
  
-@@ -555,14 +_,18 @@
+@@ -527,6 +_,12 @@
+             return this.legacySolid;
+         }
+ 
++        // Paper start - Protect Bedrock and End Portal/Frames from being destroyed
++        public final boolean isDestroyable() {
++            return this.getBlock().isDestroyable();
++        }
++        // Paper end - Protect Bedrock and End Portal/Frames from being destroyed
++
+         public boolean isValidSpawn(BlockGetter level, BlockPos pos, EntityType<?> type) {
+             return this.getBlock().properties.isValidSpawn.test(this.asState(), level, pos, type);
+         }
+@@ -547,22 +_,26 @@
+             return this.occlusionShape;
+         }
+ 
+-        public boolean hasLargeCollisionShape() {
+-            return this.cache == null || this.cache.largeCollisionShape;
++        public final boolean hasLargeCollisionShape() { // Paper
++            return this.shapeExceedsCube; // Paper - moved into shape cache init
+         }
+ 
+-        public boolean useShapeForLightOcclusion() {
++        public final boolean useShapeForLightOcclusion() { // Paper - Perf: Final for inlining
              return this.useShapeForLightOcclusion;
          }
  
+-        public int getLightEmission() {
 +        /** @deprecated Neo: Use {@link net.neoforged.neoforge.common.extensions.IBlockStateExtension#getLightEmission(BlockGetter, BlockPos)} instead */
 +        @Deprecated
-         public int getLightEmission() {
++        public final int getLightEmission() {
              return this.lightEmission;
-         }
- 
-         public boolean isAir() {
+-        }
+-
+-        public boolean isAir() {
 -            return this.isAir;
+-        }
+-
++        } // Paper - Perf: Final for inlining
++
++        public final boolean isAir() { // Paper - Perf: Final for inlining
 +            return this.getBlock().isAir((BlockState)this);
-         }
- 
++        }
++
 +        /** @deprecated Neo: Use {@link net.neoforged.neoforge.common.extensions.IBlockStateExtension#ignitedByLava(BlockGetter, BlockPos, Direction)} instead */
 +        @Deprecated
          public boolean ignitedByLava() {
@@ -138,13 +320,23 @@
          public BlockState rotate(Rotation rotation) {
              return this.getBlock().rotate(this.asState(), rotation);
          }
-@@ -629,6 +_,8 @@
+@@ -629,14 +_,16 @@
          }
  
          public PushReaction getPistonPushReaction() {
+-            return this.pushReaction;
 +            PushReaction reaction = getBlock().getPistonPushReaction(asState());
 +            if (reaction != null) return reaction;
-             return this.pushReaction;
++            return !this.isDestroyable() ? PushReaction.BLOCK : this.pushReaction; // Paper - Protect Bedrock and End Portal/Frames from being destroyed
+         }
+ 
+         public boolean isSolidRender() {
+             return this.solidRender;
+         }
+ 
+-        public boolean canOcclude() {
++        public final boolean canOcclude() { // Paper - Perf: Final for inlining
+             return this.canOcclude;
          }
  
 @@ -723,7 +_,13 @@
@@ -162,6 +354,14 @@
          }
  
          public void affectNeighborsAfterRemoval(ServerLevel level, BlockPos pos, boolean movedByPiston) {
+@@ -748,6 +_,7 @@
+ 
+         public void spawnAfterBreak(ServerLevel level, BlockPos pos, ItemStack tool, boolean dropExperience) {
+             this.getBlock().spawnAfterBreak(this.asState(), level, pos, tool, dropExperience);
++            if (dropExperience) this.getBlock().popExperience(level, pos, this.getBlock().getExpDrop(this.asState(), level, pos, tool, true)); // Paper - Properly handle xp dropping
+         }
+ 
+         public List<ItemStack> getDrops(LootParams.Builder params) {
 @@ -755,6 +_,9 @@
          }
  
@@ -170,6 +370,20 @@
 +            var e = net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.entity.player.UseItemOnBlockEvent(useOnContext, net.neoforged.neoforge.event.entity.player.UseItemOnBlockEvent.UsePhase.BLOCK));
 +            if (e.isCanceled()) return e.getCancellationResult();
              return this.getBlock().useItemOn(itemStack, this.asState(), level, hitResult.getBlockPos(), player, hand, hitResult);
+         }
+ 
+@@ -830,11 +_,11 @@
+             return this.getBlock() instanceof EntityBlock ? ((EntityBlock)this.getBlock()).getTicker(level, this.asState(), type) : null;
+         }
+ 
+-        public FluidState getFluidState() {
++        public final FluidState getFluidState() { // Paper - Perf: Final for inlining
+             return this.fluidState;
+         }
+ 
+-        public boolean isRandomlyTicking() {
++        public final boolean isRandomlyTicking() { // Paper - Perf: Final for inlining
+             return this.isRandomlyTicking;
          }
  
 @@ -842,6 +_,7 @@

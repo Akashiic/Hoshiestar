@@ -2546,7 +2546,6 @@ public class CraftPlayer extends CraftHumanEntity implements Player, PluginMessa
     }
     // Paper end - flying fall damage
 
-    @Override
     public void resetFlyingTicks() {
         if (getHandle().connection == null) {
             return;
@@ -3222,7 +3221,7 @@ public class CraftPlayer extends CraftHumanEntity implements Player, PluginMessa
     // Paper start - brand support
     @Override
     public String getClientBrandName() {
-        return getHandle().connection.playerBrand;
+        return getHandle().connection.clientBrand;
     }
     // Paper end
 

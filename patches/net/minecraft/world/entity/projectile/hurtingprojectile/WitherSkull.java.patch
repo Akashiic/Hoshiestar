@@ -1,14 +1,13 @@
 --- a/net/minecraft/world/entity/projectile/hurtingprojectile/WitherSkull.java
 +++ b/net/minecraft/world/entity/projectile/hurtingprojectile/WitherSkull.java
-@@ -24,6 +_,8 @@
- import net.minecraft.world.phys.EntityHitResult;
- import net.minecraft.world.phys.HitResult;
- import net.minecraft.world.phys.Vec3;
-+import org.bukkit.event.entity.EntityRemoveEvent;
-+import org.bukkit.event.entity.ExplosionPrimeEvent;
- 
- public class WitherSkull extends AbstractHurtingProjectile {
-     private static final EntityDataAccessor<Boolean> DATA_DANGEROUS = SynchedEntityData.defineId(WitherSkull.class, EntityDataSerializers.BOOLEAN);
+@@ -12,7 +_,6 @@
+ import net.minecraft.world.entity.Entity;
+ import net.minecraft.world.entity.EntityType;
+ import net.minecraft.world.entity.LivingEntity;
+-import net.minecraft.world.entity.boss.wither.WitherBoss;
+ import net.minecraft.world.item.enchantment.EnchantmentHelper;
+ import net.minecraft.world.level.BlockGetter;
+ import net.minecraft.world.level.Explosion;
 @@ -49,7 +_,7 @@
  
      @Override
@@ -18,7 +17,7 @@
      }
  
      @Override
-@@ -65,7 +_,7 @@
+@@ -65,11 +_,11 @@
                      if (var8.isAlive()) {
                          EnchantmentHelper.doPostAttackEffects(serverLevel, var8, damageSource);
                      } else {
@@ -27,6 +26,11 @@
                      }
                  }
              } else {
+-                wasHurt = var8.hurtServer(serverLevel, this.damageSources().magic(), 5.0F);
++                wasHurt = var8.hurtServer(serverLevel, this.damageSources().magic().eventEntityDamager(this), 5.0F); // Paper - Fire EntityDamageByEntityEvent for unowned wither skulls // Paper - fix DamageSource API
+             }
+ 
+             if (wasHurt && var8 instanceof LivingEntity livingEntity) {
 @@ -81,7 +_,7 @@
                  }
  
@@ -36,21 +40,36 @@
                  }
              }
          }
-@@ -91,8 +_,15 @@
+@@ -91,10 +_,30 @@
      protected void onHit(HitResult hitResult) {
          super.onHit(hitResult);
          if (!this.level().isClientSide()) {
 -            this.level().explode(this, this.getX(), this.getY(), this.getZ(), 1.0F, false, Level.ExplosionInteraction.MOB);
 -            this.discard();
 +            // CraftBukkit start
-+            ExplosionPrimeEvent event = new ExplosionPrimeEvent(this.getBukkitEntity(), 1.0F, false);
-+            this.level().getCraftServer().getPluginManager().callEvent(event);
-+
-+            if (!event.isCancelled()) {
++            org.bukkit.event.entity.ExplosionPrimeEvent event = new org.bukkit.event.entity.ExplosionPrimeEvent(this.getBukkitEntity(), this.level().purpurConfig.witherExplosionRadius, false); // Purpur - Config for wither explosion radius
++            if (event.callEvent()) {
 +                this.level().explode(this, this.getX(), this.getY(), this.getZ(), event.getRadius(), event.getFire(), Level.ExplosionInteraction.MOB);
 +            }
 +            // CraftBukkit end
-+            this.discard(EntityRemoveEvent.Cause.HIT); // CraftBukkit - add Bukkit remove cause
++            this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.HIT); // CraftBukkit - add Bukkit remove cause
          }
      }
++
++    // Purpur start - Add canSaveToDisk to Entity
++    @Override
++    public boolean canSaveToDisk() {
++        return false;
++    }
++    // Purpur end - Add canSaveToDisk to Entity
++
++    // Purpur start - Ridables
++    @Override
++    public boolean canHitEntity(Entity target) {
++        // do not hit rider
++        return target != this.getRider() && super.canHitEntity(target);
++    }
++    // Purpur end - Ridables
  
+     @Override
+     protected void defineSynchedData(SynchedEntityData.Builder entityData) {

@@ -1,6 +1,14 @@
 --- a/net/minecraft/world/item/enchantment/EnchantmentHelper.java
 +++ b/net/minecraft/world/item/enchantment/EnchantmentHelper.java
-@@ -47,7 +_,19 @@
+@@ -1,6 +_,7 @@
+ package net.minecraft.world.item.enchantment;
+ 
+ import com.google.common.collect.Lists;
++import com.mohistmc.youer.feature.ban.bans.BanEnchantment;
+ import com.mojang.datafixers.util.Pair;
+ import it.unimi.dsi.fastutil.objects.Object2IntMap.Entry;
+ import java.util.ArrayList;
+@@ -47,14 +_,32 @@
  import org.jspecify.annotations.Nullable;
  
  public class EnchantmentHelper {
@@ -20,6 +28,20 @@
          ItemEnchantments enchantments = piece.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
          return enchantments.getLevel(enchantment);
      }
+ 
+     public static ItemEnchantments updateEnchantments(ItemStack itemStack, Consumer<ItemEnchantments.Mutable> consumer) {
++        // Paper start - allowing updating enchantments on items without component
++        return updateEnchantments(itemStack, consumer, false);
++    }
++
++    public static ItemEnchantments updateEnchantments(final ItemStack itemStack, final Consumer<ItemEnchantments.Mutable> consumer, final boolean createComponentIfMissing) {
++        // Paper end - allowing updating enchantments on items without component
+         DataComponentType<ItemEnchantments> componentType = getComponentType(itemStack);
+-        ItemEnchantments oldEnchantments = itemStack.get(componentType);
++        ItemEnchantments oldEnchantments = createComponentIfMissing ? itemStack.getOrDefault(componentType, ItemEnchantments.EMPTY) : itemStack.get(componentType); // Paper - allowing updating enchantments on items without component
+         if (oldEnchantments == null) {
+             return ItemEnchantments.EMPTY;
+         } else {
 @@ -127,6 +_,12 @@
      public static void runIterationOnItem(ItemStack piece, EnchantmentHelper.EnchantmentVisitor method) {
          ItemEnchantments enchantments = piece.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
@@ -81,6 +103,17 @@
          for (Entry<Holder<Enchantment>> entry : enchantments.entrySet()) {
              Holder<Enchantment> enchantment = entry.getKey();
              if (enchantment.is(tag)) {
+@@ -520,7 +_,9 @@
+         }
+ 
+         for (EnchantmentInstance enchant : enchants) {
+-            itemStack.enchant(enchant.enchantment(), enchant.level());
++            if (!BanEnchantment.check(itemStack)) {
++                itemStack.enchant(enchant.enchantment(), enchant.level());
++            }
+         }
+ 
+         return itemStack;
 @@ -574,7 +_,9 @@
      public static List<EnchantmentInstance> getAvailableEnchantmentResults(int value, ItemStack itemStack, Stream<Holder<Enchantment>> source) {
          List<EnchantmentInstance> results = Lists.newArrayList();
@@ -92,3 +125,62 @@
              Enchantment enchantment = holder.value();
  
              for (int level = enchantment.getMaxLevel(); level >= enchantment.getMinLevel(); level--) {
+@@ -605,4 +_,58 @@
+     public interface EnchantmentVisitor {
+         void accept(Holder<Enchantment> enchantment, int level);
+     }
++
++    // Purpur start - Enchantment convenience methods
++    public static Holder.Reference<Enchantment> getEnchantmentHolder(ResourceKey<Enchantment> enchantment) {
++        return net.minecraft.server.MinecraftServer.getServer().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(enchantment);
++    }
++
++    public static int getItemEnchantmentLevel(ResourceKey<Enchantment> enchantment, ItemStack stack) {
++        return getItemEnchantmentLevel(getEnchantmentHolder(enchantment), stack);
++    }
++    // Purpur end - Enchantment convenience methods
++
++    // Purpur start - Add option to mend the most damaged equipment first
++    public static Optional<EnchantedItemInUse> getMostDamagedItemWith(DataComponentType<?> componentType, LivingEntity entity) {
++        ItemStack maxStack = null;
++        EquipmentSlot maxSlot = null;
++        float maxPercent = 0.0F;
++
++        equipmentSlotLoop:
++        for (EquipmentSlot equipmentSlot : EquipmentSlot.values()) {
++            ItemStack stack = entity.getItemBySlot(equipmentSlot);
++
++            // do not even check enchantments for item with lower or equal damage percent
++            float percent = stack.getDamagePercent();
++            if (percent <= maxPercent) {
++                continue;
++            }
++
++            ItemEnchantments itemEnchantments = stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
++
++            for (Entry<Holder<Enchantment>> entry : itemEnchantments.entrySet()) {
++                Enchantment enchantment = entry.getKey().value();
++
++                net.minecraft.core.component.DataComponentMap effects = enchantment.effects();
++                if (!effects.has(componentType)) {
++                    // try with another enchantment
++                    continue;
++                }
++
++                if (enchantment.matchingSlot(equipmentSlot)) {
++                    maxStack = stack;
++                    maxSlot = equipmentSlot;
++                    maxPercent = percent;
++
++                    // check another slot now
++                    continue equipmentSlotLoop;
++                }
++            }
++        }
++
++        return maxStack != null
++                ? Optional.of(new EnchantedItemInUse(maxStack, maxSlot, entity))
++                : Optional.empty();
++    }
++    // Purpur end - Add option to mend the most damaged equipment first
+ }

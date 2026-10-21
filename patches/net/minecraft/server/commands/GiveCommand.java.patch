@@ -1,11 +1,108 @@
 --- a/net/minecraft/server/commands/GiveCommand.java
 +++ b/net/minecraft/server/commands/GiveCommand.java
-@@ -62,7 +_,7 @@
-                     ItemStack copyToDrop = prototypeItemStack.copyWithCount(size);
-                     boolean added = player.getInventory().add(copyToDrop);
-                     if (added && copyToDrop.isEmpty()) {
+@@ -52,57 +_,56 @@
+         if (count > maxAllowedCount) {
+             source.sendFailure(Component.translatable("commands.give.failed.toomanyitems", maxAllowedCount, prototypeItemStack.getDisplayName()));
+             return 0;
+-        } else {
+-            for (ServerPlayer player : players) {
+-                int remaining = count;
+-
+-                while (remaining > 0) {
+-                    int size = Math.min(maxStackSize, remaining);
+-                    remaining -= size;
+-                    ItemStack copyToDrop = prototypeItemStack.copyWithCount(size);
+-                    boolean added = player.getInventory().add(copyToDrop);
+-                    if (added && copyToDrop.isEmpty()) {
 -                        ItemEntity drop = player.drop(prototypeItemStack.copy(), false);
-+                        ItemEntity drop = player.drop(prototypeItemStack.copy(), false, false, false); // CraftBukkit - SPIGOT-2942: Add boolean to call event
-                         if (drop != null) {
-                             drop.makeFakeItem();
-                         }
+-                        if (drop != null) {
+-                            drop.makeFakeItem();
+-                        }
+-
+-                        player.level()
+-                            .playSound(
+-                                null,
+-                                player.getX(),
+-                                player.getY(),
+-                                player.getZ(),
+-                                SoundEvents.ITEM_PICKUP,
+-                                SoundSource.PLAYERS,
+-                                0.2F,
+-                                ((player.getRandom().nextFloat() - player.getRandom().nextFloat()) * 0.7F + 1.0F) * 2.0F
+-                            );
+-                        player.containerMenu.broadcastChanges();
+-                    } else {
+-                        ItemEntity drop = player.drop(copyToDrop, false);
+-                        if (drop != null) {
+-                            drop.setNoPickUpDelay();
+-                            drop.setTarget(player.getUUID());
+-                        }
++        }
++
++        for (ServerPlayer player : players) {
++            int remaining = count;
++
++            while (remaining > 0) {
++                int size = Math.min(maxStackSize, remaining);
++                remaining -= size;
++                ItemStack copyToDrop = prototypeItemStack.copyWithCount(size);
++                boolean added = player.getInventory().add(copyToDrop);
++                if (org.purpurmc.purpur.PurpurConfig.disableGiveCommandDrops) continue; // Purpur - add config option for toggling give command dropping
++                if (added && copyToDrop.isEmpty()) {
++                    ItemEntity drop = player.drop(prototypeItemStack.copy(), false, false, false, null); // Paper - do not fire PlayerDropItemEvent for /give command
++                    if (drop != null) {
++                        drop.makeFakeItem();
++                    }
++
++                    player.level()
++                        .playSound(
++                            null,
++                            player.getX(),
++                            player.getY(),
++                            player.getZ(),
++                            SoundEvents.ITEM_PICKUP,
++                            SoundSource.PLAYERS,
++                            0.2F,
++                            ((player.getRandom().nextFloat() - player.getRandom().nextFloat()) * 0.7F + 1.0F) * 2.0F
++                        );
++                    player.containerMenu.broadcastChanges();
++                } else {
++                    ItemEntity drop = player.drop(copyToDrop, false, false, false, null); // Paper - do not fire PlayerDropItemEvent for /give command
++                    if (drop != null) {
++                        drop.setNoPickUpDelay();
++                        drop.setTarget(player.getUUID());
+                     }
+                 }
+             }
+-
+-            if (players.size() == 1) {
+-                source.sendSuccess(
+-                    () -> Component.translatable(
+-                        "commands.give.success.single", count, prototypeItemStack.getDisplayName(), players.iterator().next().getDisplayName()
+-                    ),
+-                    true
+-                );
+-            } else {
+-                source.sendSuccess(
+-                    () -> Component.translatable("commands.give.success.single", count, prototypeItemStack.getDisplayName(), players.size()), true
+-                );
+-            }
+-
+-            return players.size();
+-        }
++        }
++
++        if (players.size() == 1) {
++            source.sendSuccess(
++                () -> Component.translatable(
++                    "commands.give.success.single", count, prototypeItemStack.getDisplayName(), players.iterator().next().getDisplayName()
++                ),
++                true
++            );
++        } else {
++            source.sendSuccess(() -> Component.translatable("commands.give.success.multiple", count, prototypeItemStack.getDisplayName(), players.size()), true); // Paper - MC-151857 - correct translation key
++        }
++
++        return players.size();
+     }
+ }

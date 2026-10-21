@@ -10,7 +10,7 @@
              throw ERROR_ALREADY_SAME_DIFFICULTY.create(difficulty.getSerializedName());
          } else {
 -            server.setDifficulty(difficulty, true);
-+            worldServer.serverLevelData.setDifficulty(difficulty); // CraftBukkit
++            server.setDifficulty(source.getLevel(), difficulty, source, true); // Paper - per level difficulty; don't skip other difficulty-changing logic (fix upstream's fix); WorldDifficultyChangeEvent
              source.sendSuccess(() -> Component.translatable("commands.difficulty.success", difficulty.getDisplayName()), true);
              return 0;
          }

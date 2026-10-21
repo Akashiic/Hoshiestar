@@ -1,6 +1,6 @@
 --- a/net/minecraft/core/MappedRegistry.java
 +++ b/net/minecraft/core/MappedRegistry.java
-@@ -30,7 +_,7 @@
+@@ -30,26 +_,47 @@
  import net.minecraft.util.Util;
  import org.jspecify.annotations.Nullable;
  
@@ -8,7 +8,52 @@
 +public class MappedRegistry<T> extends net.neoforged.neoforge.registries.BaseMappedRegistry<T> implements WritableRegistry<T> {
      private final ResourceKey<? extends Registry<T>> key;
      private final ObjectList<Holder.Reference<T>> byId = new ObjectArrayList<>(256);
-     private final Reference2IntMap<T> toId = Util.make(new Reference2IntOpenHashMap<>(), t -> t.defaultReturnValue(-1));
+-    private final Reference2IntMap<T> toId = Util.make(new Reference2IntOpenHashMap<>(), t -> t.defaultReturnValue(-1));
+-    private final Map<Identifier, Holder.Reference<T>> byLocation = new HashMap<>();
+-    private final Map<ResourceKey<T>, Holder.Reference<T>> byKey = new HashMap<>();
+-    private final Map<T, Holder.Reference<T>> byValue = new IdentityHashMap<>();
+-    private final Map<ResourceKey<T>, RegistrationInfo> registrationInfos = new IdentityHashMap<>();
++    private final Reference2IntMap<T> toId = Util.make(new Reference2IntOpenHashMap<>(2048), t -> t.defaultReturnValue(-1)); // Paper - Perf: Use bigger expected size to reduce collisions
++    private final Map<Identifier, Holder.Reference<T>> byLocation = new HashMap<>(2048); // Paper - Perf: Use bigger expected size to reduce collisions
++    private final Map<ResourceKey<T>, Holder.Reference<T>> byKey = new HashMap<>(2048); // Paper - Perf: Use bigger expected size to reduce collisions
++    private final Map<T, Holder.Reference<T>> byValue = new IdentityHashMap<>(2048); // Paper - Perf: Use bigger expected size to reduce collisions
++    private final Map<ResourceKey<T>, RegistrationInfo> registrationInfos = new IdentityHashMap<>(2048); // Paper - Perf: Use bigger expected size to reduce collisions
+     private Lifecycle registryLifecycle;
+     private final Map<TagKey<T>, HolderSet.Named<T>> frozenTags = new IdentityHashMap<>();
+     private MappedRegistry.TagSet<T> allTags = MappedRegistry.TagSet.unbound();
+     private @Nullable DataComponentLookup<T> componentLookup;
+     private boolean frozen;
+     private @Nullable Map<T, Holder.Reference<T>> unregisteredIntrusiveHolders;
++    // Paper start - support pre-filling in registry mod API
++    private final Map<Identifier, T> temporaryUnfrozenMap = new HashMap<>();
++
++    @Override
++    public Optional<T> getValueForCopying(final ResourceKey<T> resourceKey) {
++        return this.frozen ? this.getOptional(resourceKey) : Optional.ofNullable(this.temporaryUnfrozenMap.get(resourceKey.identifier()));
++    }
++    // Paper end - support pre-filling in registry mod API
+ 
+     @Override
+     public Stream<HolderSet.Named<T>> listTags() {
+         return this.getTags();
+     }
+ 
++    // Paper start - fluid method optimisations
++    private void injectFluidRegister(
++            final ResourceKey<?> resourceKey,
++            final T object
++    ) {
++        if (resourceKey.registryKey() == (Object)net.minecraft.core.registries.Registries.FLUID) {
++            for (final net.minecraft.world.level.material.FluidState possibleState : ((net.minecraft.world.level.material.Fluid)object).getStateDefinition().getPossibleStates()) {
++                ((ca.spottedleaf.moonrise.patches.fluid.FluidFluidState)(Object)possibleState).moonrise$initCaches();
++            }
++        }
++    }
++    // Paper end - fluid method optimisations
++
+     public MappedRegistry(ResourceKey<? extends Registry<T>> key, Lifecycle lifecycle) {
+         this(key, lifecycle, false);
+     }
 @@ -86,9 +_,17 @@
  
      @Override
@@ -27,7 +72,7 @@
          if (this.byLocation.containsKey(key.identifier())) {
              throw (IllegalStateException)Util.pauseInIde(new IllegalStateException("Adding duplicate key '" + key + "' to registry"));
          } else if (this.byValue.containsKey(value)) {
-@@ -104,16 +_,18 @@
+@@ -104,16 +_,20 @@
                  holder.bindKey(key);
              } else {
                  holder = this.byKey.computeIfAbsent(key, k -> Holder.Reference.createStandAlone(this, (ResourceKey<T>)k));
@@ -44,6 +89,8 @@
              this.registrationInfos.put(key, registrationInfo);
              this.registryLifecycle = this.registryLifecycle.add(registrationInfo.lifecycle());
 +            this.addCallbacks.forEach(addCallback -> addCallback.onAdd(this, newId, key, value));
++            this.temporaryUnfrozenMap.put(key.identifier(), value); // Paper - support pre-filling in registry mod API
++            this.injectFluidRegister(key, value); // Paper - fluid method optimisations
              return holder;
          }
      }
@@ -96,7 +143,7 @@
          return getValueFromNullable(result);
      }
  
-@@ -269,13 +_,23 @@
+@@ -269,13 +_,24 @@
          return Objects.requireNonNull(this.componentLookup, "Registry not frozen yet");
      }
  
@@ -118,6 +165,7 @@
          } else {
              this.frozen = true;
 -            this.byValue.forEach((value, holder) -> holder.bindValue((T)value));
++        this.temporaryUnfrozenMap.clear(); // Paper - support pre-filling in registry mod API
              List<Identifier> unboundEntries = this.byKey
                  .entrySet()
                  .stream()
@@ -152,12 +200,10 @@
                  @Override
                  public void apply() {
                      pendingTags.forEach((id, tag) -> {
-@@ -463,6 +_,55 @@
-                 }
-             };
+@@ -465,6 +_,55 @@
          }
-+    }
-+
+     }
+ 
 +    @Override
 +    protected void clear(boolean full) {
 +        this.validateWrite();
@@ -205,6 +251,22 @@
 +    @Override
 +    public boolean containsValue(T value) {
 +        return byValue.containsKey(value);
-     }
- 
++    }
++
      private interface TagSet<T> {
+         static <T> MappedRegistry.TagSet<T> unbound() {
+             return new MappedRegistry.TagSet<T>() {
+@@ -522,4 +_,13 @@
+ 
+         Stream<HolderSet.Named<T>> getTags();
+     }
++
++    // Paper start
++    // used to clear intrusive holders from GameEvent, Item, Block, EntityType, and Fluid from unused instances of those types
++    public void clearIntrusiveHolder(final T instance) {
++        if (this.unregisteredIntrusiveHolders != null) {
++            this.unregisteredIntrusiveHolders.remove(instance);
++        }
++    }
++    // Paper end
+ }

@@ -7,12 +7,12 @@ import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
-public class FlyingWithSpacebarMoveControllerWASD<T extends Mob> extends FlyingMoveControllerWASD<T> {
-    public FlyingWithSpacebarMoveControllerWASD(T entity) {
+public class FlyingWithSpacebarMoveControllerWASD extends FlyingMoveControllerWASD {
+    public FlyingWithSpacebarMoveControllerWASD(Mob entity) {
         super(entity);
     }
 
-    public FlyingWithSpacebarMoveControllerWASD(T entity, float groundSpeedModifier) {
+    public FlyingWithSpacebarMoveControllerWASD(Mob entity, float groundSpeedModifier) {
         super(entity, groundSpeedModifier);
     }
 

@@ -16,19 +16,45 @@
  import org.jspecify.annotations.Nullable;
  
  public class Armadillo extends Animal {
-@@ -144,10 +_,12 @@
-         ArmadilloAi.updateActivity(this);
-         profiler.pop();
-         if (this.isAlive() && --this.scuteTime <= 0 && this.shouldDropLoot(level)) {
-+            this.forceDrops = true; // CraftBukkit
-             if (this.dropFromGiftLootTable(level, BuiltInLootTables.ARMADILLO_SHED, this::spawnAtLocation)) {
-                 this.playSound(SoundEvents.ARMADILLO_SCUTE_DROP, 1.0F, (this.random.nextFloat() - this.random.nextFloat()) * 0.2F + 1.0F);
-                 this.gameEvent(GameEvent.ENTITY_PLACE);
-             }
-+            this.forceDrops = false; // CraftBukkit
+@@ -89,6 +_,38 @@
+         return Animal.createAnimalAttributes().add(Attributes.MAX_HEALTH, 12.0).add(Attributes.MOVEMENT_SPEED, 0.14);
+     }
  
-             this.scuteTime = this.pickNextScuteDropTime();
-         }
++    // Purpur start - Ridables
++    @Override
++    public boolean isRidable() {
++        return level().purpurConfig.armadilloRidable;
++    }
++
++    @Override
++    public boolean dismountsUnderwater() {
++        return level().purpurConfig.useDismountsUnderwaterTag ? super.dismountsUnderwater() : !level().purpurConfig.armadilloRidableInWater;
++    }
++
++    @Override
++    public boolean isControllable() {
++        return level().purpurConfig.armadilloControllable;
++    }
++    // Purpur end - Ridables
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.armadilloMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.armadilloScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Make entity breeding times configurable
++    @Override
++    public int getPurpurBreedTime() {
++        return this.level().purpurConfig.armadilloBreedingTicks;
++    }
++    // Purpur end - Make entity breeding times configurable
++
+     @Override
+     protected void defineSynchedData(SynchedEntityData.Builder entityData) {
+         super.defineSynchedData(entityData);
 @@ -289,8 +_,13 @@
      }
  
@@ -62,13 +88,3 @@
              itemStack.hurtAndBreak(16, player, hand.asEquipmentSlot());
              return InteractionResult.SUCCESS;
          } else {
-@@ -319,7 +_,9 @@
-             return false;
-         } else {
-             if (this.level() instanceof ServerLevel level) {
-+                this.forceDrops = true; // CraftBukkit
-                 this.dropFromEntityInteractLootTable(level, BuiltInLootTables.ARMADILLO_BRUSH, interactingEntity, tool, this::spawnAtLocation);
-+                this.forceDrops = false; // CraftBukkit
-                 this.playSound(SoundEvents.ARMADILLO_BRUSH);
-                 this.gameEvent(GameEvent.ENTITY_INTERACT);
-             }

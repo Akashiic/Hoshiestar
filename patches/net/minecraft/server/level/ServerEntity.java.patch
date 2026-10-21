@@ -1,36 +1,60 @@
 --- a/net/minecraft/server/level/ServerEntity.java
 +++ b/net/minecraft/server/level/ServerEntity.java
-@@ -70,7 +_,12 @@
+@@ -65,12 +_,14 @@
+     private Vec3 lastSentMovement;
+     private int tickCount;
+     private int teleportDelay;
+-    private List<Entity> lastPassengers = Collections.emptyList();
++    private List<Entity> lastPassengers = com.google.common.collect.ImmutableList.of(); // Paper - optimize passenger checks
+     private boolean wasRiding;
      private boolean wasOnGround;
      private @Nullable List<SynchedEntityData.DataValue<?>> trackedDataValues;
++    private final Set<net.minecraft.server.network.ServerPlayerConnection> trackedPlayers; // Paper
  
 -    public ServerEntity(ServerLevel level, Entity entity, int updateInterval, boolean trackDelta, ServerEntity.Synchronizer synchronizer) {
-+    // CraftBukkit start
-+    private final Set<net.minecraft.server.network.ServerPlayerConnection> trackedPlayers;
-+
 +    public ServerEntity(ServerLevel level, Entity entity, int updateInterval, boolean trackDelta, ServerEntity.Synchronizer synchronizer, Set<net.minecraft.server.network.ServerPlayerConnection> trackedPlayers) {
-+        this.trackedPlayers = trackedPlayers;
-+        // CraftBukkit end
++        this.trackedPlayers = trackedPlayers; // Paper
          this.level = level;
          this.synchronizer = synchronizer;
          this.entity = entity;
-@@ -90,19 +_,20 @@
+@@ -85,24 +_,42 @@
+         this.trackedDataValues = entity.getEntityData().getNonDefaultValues();
+     }
+ 
++    // Paper start - fix desync when a player is added to the tracker
++    private boolean forceStateResync;
++    public void onPlayerAdd() {
++        this.forceStateResync = true;
++    }
++    // Paper end - fix desync when a player is added to the tracker
++
+     public void sendChanges() {
++        // Paper start - optimise collisions
++        if (((ca.spottedleaf.moonrise.patches.chunk_system.entity.ChunkSystemEntity)this.entity).moonrise$isHardColliding()) {
++            this.teleportDelay = 9999;
++        }
++        // Paper end - optimise collisions
+         this.entity.updateDataBeforeSync();
          List<Entity> passengers = this.entity.getPassengers();
          if (!passengers.equals(this.lastPassengers)) {
              this.synchronizer
--                .sendToTrackingPlayersFiltered(
-+                .sendToTrackingPlayersFilteredAndSelf(
+                 .sendToTrackingPlayersFiltered(
                      new ClientboundSetPassengersPacket(this.entity), player -> passengers.contains(player) == this.lastPassengers.contains(player)
 -                );
-+                ); // CraftBukkit
++            );
++            // Paper start - Allow riding players
++            if (this.entity instanceof ServerPlayer player) {
++                player.connection.send(new ClientboundSetPassengersPacket(this.entity));
++            }
++            // Paper end - Allow riding players
              this.lastPassengers = passengers;
          }
  
 -        if (this.entity instanceof ItemFrame frame && this.tickCount % 10 == 0) {
-+        if (this.entity instanceof ItemFrame frame) { // CraftBukkit - Moved below, should always enter this block
++        if (!this.trackedPlayers.isEmpty() && this.entity instanceof ItemFrame frame /*&& this.tickCount % 10 == 0*/) { // CraftBukkit - moved tickCount below // Paper - Perf: Only tick item frames if players can see it
              ItemStack itemStack = frame.getItem();
 -            if (itemStack.getItem() instanceof MapItem) {
-+            if (this.tickCount % 10 == 0 && itemStack.getItem() instanceof MapItem) { // CraftBukkit - Moved this.tickCounter % 10 logic here so item frames do not enter the other blocks
++            if (this.level.paperConfig().maps.itemFrameCursorUpdateInterval > 0 && this.tickCount % this.level.paperConfig().maps.itemFrameCursorUpdateInterval == 0 && itemStack.getItem() instanceof MapItem) { // CraftBukkit - Moved this.tickCounter % 10 logic here so item frames do not enter the other blocks // Paper - Make item frame map cursor update interval configurable
                  MapId id = itemStack.get(DataComponents.MAP_ID);
 -                MapItemSavedData data = MapItem.getSavedData(id, this.level);
 +                MapItemSavedData data = MapItem.getSavedData(itemStack, this.level);
@@ -41,7 +65,63 @@
                          data.tickCarriedBy(player, itemStack, frame);
                          Packet<?> packet = data.getUpdatePacket(id, player);
                          if (packet != null) {
-@@ -216,6 +_,27 @@
+@@ -115,7 +_,7 @@
+             this.sendDirtyEntityData();
+         }
+ 
+-        if (this.tickCount % this.updateInterval == 0 || this.entity.needsSync || this.entity.getEntityData().isDirty()) {
++        if (this.forceStateResync || this.tickCount % this.updateInterval == 0 || this.entity.needsSync || this.entity.getEntityData().isDirty()) { // Paper - fix desync when a player is added to the tracker
+             byte yRotn = Mth.packDegrees(this.entity.getYRot());
+             byte xRotn = Mth.packDegrees(this.entity.getXRot());
+             boolean shouldSendRotation = Math.abs(yRotn - this.lastSentYRot) >= 1 || Math.abs(xRotn - this.lastSentXRot) >= 1;
+@@ -134,7 +_,13 @@
+             } else {
+                 this.teleportDelay++;
+                 Vec3 currentPosition = this.entity.trackingPosition();
+-                boolean positionChanged = this.positionCodec.delta(currentPosition).lengthSqr() >= 7.6293945E-6F;
++                // Paper start - reduce allocation of Vec3D here
++                Vec3 base = this.positionCodec.base;
++                double vec3_dx = currentPosition.x - base.x;
++                double vec3_dy = currentPosition.y - base.y;
++                double vec3_dz = currentPosition.z - base.z;
++                boolean positionChanged = (vec3_dx * vec3_dx + vec3_dy * vec3_dy + vec3_dz * vec3_dz) >= 7.62939453125E-6D;
++                // Paper end - reduce allocation of Vec3D here
+                 Packet<ClientGamePacketListener> packet = null;
+                 boolean pos = positionChanged || this.tickCount % 60 == 0;
+                 boolean sentPosition = false;
+@@ -143,7 +_,7 @@
+                 long ya = this.positionCodec.encodeY(currentPosition);
+                 long za = this.positionCodec.encodeZ(currentPosition);
+                 boolean deltaTooBig = xa < -32768L || xa > 32767L || ya < -32768L || ya > 32767L || za < -32768L || za > 32767L;
+-                if (this.entity.getRequiresPrecisePosition()
++                if (this.forceStateResync || this.entity.getRequiresPrecisePosition() // Paper - fix desync when a player is added to the tracker
+                     || deltaTooBig
+                     || this.teleportDelay > 400
+                     || this.wasRiding
+@@ -169,7 +_,8 @@
+ 
+                 if (this.entity.needsSync || this.trackDelta || this.entity instanceof LivingEntity && ((LivingEntity)this.entity).isFallFlying()) {
+                     Vec3 movement = this.entity.getDeltaMovement();
+-                    double diff = movement.distanceToSqr(this.lastSentMovement);
++                    if (movement != this.lastSentMovement) { // SparklyPaper start - skip distanceToSqr call in ServerEntity#sendChanges if the delta movement hasn't changed
++                        double diff = movement.distanceToSqr(this.lastSentMovement);
+                     if (diff > 1.0E-7 || diff > 0.0 && movement.lengthSqr() == 0.0) {
+                         this.lastSentMovement = movement;
+                         if (this.entity instanceof AbstractHurtingProjectile projectile) {
+@@ -186,6 +_,7 @@
+                             this.synchronizer.sendToTrackingPlayers(new ClientboundSetEntityMotionPacket(this.entity.getId(), this.lastSentMovement));
+                         }
+                     }
++                    } // SparklyPaper end
+                 }
+ 
+                 if (packet != null) {
+@@ -212,10 +_,30 @@
+             }
+ 
+             this.entity.needsSync = false;
++            this.forceStateResync = false; // Paper - fix desync when a player is added to the tracker
+         }
  
          this.tickCount++;
          if (this.entity.hurtMarked) {
@@ -53,9 +133,7 @@
 +                org.bukkit.util.Vector velocity = player.getVelocity();
 +
 +                org.bukkit.event.player.PlayerVelocityEvent event = new org.bukkit.event.player.PlayerVelocityEvent(player, velocity.clone());
-+                this.entity.level().getCraftServer().getPluginManager().callEvent(event);
-+
-+                if (event.isCancelled()) {
++                if (!event.callEvent()) {
 +                    cancelled = true;
 +                } else if (!velocity.equals(event.getVelocity())) {
 +                    player.setVelocity(event.getVelocity());
@@ -112,11 +190,14 @@
              if (!attributes.isEmpty()) {
                  broadcast.accept(new ClientboundUpdateAttributesPacket(this.entity.getId(), attributes));
              }
-@@ -296,6 +_,7 @@
-             if (!slots.isEmpty()) {
-                 broadcast.accept(new ClientboundSetEquipmentPacket(this.entity.getId(), slots));
+@@ -294,8 +_,9 @@
              }
-+            ((LivingEntity) this.entity).detectEquipmentUpdatesPublic(); // CraftBukkit - SPIGOT-3789: sync again immediately after sending
+ 
+             if (!slots.isEmpty()) {
+-                broadcast.accept(new ClientboundSetEquipmentPacket(this.entity.getId(), slots));
++                broadcast.accept(new ClientboundSetEquipmentPacket(this.entity.getId(), slots, true)); // Paper - data sanitization
+             }
++            ((LivingEntity) this.entity).detectEquipmentUpdates(); // CraftBukkit - SPIGOT-3789: sync again immediately after sending
          }
  
          if (!this.entity.getPassengers().isEmpty()) {
@@ -141,11 +222,3 @@
                  this.synchronizer.sendToTrackingPlayersAndSelf(new ClientboundUpdateAttributesPacket(this.entity.getId(), attributes));
              }
  
-@@ -355,5 +_,7 @@
-         void sendToTrackingPlayersAndSelf(Packet<? super ClientGamePacketListener> packet);
- 
-         void sendToTrackingPlayersFiltered(Packet<? super ClientGamePacketListener> packet, Predicate<ServerPlayer> predicate);
-+
-+        void sendToTrackingPlayersFilteredAndSelf(Packet<? super ClientGamePacketListener> packet, Predicate<ServerPlayer> predicate); // CraftBukkit
-     }
- }

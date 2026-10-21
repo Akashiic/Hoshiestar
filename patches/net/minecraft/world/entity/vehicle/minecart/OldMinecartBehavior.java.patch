@@ -39,12 +39,14 @@
          switch (shape) {
              case ASCENDING_EAST:
                  this.setDeltaMovement(movement.add(-slideSpeed, 0.0, 0.0));
-@@ -243,7 +_,7 @@
+@@ -242,8 +_,8 @@
+             Vec3 vec3 = this.getDeltaMovement();
              double speedLength = vec3.horizontalDistance();
              if (speedLength > 0.01) {
-                 double speed = 0.06;
+-                double speed = 0.06;
 -                this.setDeltaMovement(vec3.add(vec3.x / speedLength * 0.06, 0.0, vec3.z / speedLength * 0.06));
-+                this.setDeltaMovement(vec3.add(vec3.x / speedLength * 0.06 * minecart.powRailAccelMult, 0.0, vec3.z / speedLength * 0.06 * minecart.powRailAccelMult)); // CraftBukkit - added acceleration multiplier
++                double speed = level.purpurConfig.poweredRailBoostModifier; // Purpur - Configurable powered rail boost modifier
++                this.setDeltaMovement(vec3.add(vec3.x / speedLength * level.purpurConfig.poweredRailBoostModifier, 0.0, vec3.z / speedLength * level.purpurConfig.poweredRailBoostModifier)); // Purpur - Configurable powered rail boost modifier
              } else {
                  Vec3 deltaMovement = this.getDeltaMovement();
                  double dx = deltaMovement.x;
@@ -74,7 +76,7 @@
              Pair<Vec3i, Vec3i> exits = AbstractMinecart.exits(shape);
              Vec3i exit0 = exits.getFirst();
              Vec3i exit1 = exits.getSecond();
-@@ -375,8 +_,26 @@
+@@ -375,16 +_,42 @@
                          && !(entity instanceof AbstractMinecart)
                          && !this.minecart.isVehicle()
                          && !entity.isPassenger()) {
@@ -101,22 +103,26 @@
                          entity.push(this.minecart);
                      }
                  }
-@@ -384,6 +_,14 @@
+             }
          } else {
-             for (Entity entityx : this.level().getEntities(this.minecart, hitbox)) {
-                 if (!this.minecart.hasPassenger(entityx) && entityx.isPushable() && entityx instanceof AbstractMinecart) {
+-            for (Entity entityx : this.level().getEntities(this.minecart, hitbox)) {
+-                if (!this.minecart.hasPassenger(entityx) && entityx.isPushable() && entityx instanceof AbstractMinecart) {
+-                    entityx.push(this.minecart);
++            for (Entity entity : this.level().getEntities(this.minecart, hitbox)) {
++                if (!this.minecart.hasPassenger(entity) && entity.isPushable() && entity instanceof AbstractMinecart) {
 +                    // CraftBukkit start
-+                    VehicleEntityCollisionEvent collisionEvent = new VehicleEntityCollisionEvent((Vehicle) this.minecart.getBukkitEntity(), entityx.getBukkitEntity());
++                    VehicleEntityCollisionEvent collisionEvent = new VehicleEntityCollisionEvent((Vehicle) this.minecart.getBukkitEntity(), entity.getBukkitEntity());
 +                    this.level().getCraftServer().getPluginManager().callEvent(collisionEvent);
 +
 +                    if (collisionEvent.isCancelled()) {
 +                        continue;
 +                    }
 +                    // CraftBukkit end
-                     entityx.push(this.minecart);
++                    entity.push(this.minecart);
                  }
              }
-@@ -406,11 +_,17 @@
+         }
+@@ -406,11 +_,18 @@
  
      @Override
      public double getMaxSpeed(ServerLevel level) {
@@ -132,6 +138,7 @@
      @Override
      public double getSlowdownFactor() {
 -        return this.minecart.isVehicle() ? 0.997 : 0.96;
++        if (this.minecart.frictionState == net.kyori.adventure.util.TriState.FALSE) return 1; // Paper
 +        return this.minecart.isVehicle() || !this.minecart.slowWhenEmpty ? 0.997D : 0.96D; // CraftBukkit - add !this.slowWhenEmpty
      }
  }

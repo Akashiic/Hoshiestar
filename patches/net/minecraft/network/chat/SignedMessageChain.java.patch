@@ -1,0 +1,109 @@
+--- a/net/minecraft/network/chat/SignedMessageChain.java
++++ b/net/minecraft/network/chat/SignedMessageChain.java
+@@ -2,7 +_,6 @@
+ 
+ import com.mojang.logging.LogUtils;
+ import java.time.Instant;
+-import java.util.Objects;
+ import java.util.UUID;
+ import java.util.function.BooleanSupplier;
+ import net.minecraft.util.SignatureValidator;
+@@ -25,49 +_,49 @@
+             SignedMessageLink link = this.nextLink;
+             if (link == null) {
+                 return null;
+-            } else {
+-                this.nextLink = link.advance();
+-                return new MessageSignature(signer.sign(output -> PlayerChatMessage.updateSignature(output, link, body)));
+             }
++
++            this.nextLink = link.advance();
++            return new MessageSignature(signer.sign(output -> PlayerChatMessage.updateSignature(output, link, body)));
+         };
+     }
+ 
+     public SignedMessageChain.Decoder decoder(ProfilePublicKey profilePublicKey) {
+         final SignatureValidator signatureValidator = profilePublicKey.createSignatureValidator();
+         return new SignedMessageChain.Decoder() {
+-            {
+-                Objects.requireNonNull(SignedMessageChain.this);
+-            }
+-
+             @Override
+             public PlayerChatMessage unpack(@Nullable MessageSignature signature, SignedMessageBody body) throws SignedMessageChain.DecodeException {
+                 if (signature == null) {
+                     throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.MISSING_PROFILE_KEY);
+-                } else if (profilePublicKey.data().hasExpired()) {
+-                    throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.EXPIRED_PROFILE_KEY);
+-                } else {
+-                    SignedMessageLink link = SignedMessageChain.this.nextLink;
+-                    if (link == null) {
+-                        throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.CHAIN_BROKEN);
+-                    } else if (body.timeStamp().isBefore(SignedMessageChain.this.lastTimeStamp)) {
+-                        this.setChainBroken();
+-                        throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.OUT_OF_ORDER_CHAT);
+-                    } else {
+-                        SignedMessageChain.this.lastTimeStamp = body.timeStamp();
+-                        PlayerChatMessage unpacked = new PlayerChatMessage(link, signature, body, null, FilterMask.PASS_THROUGH);
+-                        if (!unpacked.verify(signatureValidator)) {
+-                            this.setChainBroken();
+-                            throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.INVALID_SIGNATURE);
+-                        } else {
+-                            if (unpacked.hasExpiredServer(Instant.now())) {
+-                                SignedMessageChain.LOGGER.warn("Received expired chat: '{}'. Is the client/server system time unsynchronized?", body.content());
+-                            }
+-
+-                            SignedMessageChain.this.nextLink = link.advance();
+-                            return unpacked;
+-                        }
+-                    }
+-                }
++                }
++
++                if (profilePublicKey.data().hasExpired()) {
++                    throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.EXPIRED_PROFILE_KEY, org.bukkit.event.player.PlayerKickEvent.Cause.EXPIRED_PROFILE_PUBLIC_KEY); // Paper - kick event causes
++                }
++
++                SignedMessageLink link = SignedMessageChain.this.nextLink;
++                if (link == null) {
++                    throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.CHAIN_BROKEN);
++                }
++
++                if (org.purpurmc.purpur.PurpurConfig.kickForOutOfOrderChat && body.timeStamp().isBefore(SignedMessageChain.this.lastTimeStamp)) { // Purpur - Option to disable kick for out of order chat
++                    this.setChainBroken();
++                    throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.OUT_OF_ORDER_CHAT, org.bukkit.event.player.PlayerKickEvent.Cause.OUT_OF_ORDER_CHAT); // Paper - kick event causes
++                }
++
++                SignedMessageChain.this.lastTimeStamp = body.timeStamp();
++                PlayerChatMessage unpacked = new PlayerChatMessage(link, signature, body, null, FilterMask.PASS_THROUGH);
++                if (!unpacked.verify(signatureValidator)) {
++                    this.setChainBroken();
++                    throw new SignedMessageChain.DecodeException(SignedMessageChain.DecodeException.INVALID_SIGNATURE);
++                }
++
++                if (unpacked.hasExpiredServer(Instant.now())) {
++                    SignedMessageChain.LOGGER.warn("Received expired chat: '{}'. Is the client/server system time unsynchronized?", body.content());
++                }
++
++                SignedMessageChain.this.nextLink = link.advance();
++                return unpacked;
+             }
+ 
+             @Override
+@@ -84,8 +_,15 @@
+         private static final Component INVALID_SIGNATURE = Component.translatable("chat.disabled.invalid_signature");
+         private static final Component OUT_OF_ORDER_CHAT = Component.translatable("chat.disabled.out_of_order_chat");
+ 
+-        public DecodeException(Component component) {
++        // Paper start
++        public final org.bukkit.event.player.PlayerKickEvent.Cause kickCause;
++        public DecodeException(Component component, org.bukkit.event.player.PlayerKickEvent.Cause event) {
+             super(component);
++            this.kickCause = event;
++        }
++        // Paper end
++        public DecodeException(Component component) {
++            this(component, org.bukkit.event.player.PlayerKickEvent.Cause.UNKNOWN); // Paper
+         }
+     }
+ 

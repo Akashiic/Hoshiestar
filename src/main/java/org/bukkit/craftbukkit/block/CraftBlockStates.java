@@ -1,5 +1,11 @@
 package org.bukkit.craftbukkit.block;
 
+import net.minecraft.world.level.block.entity.HangingSignBlockEntity;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.entity.TrappedChestBlockEntity;
+import net.minecraft.world.level.block.entity.DecoratedPotBlockEntity;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+
 import com.google.common.base.Preconditions;
 import java.util.HashMap;
 import java.util.Map;

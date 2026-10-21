@@ -343,7 +343,7 @@ class PaperPluginInstanceManager {
 
         for (final Appender appender : context.getConfiguration().getAppenders().values()) {
             if (appender instanceof AsyncAppender asyncAppender) {
-                final boolean flushed = asyncAppender.flush(100, TimeUnit.MILLISECONDS);
+                final boolean flushed = io.papermc.paper.FeatureHooks.flushAsyncAppender(asyncAppender, 100); // Youer - log4j 2.25.2 (MC 26.1.2) has no AsyncAppender#flush
                 if (!flushed) {
                     this.server.getLogger().log(Level.WARNING, "Failed to flush log messages before plugin unload.");
                 }

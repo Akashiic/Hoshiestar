@@ -22,8 +22,8 @@
      private @Nullable MultipleTestTracker testTracker;
 +    // Neo: disable mob spawning and weather cycling when running game tests, same as for the ephemeral test server
 +    private static final GameRules TEST_GAME_RULES = Util.make(new GameRules(ENABLED_FEATURES), rules -> {
-+        rules.set(GameRules.SPAWN_MOBS, false, null);
-+        rules.set(GameRules.ADVANCE_WEATHER, false, null);
++        rules.set(GameRules.SPAWN_MOBS, false, (ServerLevel) null);
++        rules.set(GameRules.ADVANCE_WEATHER, false, (ServerLevel) null);
 +    });
  
      public static GameTestServer create(
@@ -43,12 +43,24 @@
              Proxy.NO_PROXY,
              DataFixers.getDataFixer(),
              NO_SERVICES,
-@@ -179,10 +_,12 @@
+@@ -173,16 +_,22 @@
+ 
+     @Override
+     protected boolean initServer() {
++        // Paper start
+         this.setPlayerList(new PlayerList(this, this.registries(), this.playerDataStorage, new EmptyNotificationService()) {
+-            {
+-                Objects.requireNonNull(GameTestServer.this);
++            @Override
++            public void loadAndSaveFiles() {
++                throw new UnsupportedOperationException("Should not be called in a GameTestServer");
              }
          });
++        this.initPostWorld();
          Gizmos.withCollector(GizmoCollector.NOOP);
 +        net.neoforged.neoforge.server.ServerLifecycleHooks.handleServerAboutToStart(this);
          this.loadLevel();
++        // Paper end
          ServerLevel level = this.overworld();
          this.testBatches = this.evaluateTestsToRun(level);
          LOGGER.info("Started game test server");
@@ -86,15 +98,34 @@
          }
      }
  
-@@ -383,6 +_,11 @@
-     @Override
-     public boolean shouldInformAdmins() {
+@@ -385,6 +_,13 @@
          return false;
-+    }
-+
-+    @Override
-+    public CommandSender getBukkitSender(CommandSourceStack wrapper) {
-+        return null;
      }
  
++    // Paper start
++    @Override
++    public org.bukkit.command.CommandSender getBukkitSender(final net.minecraft.commands.CommandSourceStack wrapper) {
++        throw new UnsupportedOperationException("Not supported.");
++    }
++    // Paper end
++
      @Override
+     public boolean isSingleplayerOwner(NameAndId nameAndId) {
+         return false;
+@@ -432,5 +_,16 @@
+         @Override
+         public void save() {
+         }
++
++        // Paper start
++        @Override
++        public void save(final boolean async) {
++        }
++
++        @Override
++        public @Nullable NameAndId getIfCached(final String name) {
++            return this.get(name).orElse(null);
++        }
++        // Paper end
+     }
+ }

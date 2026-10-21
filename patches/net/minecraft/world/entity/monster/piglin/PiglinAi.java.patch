@@ -19,19 +19,17 @@
      protected static void pickUpItem(ServerLevel level, Piglin body, ItemEntity itemEntity) {
          stopWalking(body);
          ItemStack taken;
--        if (itemEntity.getItem().is(Items.GOLD_NUGGET)) {
 +        // CraftBukkit start
-+        if (itemEntity.getItem().is(Items.GOLD_NUGGET) && !org.bukkit.craftbukkit.event.CraftEventFactory.callEntityPickupItemEvent(body, itemEntity, 0, false).isCancelled()) {
++        if (org.bukkit.craftbukkit.event.CraftEventFactory.callEntityPickupItemEvent(body, itemEntity, itemEntity.getItem().is(Items.GOLD_NUGGET) ? 0 : itemEntity.getItem().getCount() - 1).isCancelled()) return; // Paper
++        body.onItemPickup(itemEntity); // Paper - moved from Piglin#pickUpItem - call prior to item entity modification
+         if (itemEntity.getItem().is(Items.GOLD_NUGGET)) {
              body.take(itemEntity, itemEntity.getItem().getCount());
              taken = itemEntity.getItem();
 -            itemEntity.discard();
--        } else {
 +            itemEntity.discard(EntityRemoveEvent.Cause.PICKUP); // CraftBukkit - add Bukkit remove cause
-+        } else if (!org.bukkit.craftbukkit.event.CraftEventFactory.callEntityPickupItemEvent(body, itemEntity, itemEntity.getItem().getCount() - 1, false).isCancelled()) {
+         } else {
              body.take(itemEntity, 1);
              taken = removeOneItemFromItemEntity(itemEntity);
-+        } else {
-+            return;
          }
 +        // CraftBukkit end
  
@@ -107,19 +105,34 @@
              return isNotHoldingLovedItemInOffHand(body);
          } else {
              boolean hasSpace = body.canAddToInventory(itemStack);
-@@ -481,6 +_,12 @@
+@@ -476,10 +_,16 @@
+             } else if (isFood(itemStack)) {
+                 return !hasEatenRecently(body) && hasSpace;
+             } else {
+-                return !isLovedItem(itemStack) ? body.canReplaceCurrentItem(itemStack) : isNotHoldingLovedItemInOffHand(body) && hasSpace;
++                return !isLovedItem(itemStack, body) ? body.canReplaceCurrentItem(itemStack) : isNotHoldingLovedItemInOffHand(body) && hasSpace; // Paper - upstream missed isLovedItem check
+             }
          }
      }
- 
++
 +    // CraftBukkit start - Added method to allow checking for custom payment items
 +    protected static boolean isLovedItem(ItemStack itemstack, Piglin piglin) {
 +        return isLovedItem(itemstack) || (piglin.interestItems.contains(itemstack.getItem()) || piglin.allowedBarterItems.contains(itemstack.getItem()));
 +    }
 +    // CraftBukkit end
-+
+ 
      protected static boolean isLovedItem(ItemStack itemStack) {
          return itemStack.is(ItemTags.PIGLIN_LOVED);
+@@ -538,7 +_,8 @@
+         }
      }
+ 
+-    public static void angerNearbyPiglins(ServerLevel level, Player player, boolean onlyIfTheySeeThePlayer) {
++    public static void angerNearbyPiglins(final ServerLevel level, final Player player, final boolean onlyIfTheySeeThePlayer) {
++        if (!player.level().paperConfig().entities.behavior.piglinsGuardChests) return; // Paper - Config option for Piglins guarding chests
+         List<Piglin> nearbyPiglins = player.level().getEntitiesOfClass(Piglin.class, player.getBoundingBox().inflate(16.0));
+         nearbyPiglins.stream().filter(PiglinAi::isIdle).filter(piglin -> !onlyIfTheySeeThePlayer || BehaviorUtils.canSee(piglin, player)).forEach(piglin -> {
+             if (level.getGameRules().get(GameRules.UNIVERSAL_ANGER)) {
 @@ -563,7 +_,7 @@
      }
  
@@ -129,15 +142,34 @@
      }
  
      protected static void wasHurtBy(ServerLevel level, Piglin body, LivingEntity attacker) {
-@@ -652,7 +_,7 @@
+@@ -651,8 +_,11 @@
+     }
  
      public static boolean isWearingSafeArmor(LivingEntity livingEntity) {
-         for (EquipmentSlot slot : EquipmentSlotGroup.ARMOR) {
+-        for (EquipmentSlot slot : EquipmentSlotGroup.ARMOR) {
 -            if (livingEntity.getItemBySlot(slot).is(ItemTags.PIGLIN_SAFE_ARMOR)) {
-+            if (livingEntity.getItemBySlot(slot).makesPiglinsNeutral(livingEntity)) {
++        for (EquipmentSlot equipmentSlot : EquipmentSlotGroup.ARMOR) {
++            // Purpur start - piglins ignore gold-trimmed armor
++            net.minecraft.world.item.ItemStack itemStack = livingEntity.getItemBySlot(equipmentSlot);
++            if (itemStack.is(ItemTags.PIGLIN_SAFE_ARMOR) || (livingEntity.level().purpurConfig.piglinIgnoresArmorWithGoldTrim && isWearingGoldTrim(itemStack))) {
++                // Purpur end - piglins ignore gold-trimmed armor
                  return true;
              }
          }
+@@ -660,6 +_,13 @@
+         return false;
+     }
+ 
++    // Purpur start - piglins ignore gold-trimmed armor
++    private static boolean isWearingGoldTrim(net.minecraft.world.item.ItemStack itemstack) {
++        net.minecraft.world.item.equipment.trim.ArmorTrim armorTrim = itemstack.getComponents().get(net.minecraft.core.component.DataComponents.TRIM);
++        return armorTrim != null && armorTrim.material().is(net.minecraft.world.item.equipment.trim.TrimMaterials.GOLD);
++    }
++    // Purpur end - piglins ignore gold-trimmed armor
++
+     private static void stopWalking(Piglin body) {
+         body.getBrain().eraseMemory(MemoryModuleType.WALK_TARGET);
+         body.getNavigation().stop();
 @@ -801,7 +_,7 @@
      }
  

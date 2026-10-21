@@ -1,8 +1,10 @@
 --- a/net/minecraft/nbt/NbtIo.java
 +++ b/net/minecraft/nbt/NbtIo.java
-@@ -118,6 +_,12 @@
+@@ -117,7 +_,14 @@
+         return read(input, NbtAccounter.unlimitedHeap());
      }
  
++    // Spigot start
      public static CompoundTag read(DataInput input, NbtAccounter accounter) throws IOException {
 +        // Spigot start
 +        if ( input instanceof io.netty.buffer.ByteBufInputStream )

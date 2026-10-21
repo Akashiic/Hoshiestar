@@ -1,0 +1,241 @@
+--- a/net/minecraft/util/filefix/FileFixerUpper.java
++++ b/net/minecraft/util/filefix/FileFixerUpper.java
+@@ -80,6 +_,7 @@
+     public Dynamic<?> fix(LevelStorageSource.LevelStorageAccess worldAccess, Dynamic<?> levelDataTag, UpgradeProgress upgradeProgress, int toVersion) throws FileFixException {
+         int loadedVersion = NbtUtils.getDataVersion(levelDataTag);
+         if (this.requiresFileFixing(loadedVersion)) {
++            if (!io.papermc.paper.world.migration.WorldFolderMigration.didInitialLoad && worldVersionToFileFixerVersion(loadedVersion) == 0) io.papermc.paper.world.migration.WorldFolderMigration.warnAndDelayStartupMigration(); // Paper - warn and delay migration if performing the intial migration from 1.21.11 to >= 26.1
+             LOGGER.info("Starting upgrade for world \"{}\"", worldAccess.getLevelId());
+             Path worldFolder = worldAccess.getLevelDirectory().path();
+             Path fileFixDirectory = worldFolder.resolve("filefix");
+@@ -255,121 +_,121 @@
+             fileSystemCapabilities = detectFileSystemCapabilities(fileFixDirectory);
+             tempWorldTopLevel = savesDirectory.resolve(FileUtil.findAvailableName(savesDirectory, worldName + " upgraded", ""));
+             oldWorldFolder = savesDirectory.resolve(FileUtil.findAvailableName(savesDirectory, worldName + " OUTDATED", ""));
+-        } catch (Exception var21) {
+-            throw new AbortedFileFixException(var21);
++        } catch (Exception e) {
++            throw new AbortedFileFixException(e);
+         }
+ 
+         if (!fileSystemCapabilities.atomicMove()) {
+             throw new AtomicMoveNotSupportedFileFixException(fileSystemCapabilities);
+-        } else {
+-            CopyOption[] moveOptions = fileSystemCapabilities.getMoveOptions();
+-            LOGGER.info("File system capabilities: {}", fileSystemCapabilities);
+-            Path movesFile = fileFixDirectory.resolve("upgrade_in_progress.json");
+-
+-            try {
+-                if (fileSystemCapabilities.hardLinks()) {
+-                    CopyOnWriteFileSystem.hardLinkFiles(moves);
+-                } else {
+-                    writeMoves(moves, worldFolder, tempWorld, movesFile);
+-                }
+-            } catch (Exception var20) {
+-                throw new AbortedFileFixException(var20, List.of(), fileSystemCapabilities);
+-            }
+-
+-            LOGGER.info("Applying file structure changes for world \"{}\"", worldAccess.getLevelId());
++        }
++
++        CopyOption[] moveOptions = fileSystemCapabilities.getMoveOptions();
++        LOGGER.info("File system capabilities: {}", fileSystemCapabilities);
++        Path movesFile = fileFixDirectory.resolve("upgrade_in_progress.json");
++
++        try {
+             if (fileSystemCapabilities.hardLinks()) {
+-                try {
+-                    LOGGER.info("Moving new hardlinked world to top level");
+-                    Files.move(tempWorld, tempWorldTopLevel, moveOptions);
+-                } catch (Exception var19) {
+-                    LOGGER.error("Encountered error trying to move world folder:", (Throwable)var19);
+-                    throw new AbortedFileFixException(var19, List.of(), fileSystemCapabilities);
+-                }
++                CopyOnWriteFileSystem.hardLinkFiles(moves);
+             } else {
+-                try {
+-                    LOGGER.info("Moving files into new file structure");
+-                    CopyOnWriteFileSystem.moveFilesWithRetry(moves, moveOptions);
+-                    LOGGER.info("Moving new world to top level");
+-                    Files.move(tempWorld, tempWorldTopLevel, moveOptions);
+-                } catch (Exception var23) {
+-                    LOGGER.error("Encountered error while trying to create new world folder:", (Throwable)var23);
+-                    List<FileMove> failedMoves = CopyOnWriteFileSystem.tryRevertMoves(moves, moveOptions);
+-                    if (failedMoves.isEmpty()) {
+-                        try {
+-                            Files.deleteIfExists(movesFile);
+-                        } catch (IOException var15) {
+-                            LOGGER.warn("Failed to delete {}", movesFile, var23);
+-                        }
+-                    }
+-
+-                    throw new AbortedFileFixException(var23, failedMoves, fileSystemCapabilities);
+-                }
+-
+-                LOGGER.info("Complete move");
+-
+-                try {
+-                    Files.deleteIfExists(movesFile);
+-                } catch (IOException var18) {
+-                    LOGGER.warn("Failed to delete {}", movesFile, var18);
+-                }
+-            }
+-
+-            LOGGER.info("Start cleanup");
+-
+-            try {
+-                Files.deleteIfExists(worldFolder.resolve("level.dat"));
+-                Files.deleteIfExists(worldFolder.resolve("level.dat_old"));
+-            } catch (Exception var17) {
+-                LOGGER.warn("Failed to delete outdated level.dat files: ", (Throwable)var17);
+-            }
+-
+-            MutableBoolean succeeded = new MutableBoolean();
+-
+-            try {
+-                worldAccess.releaseTemporarilyAndRun(() -> {
+-                    LOGGER.info("Moving out old world folder");
+-
+-                    try {
+-                        Files.move(worldFolder, oldWorldFolder, moveOptions);
+-                    } catch (Exception var10x) {
+-                        LOGGER.warn("Failed to move outdated world folder out of the way; will try to delete instead: ", (Throwable)var10x);
+-
+-                        try {
+-                            deleteDirectory(worldFolder);
+-                        } catch (Exception var9x) {
+-                            LOGGER.warn("Failed to delete outdated world folder: ", (Throwable)var10x);
+-                            throw new FailedCleanupFileFixException(var10x, tempWorldTopLevel.getFileName().toString(), fileSystemCapabilities);
+-                        }
+-                    }
+-
+-                    LOGGER.info("Moving in new world folder");
+-
+-                    try {
+-                        Files.move(tempWorldTopLevel, worldFolder, moveOptions);
+-                    } catch (Exception var8x) {
+-                        LOGGER.warn("Failed to move in new world folder: ", (Throwable)var8x);
+-                        throw new FailedCleanupFileFixException(var8x, tempWorldTopLevel.getFileName().toString(), fileSystemCapabilities);
+-                    }
+-
+-                    succeeded.setTrue();
+-                });
+-            } catch (IOException var22) {
+-                Path newWorldFolder = succeeded.isTrue() ? worldFolder : tempWorldTopLevel;
+-                throw new FailedCleanupFileFixException(var22, newWorldFolder.getFileName().toString(), fileSystemCapabilities);
+-            }
+-
+-            LOGGER.info("Done applying file structure changes for world \"{}\". Cleaning up outdated data...", worldAccess.getLevelId());
+-
+-            try {
+-                if (Files.exists(oldWorldFolder)) {
+-                    deleteDirectory(oldWorldFolder);
+-                }
+-            } catch (Exception var16) {
+-                LOGGER.warn("Failed to clean up old world folder", (Throwable)var16);
+-            }
+-
+-            LOGGER.info("Upgrade done for world \"{}\"", worldAccess.getLevelId());
+-        }
++                writeMoves(moves, worldFolder, tempWorld, movesFile);
++            }
++        } catch (Exception e) {
++            throw new AbortedFileFixException(e, List.of(), fileSystemCapabilities);
++        }
++
++        LOGGER.info("Applying file structure changes for world \"{}\"", worldAccess.getLevelId());
++        if (fileSystemCapabilities.hardLinks()) {
++            try {
++                LOGGER.info("Moving new hardlinked world to top level");
++                Files.move(tempWorld, tempWorldTopLevel, moveOptions);
++            } catch (Exception e) {
++                LOGGER.error("Encountered error trying to move world folder:", e);
++                throw new AbortedFileFixException(e, List.of(), fileSystemCapabilities);
++            }
++        } else {
++            try {
++                LOGGER.info("Moving files into new file structure");
++                CopyOnWriteFileSystem.moveFilesWithRetry(moves, moveOptions);
++                LOGGER.info("Moving new world to top level");
++                Files.move(tempWorld, tempWorldTopLevel, moveOptions);
++            } catch (Exception e) {
++                LOGGER.error("Encountered error while trying to create new world folder:", e);
++                List<FileMove> failedMoves = CopyOnWriteFileSystem.tryRevertMoves(moves, moveOptions);
++                if (failedMoves.isEmpty()) {
++                    try {
++                        Files.deleteIfExists(movesFile);
++                    } catch (IOException e2) {
++                        LOGGER.warn("Failed to delete {}", movesFile, e2); // Paper - print correct stacktrace (MC-308790)
++                    }
++                }
++
++                throw new AbortedFileFixException(e, failedMoves, fileSystemCapabilities);
++            }
++
++            LOGGER.info("Complete move");
++
++            try {
++                Files.deleteIfExists(movesFile);
++            } catch (IOException e) {
++                LOGGER.warn("Failed to delete {}", movesFile, e);
++            }
++        }
++
++        LOGGER.info("Start cleanup");
++
++        try {
++            Files.deleteIfExists(worldFolder.resolve("level.dat"));
++            Files.deleteIfExists(worldFolder.resolve("level.dat_old"));
++        } catch (Exception e) {
++            LOGGER.warn("Failed to delete outdated level.dat files: ", e);
++        }
++
++        MutableBoolean succeeded = new MutableBoolean();
++
++        try {
++            worldAccess.releaseTemporarilyAndRun(() -> {
++                LOGGER.info("Moving out old world folder");
++
++                try {
++                    Files.move(worldFolder, oldWorldFolder, moveOptions);
++                } catch (Exception e) {
++                    LOGGER.warn("Failed to move outdated world folder out of the way; will try to delete instead: ", e);
++
++                    try {
++                        deleteDirectory(worldFolder);
++                    } catch (Exception e2) {
++                        LOGGER.warn("Failed to delete outdated world folder: ", e2); // Paper - print correct stacktrace (MC-308790)
++                        throw new FailedCleanupFileFixException(e2, tempWorldTopLevel.getFileName().toString(), fileSystemCapabilities); // Paper - print correct stacktrace (MC-308790)
++                    }
++                }
++
++                LOGGER.info("Moving in new world folder");
++
++                try {
++                    Files.move(tempWorldTopLevel, worldFolder, moveOptions);
++                } catch (Exception e) {
++                    LOGGER.warn("Failed to move in new world folder: ", e);
++                    throw new FailedCleanupFileFixException(e, tempWorldTopLevel.getFileName().toString(), fileSystemCapabilities);
++                }
++
++                succeeded.setTrue();
++            });
++        } catch (IOException e) {
++            Path newWorldFolder = succeeded.isTrue() ? worldFolder : tempWorldTopLevel;
++            throw new FailedCleanupFileFixException(e, newWorldFolder.getFileName().toString(), fileSystemCapabilities);
++        }
++
++        LOGGER.info("Done applying file structure changes for world \"{}\". Cleaning up outdated data...", worldAccess.getLevelId());
++
++        try {
++            if (Files.exists(oldWorldFolder)) {
++                deleteDirectory(oldWorldFolder);
++            }
++        } catch (Exception e) {
++            LOGGER.warn("Failed to clean up old world folder", e);
++        }
++
++        LOGGER.info("Upgrade done for world \"{}\"", worldAccess.getLevelId());
+     }
+ 
+     private static void writeMoves(List<FileMove> moves, Path fromDirectory, Path toDirectory, Path filePath) throws IOException {

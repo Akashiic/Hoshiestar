@@ -1,5 +1,7 @@
 package org.bukkit.craftbukkit.util;
 
+import java.util.IdentityHashMap;
+
 import ca.spottedleaf.moonrise.common.PlatformHooks;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Multimap;

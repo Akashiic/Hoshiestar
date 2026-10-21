@@ -1,6 +1,6 @@
 package org.bukkit.craftbukkit;
 
-import ca.spottedleaf.moonrise.common.time.TickData;
+import ca.spottedleaf.common.time.TickData;
 import com.google.common.base.Function;
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;

@@ -17,38 +17,31 @@
              DoublePlantBlock.preventDropFromBottomPart(level, pos, state, player);
          }
  
-@@ -221,8 +_,24 @@
- 
-     @Override
-     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, @Nullable Orientation orientation, boolean movedByPiston) {
--        boolean signal = level.hasNeighborSignal(pos)
--            || level.hasNeighborSignal(pos.relative(state.getValue(HALF) == DoubleBlockHalf.LOWER ? Direction.UP : Direction.DOWN));
-+        // CraftBukkit start
-+        BlockPos otherHalf = pos.relative(state.getValue(HALF) == DoubleBlockHalf.LOWER ? Direction.UP : Direction.DOWN);
-+        org.bukkit.World bworld = level.getWorld();
-+        org.bukkit.block.Block bukkitBlock = bworld.getBlockAt(pos.getX(), pos.getY(), pos.getZ());
-+        org.bukkit.block.Block blockTop = bworld.getBlockAt(otherHalf.getX(), otherHalf.getY(), otherHalf.getZ());
-+        int power = bukkitBlock.getBlockPower();
-+        int powerTop = blockTop.getBlockPower();
-+        if (powerTop > power) power = powerTop;
-+        int oldPower = state.getValue(POWERED) ? 15 : 0;
-+        boolean signal;
-+        if (oldPower == 0 ^ power == 0) {
-+            BlockRedstoneEvent eventRedstone = new BlockRedstoneEvent(bukkitBlock, oldPower, power);
-+            level.getCraftServer().getPluginManager().callEvent(eventRedstone);
-+            signal = eventRedstone.getNewCurrent() > 0;
-+        } else {
-+            signal = power > 0;
-+        }
-+        // CraftBukkit end
+@@ -198,6 +_,8 @@
+     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+         if (!this.type.canOpenByHand()) {
+             return InteractionResult.PASS;
++        } else if (requiresRedstone(level, state, pos)) { // Purpur - Option to make doors require redstone
++            return InteractionResult.CONSUME;
+         } else {
+             state = state.cycle(OPEN);
+             level.setBlock(pos, state, 10);
+@@ -224,6 +_,11 @@
+         boolean signal = level.hasNeighborSignal(pos)
+             || level.hasNeighborSignal(pos.relative(state.getValue(HALF) == DoubleBlockHalf.LOWER ? Direction.UP : Direction.DOWN));
          if (!this.defaultBlockState().is(block) && signal != state.getValue(POWERED)) {
++            // Paper start - Call BlockRedstoneEvent
++            if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, signal)) {
++                return;
++            }
++            // Paper end - Call BlockRedstoneEvent
              if (signal != state.getValue(OPEN)) {
                  this.playSound(null, level, pos, signal);
-@@ -270,5 +_,21 @@
- 
+                 level.gameEvent(null, signal ? GameEvent.BLOCK_OPEN : GameEvent.BLOCK_CLOSE, pos);
+@@ -271,4 +_,34 @@
      public static boolean isWoodenDoor(BlockState state) {
          return state.getBlock() instanceof DoorBlock door && door.type().canOpenByHand();
-+    }
+     }
 +
 +    // Neo: Doors are relocatable if and only if both halves are being relocated
 +    @Override
@@ -64,5 +57,19 @@
 +        if (neighborState != expectedState)
 +            return net.neoforged.neoforge.common.util.BlockRelocability.Yes.INSTANCE;
 +        return new net.neoforged.neoforge.common.util.BlockRelocability.Multiblock(java.util.Set.of(pos, neighborPos));
-     }
++    }
++
++    // Purpur start - Option to make doors require redstone
++    public static boolean requiresRedstone(Level level, BlockState state, BlockPos pos) {
++        if (level.purpurConfig.doorRequiresRedstone.contains(state.getBlock())) {
++            // force update client
++            BlockPos otherPos = pos.relative(state.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER ? Direction.UP : Direction.DOWN);
++            BlockState otherState = level.getBlockState(otherPos);
++            level.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
++            level.sendBlockUpdated(otherPos, otherState, otherState, Block.UPDATE_ALL);
++            return true;
++        }
++        return false;
++    }
++    // Purpur end - Option to make doors require redstone
  }

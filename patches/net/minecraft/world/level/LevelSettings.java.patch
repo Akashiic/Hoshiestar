@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/level/LevelSettings.java
 +++ b/net/minecraft/world/level/LevelSettings.java
-@@ -2,64 +_,199 @@
+@@ -2,64 +_,209 @@
  
  import com.mojang.serialization.Codec;
  import com.mojang.serialization.Dynamic;
@@ -54,6 +54,16 @@
 +                CommonHooks.parseLifecycle(input.get("forgeLifecycle").asString("stable"))
          );
      }
++
++    // Paper start
++    public LevelSettings withLevelName(String name) {
++        return new LevelSettings(name, this.gameType, this.difficultySettings, this.allowCommands, this.dataConfiguration, this.lifecycle);
++    }
++
++    public LevelSettings withHardcore(boolean hardcore) {
++        return new LevelSettings(this.levelName, this.gameType, new DifficultySettings(this.difficultySettings.difficulty(), hardcore, this.difficultySettings.locked()), this.allowCommands, this.dataConfiguration, this.lifecycle);
++    }
++    // Paper end
  
      public LevelSettings withGameType(GameType gameType) {
 -        return new LevelSettings(this.levelName, gameType, this.difficultySettings, this.allowCommands, this.dataConfiguration);

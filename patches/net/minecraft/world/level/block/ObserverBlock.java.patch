@@ -4,18 +4,28 @@
      @Override
      protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
          if (state.getValue(POWERED)) {
-+            // CraftBukkit start
-+            if (org.bukkit.craftbukkit.event.CraftEventFactory.callRedstoneChange(level, pos, 15, 0).getNewCurrent() != 0) {
++            // Paper start - Call BlockRedstoneEvent
++            if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, false)) {
 +                return;
 +            }
-+            // CraftBukkit end
++            // Paper end - Call BlockRedstoneEvent
              level.setBlock(pos, state.setValue(POWERED, false), 2);
          } else {
-+            // CraftBukkit start
-+            if (org.bukkit.craftbukkit.event.CraftEventFactory.callRedstoneChange(level, pos, 0, 15).getNewCurrent() != 15) {
++            // Paper start - Call BlockRedstoneEvent
++            if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, true)) {
 +                return;
 +            }
-+            // CraftBukkit end
++            // Paper end - Call BlockRedstoneEvent
              level.setBlock(pos, state.setValue(POWERED, true), 2);
              level.scheduleTick(pos, this, 2);
          }
+@@ -71,7 +_,8 @@
+         RandomSource random
+     ) {
+         if (state.getValue(FACING) == directionToNeighbour && !state.getValue(POWERED)) {
+-            this.startSignal(level, ticks, pos);
++            if (!(level.getWorldBorder().world != null && level.getWorldBorder().world.purpurConfig.disableObserverClocks) || !(neighbourState.getBlock() instanceof ObserverBlock) || neighbourState.getValue(ObserverBlock.FACING).getOpposite() != directionToNeighbour) // Purpur - Add Option for disable observer clocks
++                this.startSignal(level, ticks, pos);
+         }
+ 
+         return super.updateShape(state, level, ticks, pos, directionToNeighbour, neighbourPos, neighbourState, random);

@@ -1,5 +1,13 @@
 --- a/net/minecraft/server/commands/SummonCommand.java
 +++ b/net/minecraft/server/commands/SummonCommand.java
+@@ -84,6 +_,7 @@
+             ServerLevel level = source.getLevel();
+             Entity entity = EntityType.loadEntityRecursive(entityTag, level, EntitySpawnReason.COMMAND, e -> {
+                 e.snapTo(pos.x, pos.y, pos.z, e.getYRot(), e.getXRot());
++                e.spawnReason = org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.COMMAND; // Paper - Entity#getEntitySpawnReason
+                 return e;
+             });
+             if (entity == null) {
 @@ -93,6 +_,7 @@
                      mob.finalizeSpawn(source.getLevel(), source.getLevel().getCurrentDifficultyAt(entity.blockPosition()), EntitySpawnReason.COMMAND, null);
                  }

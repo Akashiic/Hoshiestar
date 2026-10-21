@@ -4,7 +4,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
@@ -327,9 +326,9 @@ public final class ActivationRange {
     }
 
     private static Set<EntityType<?>> ENTITIES_THAT_FLY = Set.of(
-        EntityTypes.GHAST,
-        EntityTypes.HAPPY_GHAST,
-        EntityTypes.PHANTOM
+        EntityType.GHAST,
+        EntityType.HAPPY_GHAST,
+        EntityType.PHANTOM
     );
 
     private static boolean isEntityThatFlies(final Entity entity) {

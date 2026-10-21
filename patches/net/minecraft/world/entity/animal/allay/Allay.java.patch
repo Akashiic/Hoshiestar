@@ -1,14 +1,32 @@
 --- a/net/minecraft/world/entity/animal/allay/Allay.java
 +++ b/net/minecraft/world/entity/animal/allay/Allay.java
-@@ -98,6 +_,7 @@
+@@ -98,10 +_,24 @@
      private float dancingAnimationTicks;
      private float spinningAnimationTicks;
      private float spinningAnimationTicks0;
 +    public boolean forceDancing = false; // CraftBukkit
++    private org.purpurmc.purpur.controller.FlyingMoveControllerWASD purpurController; // Purpur - Ridables
  
      public Allay(EntityType<? extends Allay> type, Level level) {
          super(type, level);
-@@ -111,6 +_,12 @@
+-        this.moveControl = new FlyingMoveControl(this, 20, true);
++        // Purpur start - Ridables
++        this.purpurController = new org.purpurmc.purpur.controller.FlyingMoveControllerWASD(this, 0.1F, 0.5F);
++        this.moveControl = new FlyingMoveControl(this, 20, true) {
++            @Override
++            public void tick() {
++                if (mob.getRider() != null && mob.isControllable()) {
++                    purpurController.purpurTick(mob.getRider());
++                } else {
++                    super.tick();
++                }
++            }
++        };
++        // Purpur end - Ridables
+         this.setCanPickUpLoot(this.canPickUpLoot());
+         this.vibrationUser = new Allay.VibrationUser();
+         this.vibrationData = new VibrationSystem.Data();
+@@ -111,6 +_,49 @@
          );
      }
  
@@ -18,9 +36,54 @@
 +    }
 +    // CraftBukkit end
 +
++    // Purpur start - Ridables
++    @Override
++    public boolean isRidable() {
++        return level().purpurConfig.allayRidable;
++    }
++
++    @Override
++    public boolean dismountsUnderwater() {
++        return level().purpurConfig.useDismountsUnderwaterTag ? super.dismountsUnderwater() : !level().purpurConfig.allayRidableInWater;
++    }
++
++    @Override
++    public boolean isControllable() {
++        return level().purpurConfig.allayControllable;
++    }
++
++    @Override
++    protected void registerGoals() {
++        this.goalSelector.addGoal(0, new org.purpurmc.purpur.entity.ai.HasRider(this)); // Purpur - Ridables
++    }
++    // Purpur end - Ridables
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.allayMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.allayScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Check mobGriefing Overrides
++    @Override
++    public Boolean checkEntityPickUpLootOverride() {
++        return this.level().purpurConfig.allayCanPickUpLoot;
++    }
++    // Purpur end - Check mobGriefing Overrides
++
      @Override
      protected Brain<Allay> makeBrain(Brain.Packed packedBrain) {
          return BRAIN_PROVIDER.makeBrain(this, packedBrain);
+@@ -201,6 +_,7 @@
+     protected void customServerAiStep(ServerLevel level) {
+         ProfilerFiller profiler = Profiler.get();
+         profiler.push("allayBrain");
++        if (getRider() == null || !this.isControllable()) // Purpur - only use brain if no rider
+         this.getBrain().tick(level, this);
+         profiler.pop();
+         profiler.push("allayActivityUpdate");
 @@ -213,6 +_,7 @@
      public void aiStep() {
          super.aiStep();
@@ -63,6 +126,30 @@
          return this.jukeboxPos == null
              || !this.jukeboxPos.closerToCenterThan(this.position(), GameEvent.JUKEBOX_PLAY.value().notificationRadius())
              || !this.level().getBlockState(this.jukeboxPos).is(Blocks.JUKEBOX);
+@@ -406,11 +_,12 @@
+     @Override
+     protected void dropEquipment(ServerLevel level) {
+         super.dropEquipment(level);
+-        this.inventory.removeAllItems().forEach(stack -> this.spawnAtLocation(level, stack));
++        this.inventory.getItems().stream().filter(item -> !item.isEmpty()).forEach(stack -> this.spawnAtLocation(level, stack)); // Paper - delay removal post event - taken from removeAllItems
++        this.postDeathEventTasks.add(this.inventory::clearContent); // Paper - only clear after death event
+         ItemStack itemStack = this.getItemBySlot(EquipmentSlot.MAINHAND);
+         if (!itemStack.isEmpty() && !EnchantmentHelper.has(itemStack, EnchantmentEffectComponents.PREVENT_EQUIPMENT_DROP)) {
+             this.spawnAtLocation(level, itemStack);
+-            this.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
++            this.postDeathEventTasks.add(() -> this.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY)); // Paper
+         }
+     }
+ 
+@@ -432,7 +_,7 @@
+         super.readAdditionalSaveData(input);
+         this.readInventoryFromTag(input);
+         this.vibrationData = input.read("listener", VibrationSystem.Data.CODEC).orElseGet(VibrationSystem.Data::new);
+-        this.setDuplicationCooldown(input.getIntOr("DuplicationCooldown", 0));
++        this.setDuplicationCooldown(input.getLongOr("DuplicationCooldown", 0)); // Paper - Load as long
+     }
+ 
+     @Override
 @@ -458,8 +_,17 @@
              allay.setPersistenceRequired();
              allay.resetDuplicationCooldown();

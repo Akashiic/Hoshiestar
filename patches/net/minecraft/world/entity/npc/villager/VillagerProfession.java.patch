@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/entity/npc/villager/VillagerProfession.java
++++ b/net/minecraft/world/entity/npc/villager/VillagerProfession.java
+@@ -165,6 +_,8 @@
+             registry,
+             CLERIC,
+             PoiTypes.CLERIC,
++            ImmutableSet.of(Items.NETHER_WART), // Purpur - Option for Villager Clerics to farm Nether Wart
++            ImmutableSet.of(Blocks.SOUL_SAND), // Purpur - Option for Villager Clerics to farm Nether Wart
+             SoundEvents.VILLAGER_WORK_CLERIC,
+             Int2ObjectMap.ofEntries(
+                 Int2ObjectMap.entry(1, TradeSets.CLERIC_LEVEL_1),

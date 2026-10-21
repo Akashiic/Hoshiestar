@@ -21,16 +21,191 @@
      private long lastGossipTime;
      private long lastGossipDecayTime = 0L;
      private int villagerXp = 0;
-@@ -180,6 +_,9 @@
+@@ -147,7 +_,7 @@
+                 activities.add(
+                     ActivityData.create(
+                         Activity.WORK,
+-                        VillagerGoalPackages.getWorkPackage(profession, 0.5F),
++                        VillagerGoalPackages.getWorkPackage(profession, 0.5F, body.level().purpurConfig.villagerClericsFarmWarts), // Purpur - Option for Villager Clerics to farm Nether Wart
+                         ImmutableSet.of(Pair.of(MemoryModuleType.JOB_SITE, MemoryStatus.VALUE_PRESENT))
+                     )
+                 );
+@@ -180,6 +_,8 @@
          MemoryModuleType.MEETING_POINT,
          (villager, poiType) -> poiType.is(PoiTypes.MEETING)
      );
-+    // CraftBukkit start
-+    public long gossipDecayInterval = GOSSIP_DECAY_INTERVAL;
-+    // CraftBukkit end
++    private boolean isLobotomized = false; public boolean isLobotomized() { return this.isLobotomized; } // Purpur - Lobotomize stuck villagers
++    private int notLobotomizedCount = 0; // Purpur - Lobotomize stuck villagers
  
      public Villager(EntityType<? extends Villager> type, Level level) {
          this(type, level, VillagerType.PLAINS);
+@@ -198,6 +_,110 @@
+         this.setVillagerData(this.getVillagerData().withType(type).withProfession(level.registryAccess(), VillagerProfession.NONE));
+     }
+ 
++    // Purpur start - Allow leashing villagers
++    @Override
++    public boolean canBeLeashed() {
++        return level().purpurConfig.villagerCanBeLeashed;
++    }
++    // Purpur end - Allow leashing villagers
++
++    // Purpur start - Lobotomize stuck villagers
++    private boolean checkLobotomized() {
++        int interval = this.level().purpurConfig.villagerLobotomizeCheckInterval;
++        boolean shouldCheckForTradeLocked = this.level().purpurConfig.villagerLobotomizeWaitUntilTradeLocked;
++        if (this.notLobotomizedCount > 3) {
++            // check half as often if not lobotomized for the last 3+ consecutive checks
++            interval *= 2;
++        }
++        if (this.level().getGameTime() % interval == 0) {
++            // offset Y for short blocks like dirt_path/farmland
++            this.isLobotomized = !(shouldCheckForTradeLocked && this.getVillagerXp() == 0) && !canTravelFrom(net.minecraft.core.BlockPos.containing(this.position().x, this.getBoundingBox().minY + 0.0625D, this.position().z));
++
++            if (this.isLobotomized) {
++                this.notLobotomizedCount = 0;
++            } else {
++                this.notLobotomizedCount++;
++            }
++        }
++        return this.isLobotomized;
++    }
++
++    private boolean canTravelFrom(net.minecraft.core.BlockPos pos) {
++        return canTravelTo(pos.east()) || canTravelTo(pos.west()) || canTravelTo(pos.north()) || canTravelTo(pos.south());
++    }
++
++    private boolean canTravelTo(net.minecraft.core.BlockPos pos) {
++        net.minecraft.world.level.block.state.BlockState state = this.level().getBlockStateIfLoaded(pos);
++        if (state == null) {
++            // chunk not loaded
++            return false;
++        }
++        net.minecraft.world.level.block.Block bottom = state.getBlock();
++        if (bottom instanceof net.minecraft.world.level.block.FenceBlock ||
++                bottom instanceof net.minecraft.world.level.block.FenceGateBlock ||
++                bottom instanceof net.minecraft.world.level.block.WallBlock) {
++            // bottom block is too tall to get over
++            return false;
++        }
++        net.minecraft.world.level.block.Block top = level().getBlockState(pos.above()).getBlock();
++        // only if both blocks have no collision
++        return !bottom.hasCollision && !top.hasCollision;
++    }
++    // Purpur end - Lobotomize stuck villagers
++
++    // Purpur start - Ridables
++    @Override
++    public boolean isRidable() {
++        return level().purpurConfig.villagerRidable;
++    }
++
++    @Override
++    public boolean dismountsUnderwater() {
++        return level().purpurConfig.useDismountsUnderwaterTag ? super.dismountsUnderwater() : !level().purpurConfig.villagerRidableInWater;
++    }
++
++    @Override
++    public boolean isControllable() {
++        return level().purpurConfig.villagerControllable;
++    }
++
++    @Override
++    protected void registerGoals() {
++        this.goalSelector.addGoal(0, new org.purpurmc.purpur.entity.ai.HasRider(this));
++        if (level().purpurConfig.villagerFollowEmeraldBlock) this.goalSelector.addGoal(3, new net.minecraft.world.entity.ai.goal.TemptGoal(this, 1.0D, TEMPT_ITEMS, false)); // Purpur - Villagers follow emerald blocks
++    }
++    // Purpur end - Ridables
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.safeSetAttribute(Attributes.MAX_HEALTH, this.level().purpurConfig.villagerMaxHealth);
++        this.safeSetAttribute(Attributes.SCALE, this.level().purpurConfig.villagerScale);
++        this.safeSetAttribute(Attributes.TEMPT_RANGE, this.level().purpurConfig.villagerTemptRange); // Purpur - Villagers follow emerald blocks
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.villagerTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.villagerAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
++    // Purpur start - Check mobGriefing Overrides
++    @Override
++    public Boolean checkEntityPickUpLootOverride() {
++        return this.level().purpurConfig.villagerCanPickUpLoot;
++    }
++    // Purpur end - Check mobGriefing Overrides
++
+     @Override
+     public Brain<Villager> getBrain() {
+         return (Brain<Villager>) super.getBrain();
+@@ -236,18 +_,53 @@
+     }
+ 
+     public static AttributeSupplier.Builder createAttributes() {
+-        return Mob.createMobAttributes().add(Attributes.MOVEMENT_SPEED, 0.5);
++        return Mob.createMobAttributes().add(Attributes.MOVEMENT_SPEED, 0.5).add(Attributes.TEMPT_RANGE, 10.0D); // Purpur - Villagers follow emerald blocks
+     }
+ 
+     public boolean assignProfessionWhenSpawned() {
+         return this.assignProfessionWhenSpawned;
+     }
+ 
++    // Paper start - EAR 2
++    @Override
++    public void inactiveTick() {
++        // SPIGOT-3874, SPIGOT-3894, SPIGOT-3846, SPIGOT-5286 :(
++        if (this.getUnhappyCounter() > 0) {
++            this.setUnhappyCounter(this.getUnhappyCounter() - 1);
++        }
++        if (this.aware && this.isEffectiveAi()) { // Paper - Do not tick AI for inactive unaware mobs
++            if (this.level().spigotConfig.tickInactiveVillagers) {
++                this.customServerAiStep(this.level().getMinecraftWorld());
++            } else {
++                this.customServerAiStep(this.level().getMinecraftWorld(), true);
++            }
++        }
++        this.maybeDecayGossip();
++        super.inactiveTick();
++    }
++    // Paper end - EAR 2
++
+     @Override
+     protected void customServerAiStep(ServerLevel level) {
++        // Paper start - EAR 2
++        this.customServerAiStep(level, false);
++    }
++    protected void customServerAiStep(ServerLevel level, boolean inactive) { // Purpur - Lobotomize stuck villagers
++        // Paper end - EAR 2
+         ProfilerFiller profiler = Profiler.get();
+         profiler.push("villagerBrain");
+-        this.getBrain().tick(level, this);
++        // Purpur start - Lobotomize stuck villagers
++        if (this.level().purpurConfig.villagerLobotomizeEnabled) {
++            // treat as inactive if lobotomized
++            inactive = inactive || checkLobotomized();
++        } else {
++            this.isLobotomized = false;
++        }
++        if (!inactive && (getRider() == null || !this.isControllable())) { // Purpur - Ridables
++            this.getBrain().tick(level, this); // Paper - EAR 2
++        }
++        else if (this.isLobotomized && shouldRestock(level)) restock();
++        // Purpur end - Lobotomize stuck villagers
+         profiler.pop();
+         if (this.assignProfessionWhenSpawned) {
+             this.assignProfessionWhenSpawned = false;
 @@ -261,7 +_,7 @@
                      this.increaseProfessionLevelOnUpdate = false;
                  }
@@ -39,6 +214,23 @@
 +                this.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 200, 0), org.bukkit.event.entity.EntityPotionEffectEvent.Cause.VILLAGER_TRADE); // CraftBukkit
              }
          }
+ 
+@@ -271,7 +_,7 @@
+             this.lastTradedPlayer = null;
+         }
+ 
+-        if (!this.isNoAi() && this.random.nextInt(100) == 0) {
++        if (!inactive && !this.isNoAi() && this.random.nextInt(100) == 0) { // Paper - EAR 2
+             Raid raid = level.getRaidAt(this.blockPosition());
+             if (raid != null && raid.isActive() && !raid.isOver()) {
+                 level.broadcastEntityEvent(this, (byte)42);
+@@ -282,6 +_,7 @@
+             this.stopTrading();
+         }
+ 
++        if (inactive) return; // Paper - EAR 2
+         super.customServerAiStep(level);
+     }
  
 @@ -298,7 +_,7 @@
      @Override
@@ -49,6 +241,16 @@
              return super.mobInteract(player, hand);
          } else if (this.isBaby()) {
              this.setUnhappy();
+@@ -318,6 +_,9 @@
+                     return InteractionResult.CONSUME;
+                 }
+ 
++                if (level().purpurConfig.villagerRidable && itemStack.isEmpty()) return tryRide(player, hand); // Purpur - Ridables
++
++                if (this.level().purpurConfig.villagerAllowTrading) // Purpur - Add config for villager trading
+                 this.startTrading(player);
+             }
+ 
 @@ -375,7 +_,13 @@
          this.updateDemand();
  
@@ -79,6 +281,40 @@
              }
          }
  
+@@ -449,7 +_,7 @@
+ 
+     public void updateDemand() {
+         for (MerchantOffer offer : this.getOffers()) {
+-            offer.updateDemand();
++            offer.updateDemand(this.level().purpurConfig.villagerMinimumDemand); // Purpur - Configurable minimum demand for trades
+         }
+     }
+ 
+@@ -457,6 +_,7 @@
+         int reputation = this.getPlayerReputation(player);
+         if (reputation != 0) {
+             for (MerchantOffer offer : this.getOffers()) {
++                if (offer.ignoreDiscounts) continue; // Paper - Add ignore discounts API
+                 offer.addToSpecialPriceDiff(-Mth.floor(reputation * offer.getPriceMultiplier()));
+             }
+         }
+@@ -466,6 +_,7 @@
+             int amplifier = effect.getAmplifier();
+ 
+             for (MerchantOffer offer : this.getOffers()) {
++                if (offer.ignoreDiscounts) continue; // Paper - Add ignore discounts API
+                 double modifier = 0.3 + 0.0625 * amplifier;
+                 int costReduction = (int)Math.floor(modifier * offer.getBaseCostA().getCount());
+                 offer.addToSpecialPriceDiff(-Math.max(costReduction, 1));
+@@ -581,7 +_,7 @@
+         }
+ 
+         if (offer.shouldRewardExp()) {
+-            this.level().addFreshEntity(new ExperienceOrb(this.level(), this.getX(), this.getY() + 0.5, this.getZ(), popXp));
++            this.level().addFreshEntity(new ExperienceOrb(this.level(), this.getX(), this.getY() + 0.5, this.getZ(), popXp, org.bukkit.entity.ExperienceOrb.SpawnReason.VILLAGER_TRADE, this.getTradingPlayer(), this)); // Paper
+         }
+     }
+ 
 @@ -599,7 +_,7 @@
  
      @Override
@@ -88,19 +324,45 @@
          Entity murderer = source.getEntity();
          if (murderer != null) {
              this.tellWitnessesThatIWasMurdered(murderer);
-@@ -759,13 +_,14 @@
+@@ -647,7 +_,7 @@
+ 
+     @Override
+     public boolean canBreed() {
+-        return this.foodLevel + this.countFoodPointsInInventory() >= 12 && !this.isSleeping() && this.getAge() == 0;
++        return this.level().purpurConfig.villagerCanBreed && this.foodLevel + this.countFoodPointsInInventory() >= 12 && !this.isSleeping() && this.getAge() == 0; // Purpur - Configurable villager breeding
+     }
+ 
+     private boolean hungry() {
+@@ -698,7 +_,7 @@
+         return VillagerData.canLevelUp(currentLevel) && this.villagerXp >= VillagerData.getMaxXpPerLevel(currentLevel);
+     }
+ 
+-    private void increaseMerchantCareer(ServerLevel level) {
++    public void increaseMerchantCareer(ServerLevel level) {
+         this.setVillagerData(this.getVillagerData().withLevel(this.getVillagerData().level() + 1));
+         this.updateTrades(level);
+     }
+@@ -759,13 +_,21 @@
  
      @Override
      public void thunderHit(ServerLevel level, LightningBolt lightningBolt) {
 -        if (level.getDifficulty() != Difficulty.PEACEFUL) {
+-            LOGGER.info("Villager {} was struck by lightning {}.", this, lightningBolt);
 +        if (level.getDifficulty() != Difficulty.PEACEFUL && net.neoforged.neoforge.event.EventHooks.canLivingConvert(this, EntityType.WITCH, (timer) -> {})) {
-             LOGGER.info("Villager {} was struck by lightning {}.", this, lightningBolt);
++            // Paper - Add EntityZapEvent; move log down, event can cancel
              Witch witch = this.convertTo(EntityType.WITCH, ConversionParams.single(this, false, false), w -> {
++                // Paper start - Add EntityZapEvent
++                if (org.bukkit.craftbukkit.event.CraftEventFactory.callEntityZapEvent(this, lightningBolt, w).isCancelled()) {
++                    return false;
++                }
++                if (org.spigotmc.SpigotConfig.logVillagerDeaths) LOGGER.info("Villager {} was struck by lightning {}.", this, lightningBolt); // Move down
++                // Paper end - Add EntityZapEvent
                  w.finalizeSpawn(level, level.getCurrentDifficultyAt(w.blockPosition()), EntitySpawnReason.CONVERSION, null);
 +                net.neoforged.neoforge.event.EventHooks.onLivingConvert(this, w);
                  w.setPersistenceRequired();
                  this.releaseAllPois();
 -            });
++                return true; // Paper - Add EntityZapEvent
 +            }, EntityTransformEvent.TransformReason.LIGHTNING, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.LIGHTNING); // CraftBukkit
              if (witch == null) {
                  super.thunderHit(level, lightningBolt);
@@ -117,49 +379,66 @@
              && this.getInventory().canAddItem(itemStack);
      }
  
-@@ -830,7 +_,7 @@
-         long timestamp = this.level().getGameTime();
-         if (this.lastGossipDecayTime == 0L) {
-             this.lastGossipDecayTime = timestamp;
--        } else if (timestamp >= this.lastGossipDecayTime + 24000L) {
-+        } else if (timestamp >= this.lastGossipDecayTime + gossipDecayInterval) { // CraftBukkit - use variable for decay interval
-             this.gossips.decay();
-             this.lastGossipDecayTime = timestamp;
+@@ -800,20 +_,28 @@
+     }
+ 
+     public boolean hasFarmSeeds() {
+-        return this.getInventory().hasAnyMatching(item -> item.is(ItemTags.VILLAGER_PLANTABLE_SEEDS));
++        return this.getInventory().hasAnyMatching(item -> this.level().purpurConfig.villagerClericsFarmWarts && this.getVillagerData().profession().is(VillagerProfession.CLERIC) ? item.is(Items.NETHER_WART) : item.is(ItemTags.VILLAGER_PLANTABLE_SEEDS));
+     }
+ 
+     @Override
+-    protected void updateTrades(ServerLevel level) {
++    public void updateTrades(ServerLevel level) {
++        // Paper start - More vanilla friendly methods to update trades
++        this.updateTrades(level, -1);
++    }
++
++    public boolean updateTrades(final ServerLevel level, int amount) {
++        // Paper end - More vanilla friendly methods to update trades
+         VillagerData data = this.getVillagerData();
+         VillagerProfession profession = data.profession().value();
+         ResourceKey<TradeSet> trades = profession.getTrades(data.level());
+         if (trades != null) {
+-            this.addOffersFromTradeSet(level, this.getOffers(), trades);
++            this.addOffersFromTradeSet(level, this.getOffers(), trades, amount); // Paper - More vanilla friendly methods to update trades
+             if (SharedConstants.DEBUG_UNLOCK_ALL_TRADES && data.level() < 5) {
+                 this.increaseMerchantCareer(level);
+             }
++            return true; // Paper - More vanilla friendly methods to update trades
          }
-@@ -854,9 +_,10 @@
++        return false; // Paper - More vanilla friendly methods to update trades
+     }
+ 
+     public void gossip(ServerLevel level, Villager target, long timestamp) {
+@@ -837,6 +_,7 @@
+     }
+ 
+     public void spawnGolemIfNeeded(ServerLevel level, long timestamp, int villagersNeededToAgree) {
++        if (level.purpurConfig.villagerSpawnIronGolemRadius > 0 && level.getEntitiesOfClass(net.minecraft.world.entity.animal.golem.IronGolem.class, getBoundingBox().inflate(level.purpurConfig.villagerSpawnIronGolemRadius)).size() > level.purpurConfig.villagerSpawnIronGolemLimit) return; // Purpur - Implement configurable search radius for villagers to spawn iron golems
+         if (this.wantsToSpawnGolem(timestamp)) {
+             AABB villagerSearchBox = this.getBoundingBox().inflate(10.0, 10.0, 10.0);
+             List<Villager> nearbyVillagers = level.getEntitiesOfClass(Villager.class, villagerSearchBox);
+@@ -845,7 +_,7 @@
+                 .limit(5L)
+                 .toList();
+             if (nearbyVillagersThatWantAGolem.size() >= villagersNeededToAgree) {
+-                if (!SpawnUtil.trySpawnMob(
++                if (!SpawnUtil.trySpawnMob( // Paper - Set Golem Last Seen to stop it from spawning another one - switch to isPresent
+                         EntityType.IRON_GOLEM,
+                         EntitySpawnReason.MOB_SUMMONED,
+                         level,
+@@ -854,9 +_,11 @@
                          8,
                          6,
                          SpawnUtil.Strategy.LEGACY_IRON_GOLEM,
 -                        false
 +                        false,
-+                        org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.VILLAGE_DEFENSE
++                        org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.VILLAGE_DEFENSE, // CraftBukkit,
++                        () -> {GolemSensor.golemDetected(this);} // Paper - Set Golem Last Seen to stop it from spawning another one
                      )
 -                    .isEmpty()) {
-+                    .isEmpty()) { // CraftBukkit
++                    .isPresent()) { // Paper - Set Golem Last Seen to stop it from spawning another one - switch to isPresent
                      nearbyVillagers.forEach(GolemSensor::golemDetected);
                  }
              }
-@@ -869,15 +_,18 @@
- 
-     @Override
-     public void onReputationEventFrom(ReputationEventType type, Entity source) {
-+        org.bukkit.entity.Villager.ReputationEvent bukkitReputationEvent = org.bukkit.craftbukkit.entity.CraftVillager.CraftReputationEvent.minecraftToBukkit(type); // CraftBukkit - convert event to bukkit
-         if (type == ReputationEventType.ZOMBIE_VILLAGER_CURED) {
--            this.gossips.add(source.getUUID(), GossipType.MAJOR_POSITIVE, 20);
--            this.gossips.add(source.getUUID(), GossipType.MINOR_POSITIVE, 25);
-+            // CraftBukkit start - add change reason parameter
-+            this.gossips.add(source.getUUID(), GossipType.MAJOR_POSITIVE, 20, bukkitReputationEvent);
-+            this.gossips.add(source.getUUID(), GossipType.MINOR_POSITIVE, 25, bukkitReputationEvent);
-+            // CraftBukkit end
-         } else if (type == ReputationEventType.TRADE) {
--            this.gossips.add(source.getUUID(), GossipType.TRADING, 2);
-+            this.gossips.add(source.getUUID(), GossipType.TRADING, 2, bukkitReputationEvent); // CraftBukkit - add change reason parameter
-         } else if (type == ReputationEventType.VILLAGER_HURT) {
--            this.gossips.add(source.getUUID(), GossipType.MINOR_NEGATIVE, 25);
-+            this.gossips.add(source.getUUID(), GossipType.MINOR_NEGATIVE, 25, bukkitReputationEvent); // CraftBukkit - add change reason parameter
-         } else if (type == ReputationEventType.VILLAGER_KILLED) {
--            this.gossips.add(source.getUUID(), GossipType.MAJOR_NEGATIVE, 25);
-+            this.gossips.add(source.getUUID(), GossipType.MAJOR_NEGATIVE, 25, bukkitReputationEvent); // CraftBukkit - add change reason parameter
-         }
-     }
- 

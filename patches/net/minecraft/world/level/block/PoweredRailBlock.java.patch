@@ -9,7 +9,7 @@
  public class PoweredRailBlock extends BaseRailBlock {
      public static final MapCodec<PoweredRailBlock> CODEC = simpleCodec(PoweredRailBlock::new);
      public static final EnumProperty<RailShape> SHAPE = BlockStateProperties.RAIL_SHAPE_STRAIGHT;
-@@ -22,8 +_,19 @@
+@@ -22,20 +_,31 @@
          return CODEC;
      }
  
@@ -29,7 +29,12 @@
          this.registerDefaultState(this.stateDefinition.any().setValue(SHAPE, RailShape.NORTH_SOUTH).setValue(POWERED, false).setValue(WATERLOGGED, false));
      }
  
-@@ -35,7 +_,7 @@
+     protected boolean findPoweredRailSignal(Level level, BlockPos pos, BlockState state, boolean forward, int searchDepth) {
+-        if (searchDepth >= 8) {
++        if (searchDepth >= level.purpurConfig.railActivationRange) { // Purpur - Config for powered rail activation distance
+             return false;
+         } else {
+             int x = pos.getX();
              int y = pos.getY();
              int z = pos.getZ();
              boolean checkBelow = true;
@@ -60,17 +65,15 @@
                      }
                  } else {
                      return false;
-@@ -132,9 +_,16 @@
+@@ -132,9 +_,14 @@
              || this.findPoweredRailSignal(level, pos, state, true, 0)
              || this.findPoweredRailSignal(level, pos, state, false, 0);
          if (shouldPower != isPowered) {
-+            // CraftBukkit start
-+            int power = isPowered ? 15 : 0;
-+            int newPower = org.bukkit.craftbukkit.event.CraftEventFactory.callRedstoneChange(level, pos, power, 15 - power).getNewCurrent();
-+            if (newPower == power) {
++            // Paper start - Call BlockRedstoneEvent
++            if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBinaryRedstoneChange(level, pos, shouldPower)) {
 +                return;
 +            }
-+            // CraftBukkit end
++            // Paper end - Call BlockRedstoneEvent
              level.setBlock(pos, state.setValue(POWERED, shouldPower), 3);
              level.updateNeighborsAt(pos.below(), this);
 -            if (state.getValue(SHAPE).isSlope()) {

@@ -31,8 +31,11 @@
          return belowState.is(this) || belowState.is(Blocks.BIG_DRIPLEAF_STEM) || belowState.is(BlockTags.SUPPORTS_BIG_DRIPLEAF);
      }
  
-@@ -190,7 +_,20 @@
+@@ -188,9 +_,23 @@
+ 
+     @Override
      protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity, InsideBlockEffectApplier effectApplier, boolean isPrecise) {
++        if (!new io.papermc.paper.event.entity.EntityInsideBlockEvent(entity.getBukkitEntity(), org.bukkit.craftbukkit.block.CraftBlock.at(level, pos)).callEvent()) { return; } // Paper - Add EntityInsideBlockEvent
          if (!level.isClientSide()) {
              if (state.getValue(TILT) == Tilt.NONE && canEntityTilt(pos, entity) && !level.hasNeighborSignal(pos)) {
 -                this.setTiltAndScheduleTick(state, level, pos, Tilt.UNSTABLE, null);
@@ -65,20 +68,25 @@
              } else if (tilt == Tilt.FULL) {
                  resetTilt(state, level, pos);
              }
-@@ -227,8 +_,10 @@
+@@ -227,31 +_,43 @@
          return entity.onGround() && entity.position().y > pos.getY() + 0.6875F;
      }
  
 -    private void setTiltAndScheduleTick(BlockState state, Level level, BlockPos pos, Tilt tilt, @Nullable SoundEvent sound) {
 -        setTilt(state, level, pos, tilt);
 +    // CraftBukkit start
-+    private void setTiltAndScheduleTick(BlockState blockstate, Level level, BlockPos pos, Tilt tilt, @Nullable SoundEvent sound, @Nullable Entity entity) {
-+        if (!setTilt(blockstate, level, pos, tilt, entity)) return;
++    private void setTiltAndScheduleTick(BlockState state, Level level, BlockPos pos, Tilt tilt, @Nullable SoundEvent sound, @Nullable Entity entity) {
++        if (!setTilt(state, level, pos, tilt, entity)) return;
 +        // CraftBukkit end
          if (sound != null) {
              playTiltSound(level, pos, sound);
          }
-@@ -240,18 +_,28 @@
+ 
+-        int tickDelay = DELAY_UNTIL_NEXT_TILT_STATE.getInt(tilt);
++        int tickDelay = level.purpurConfig.bigDripleafTiltDelay.getOrDefault(tilt, -1); // Purpur - Big dripleaf tilt delay
+         if (tickDelay != -1) {
+             level.scheduleTick(pos, this, tickDelay);
+         }
      }
  
      private static void resetTilt(BlockState state, Level level, BlockPos pos) {

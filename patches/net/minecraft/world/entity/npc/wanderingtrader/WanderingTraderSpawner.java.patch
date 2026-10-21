@@ -1,22 +1,119 @@
 --- a/net/minecraft/world/entity/npc/wanderingtrader/WanderingTraderSpawner.java
 +++ b/net/minecraft/world/entity/npc/wanderingtrader/WanderingTraderSpawner.java
-@@ -90,13 +_,13 @@
-                     return false;
-                 }
+@@ -37,30 +_,38 @@
  
--                WanderingTrader trader = EntityType.WANDERING_TRADER.spawn(level, spawnPosition, EntitySpawnReason.EVENT);
-+                WanderingTrader trader = EntityType.WANDERING_TRADER.spawn(level, spawnPosition, EntitySpawnReason.EVENT, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL); // CraftBukkit
-                 if (trader != null) {
-                     for (int i = 0; i < 2; i++) {
-                         this.tryToSpawnLlamaFor(level, trader, 4);
+     public WanderingTraderSpawner(SavedDataStorage savedDataStorage) {
+         this.savedDataStorage = savedDataStorage;
+-        this.tickDelay = 1200;
++        this.tickDelay = Integer.MIN_VALUE; // Paper - Add Wandering Trader spawn rate config options
+         this.traderData = null;
+     }
+ 
+     @Override
+-    public void tick(ServerLevel level, boolean spawnEnemies) {
++    public void tick(final ServerLevel level, final boolean spawnEnemies) {
++        // Paper start - Add Wandering Trader spawn rate config options
++        if (this.tickDelay == Integer.MIN_VALUE) {
++            this.tickDelay = level.paperConfig().entities.spawning.wanderingTrader.spawnMinuteLength;
++            WanderingTraderData data = this.getTraderData();
++            data.setSpawnDelay(level.paperConfig().entities.spawning.wanderingTrader.spawnDayLength);
++            data.setSpawnChance(level.paperConfig().entities.spawning.wanderingTrader.spawnChanceMin);
++        }
+         if (level.getGameRules().get(GameRules.SPAWN_WANDERING_TRADERS)) {
+-            if (--this.tickDelay <= 0) {
+-                this.tickDelay = 1200;
++            if (this.tickDelay - 1 <= 0) { // Paper - Prevent tickDelay going below 0
++                this.tickDelay = level.paperConfig().entities.spawning.wanderingTrader.spawnMinuteLength;
+                 WanderingTraderData data = this.getTraderData();
+-                int spawnDelay = data.spawnDelay() - 1200;
++                int spawnDelay = data.spawnDelay() - level.paperConfig().entities.spawning.wanderingTrader.spawnMinuteLength;
+                 data.setSpawnDelay(spawnDelay);
+                 if (spawnDelay <= 0) {
+-                    data.setSpawnDelay(24000);
++                    data.setSpawnDelay(level.paperConfig().entities.spawning.wanderingTrader.spawnDayLength);
+                     int chanceToSpawn = data.spawnChance();
+-                    int newSpawnChance = Mth.clamp(chanceToSpawn + 25, 25, 75);
++                    int newSpawnChance = Mth.clamp(chanceToSpawn + level.paperConfig().entities.spawning.wanderingTrader.spawnChanceFailureIncrement, level.paperConfig().entities.spawning.wanderingTrader.spawnChanceMin, level.paperConfig().entities.spawning.wanderingTrader.spawnChanceMax);
+                     data.setSpawnChance(newSpawnChance);
+                     if (this.random.nextInt(100) <= chanceToSpawn) {
+                         if (this.spawn(level)) {
+-                            data.setSpawnChance(25);
++                            data.setSpawnChance(level.paperConfig().entities.spawning.wanderingTrader.spawnChanceMin);
++                            // Paper end - Add Wandering Trader spawn rate config options
+                         }
                      }
+                 }
+-            }
++            } else { this.tickDelay--; } // Paper - Prevent tickDelay going below 0
+         }
+     }
  
+@@ -76,41 +_,43 @@
+         Player player = level.getRandomPlayer();
+         if (player == null) {
+             return true;
+-        } else if (this.random.nextInt(10) != 0) {
+-            return false;
+-        } else {
+-            BlockPos playerPos = player.blockPosition();
+-            int radius = 48;
+-            PoiManager poiManager = level.getPoiManager();
+-            Optional<BlockPos> poiPos = poiManager.find(p -> p.is(PoiTypes.MEETING), p -> true, playerPos, 48, PoiManager.Occupancy.ANY);
+-            BlockPos referencePos = poiPos.orElse(playerPos);
+-            BlockPos spawnPosition = this.findSpawnPositionNear(level, referencePos, 48);
+-            if (spawnPosition != null && this.hasEnoughSpace(level, spawnPosition)) {
+-                if (level.getBiome(spawnPosition).is(BiomeTags.WITHOUT_WANDERING_TRADER_SPAWNS)) {
+-                    return false;
+-                }
+-
+-                WanderingTrader trader = EntityType.WANDERING_TRADER.spawn(level, spawnPosition, EntitySpawnReason.EVENT);
+-                if (trader != null) {
+-                    for (int i = 0; i < 2; i++) {
+-                        this.tryToSpawnLlamaFor(level, trader, 4);
+-                    }
+-
 -                    trader.setDespawnDelay(48000);
-+                    // trader.setDespawnDelay(48000); // CraftBukkit - moved to WanderingTrader constructor. This lets the value be modified by plugins on CreatureSpawnEvent
-                     trader.setWanderTarget(referencePos);
-                     trader.setHomeTo(referencePos, 16);
-                     return true;
-@@ -110,7 +_,7 @@
+-                    trader.setWanderTarget(referencePos);
+-                    trader.setHomeTo(referencePos, 16);
+-                    return true;
+-                }
+-            }
+-
+-            return false;
+-        }
++        }
++
++        if (this.random.nextInt(10) != 0) {
++            return false;
++        }
++
++        BlockPos playerPos = player.blockPosition();
++        int radius = 48;
++        PoiManager poiManager = level.getPoiManager();
++        Optional<BlockPos> poiPos = poiManager.find(p -> p.is(PoiTypes.MEETING), p -> true, playerPos, 48, PoiManager.Occupancy.ANY);
++        BlockPos referencePos = poiPos.orElse(playerPos);
++        BlockPos spawnPosition = this.findSpawnPositionNear(level, referencePos, 48);
++        if (spawnPosition != null && this.hasEnoughSpace(level, spawnPosition)) {
++            if (level.getBiome(spawnPosition).is(BiomeTags.WITHOUT_WANDERING_TRADER_SPAWNS)) {
++                return false;
++            }
++
++                WanderingTrader trader = EntityType.WANDERING_TRADER.spawn(level, wanderingTrader -> wanderingTrader.setDespawnDelay(48000), spawnPosition, EntitySpawnReason.EVENT, false, false, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL); // CraftBukkit // Paper - set despawnTimer before spawn events called
++            if (trader != null) {
++                for (int i = 0; i < 2; i++) {
++                    this.tryToSpawnLlamaFor(level, trader, 4);
++                }
++
++                    // trader.setDespawnDelay(48000); // Paper - moved above, modifiable by plugins on CreatureSpawnEvent
++                trader.setWanderTarget(referencePos);
++                trader.setHomeTo(referencePos, 16);
++                return true;
++            }
++        }
++
++        return false;
+     }
+ 
      private void tryToSpawnLlamaFor(ServerLevel level, WanderingTrader trader, int radius) {
          BlockPos spawnPosition = this.findSpawnPositionNear(level, trader.blockPosition(), radius);
          if (spawnPosition != null) {
@@ -25,3 +122,22 @@
              if (llama != null) {
                  llama.setLeashedTo(trader, true);
              }
+@@ -125,7 +_,17 @@
+             int xPosition = referencePosition.getX() + this.random.nextInt(radius * 2) - radius;
+             int zPosition = referencePosition.getZ() + this.random.nextInt(radius * 2) - radius;
+             int yPosition = level.getHeight(SpawnPlacements.getHeightmapType(EntityType.WANDERING_TRADER), xPosition, zPosition);
+-            BlockPos spawnPos = new BlockPos(xPosition, yPosition, zPosition);
++            // Purpur start - Allow toggling special MobSpawners per world - allow traders to spawn below nether roof
++            BlockPos.MutableBlockPos spawnPos = new BlockPos.MutableBlockPos(xPosition, yPosition, zPosition);
++            if (level.dimensionType().hasCeiling()) {
++                do {
++                    spawnPos.relative(net.minecraft.core.Direction.DOWN);
++                } while (!level.getBlockState(spawnPos).isAir());
++                do {
++                    spawnPos.relative(net.minecraft.core.Direction.DOWN);
++                } while (level.getBlockState(spawnPos).isAir() && spawnPos.getY() > 0);
++            }
++            // Purpur end - Allow toggling special MobSpawners per world
+             if (wanderingTraderSpawnType.isSpawnPositionOk(level, spawnPos, EntityType.WANDERING_TRADER)) {
+                 spawnPosition = spawnPos;
+                 break;

@@ -1,5 +1,7 @@
 package com.destroystokyo.paper.console;
 
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 import net.kyori.adventure.audience.MessageType;
 import net.kyori.adventure.identity.Identity;
 import com.mohistmc.youer.api.ColorAPI;

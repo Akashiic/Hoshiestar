@@ -1,11 +1,52 @@
 --- a/net/minecraft/world/entity/monster/Vex.java
 +++ b/net/minecraft/world/entity/monster/Vex.java
+@@ -59,6 +_,28 @@
+         this.xpReward = 3;
+     }
+ 
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.vexTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.vexAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
++    // Purpur start - Configurable entity base attributes
++    @Override
++    public void initAttributes() {
++        this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(this.level().purpurConfig.vexMaxHealth);
++        this.getAttribute(Attributes.SCALE).setBaseValue(this.level().purpurConfig.vexScale);
++    }
++    // Purpur end - Configurable entity base attributes
++
+     @Override
+     public boolean isFlapping() {
+         return this.tickCount % TICKS_PER_FLAP == 0;
 @@ -290,7 +_,7 @@
          @Override
          public void start() {
              Mob owner = Vex.this.getOwner();
 -            Vex.this.setTarget(owner != null ? owner.getTarget() : null);
-+            Vex.this.setTarget(owner != null ? owner.getTarget() : null, org.bukkit.event.entity.EntityTargetEvent.TargetReason.OWNER_ATTACKED_TARGET, true); // CraftBukkit
++            Vex.this.setTarget(owner != null ? owner.getTarget() : null, org.bukkit.event.entity.EntityTargetEvent.TargetReason.OWNER_ATTACKED_TARGET); // CraftBukkit
              super.start();
          }
      }
+@@ -352,7 +_,10 @@
+ 
+             for (int attempts = 0; attempts < 3; attempts++) {
+                 BlockPos testPos = boundOrigin.offset(Vex.this.random.nextInt(15) - 7, Vex.this.random.nextInt(11) - 5, Vex.this.random.nextInt(15) - 7);
+-                if (Vex.this.level().isEmptyBlock(testPos)) {
++                // Paper start - Don't load chunks
++                final net.minecraft.world.level.block.state.BlockState blockState = Vex.this.level().getBlockStateIfLoaded(testPos);
++                if (blockState != null && blockState.isAir()) {
++                    // Paper end - Don't load chunks
+                     Vex.this.moveControl.setWantedPosition(testPos.getX() + 0.5, testPos.getY() + 0.5, testPos.getZ() + 0.5, 0.25);
+                     if (Vex.this.getTarget() == null) {
+                         Vex.this.getLookControl().setLookAt(testPos.getX() + 0.5, testPos.getY() + 0.5, testPos.getZ() + 0.5, 180.0F, 20.0F);

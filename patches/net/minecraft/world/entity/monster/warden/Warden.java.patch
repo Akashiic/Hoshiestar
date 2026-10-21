@@ -1,5 +1,13 @@
 --- a/net/minecraft/world/entity/monster/warden/Warden.java
 +++ b/net/minecraft/world/entity/monster/warden/Warden.java
+@@ -168,6 +_,7 @@
+ 
+     @Override
+     protected boolean canRide(Entity vehicle) {
++        if (this.level().purpurConfig.wardenCanRideVehicles) return this.boardingCooldown <= 0; // Purpur - Configs for if Wither/Ender Dragon can ride vehicles
+         return false;
+     }
+ 
 @@ -403,7 +_,7 @@
  
      public static void applyDarknessAround(ServerLevel level, Vec3 position, @Nullable Entity source, int darknessRadius) {
@@ -9,3 +17,22 @@
      }
  
      @Override
+@@ -445,8 +_,17 @@
+     }
+ 
+     @VisibleForTesting
+-    public void increaseAngerAt(@Nullable Entity entity, int amount, boolean playSound) {
++    public void increaseAngerAt(final @Nullable Entity entity, int amount, final boolean playSound) { // Paper - Add WardenAngerChangeEvent
+         if (!this.isNoAi() && this.canTargetEntity(entity)) {
++            // Paper start - Add WardenAngerChangeEvent
++            int activeAnger = this.angerManagement.getActiveAnger(entity);
++            io.papermc.paper.event.entity.WardenAngerChangeEvent event = new io.papermc.paper.event.entity.WardenAngerChangeEvent((org.bukkit.entity.Warden) this.getBukkitEntity(), entity.getBukkitEntity(), activeAnger, Math.min(150, activeAnger + amount));
++            this.level().getCraftServer().getPluginManager().callEvent(event);
++            if (event.isCancelled()) {
++                return;
++            }
++            amount = event.getNewAnger() - activeAnger;
++            // Paper end - Add WardenAngerChangeEvent
+             WardenAi.setDigCooldown(this);
+             boolean maybeSwitchTarget = !(this.getTarget() instanceof Player);
+             int newAnger = this.angerManagement.increaseAnger(entity, amount);

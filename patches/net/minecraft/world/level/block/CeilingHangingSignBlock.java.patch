@@ -5,7 +5,7 @@
      @Override
      public <T extends BlockEntity> @Nullable BlockEntityTicker<T> getTicker(Level level, BlockState blockState, BlockEntityType<T> type) {
 -        return createTickerHelper(type, BlockEntityType.HANGING_SIGN, SignBlockEntity::tick);
-+        return null; // Craftbukkit - remove unnecessary sign ticking
++        return null; // CraftBukkit - remove unnecessary sign ticking
      }
  
      @Override

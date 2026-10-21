@@ -1,29 +1,73 @@
 --- a/net/minecraft/world/item/ShovelItem.java
 +++ b/net/minecraft/world/item/ShovelItem.java
-@@ -42,18 +_,15 @@
+@@ -40,35 +_,52 @@
+         BlockState blockState = level.getBlockState(pos);
+         if (context.getClickedFace() == Direction.DOWN) {
              return InteractionResult.PASS;
++        }
++
++        Player player = context.getPlayer();
++        BlockState newState = blockState.getToolModifiedState(context, net.neoforged.neoforge.common.ItemAbilities.SHOVEL_FLATTEN, false);
++        BlockState updatedState = null;
++        Runnable afterAction = null; // Paper
++        org.purpurmc.purpur.tool.Flattenable flattenable = level.purpurConfig.shovelFlattenables.get(blockState.getBlock()); // Purpur - Tool actionable options
++        if (newState != null && level.getBlockState(pos.above()).isAir()) {
++            afterAction = () -> {if (!FLATTENABLES.containsKey(blockState.getBlock())) level.playSound(player, pos, SoundEvents.SHOVEL_FLATTEN, SoundSource.BLOCKS, 1.0F, 1.0F);}; // Paper
++            updatedState = flattenable != null ? flattenable.into().defaultBlockState() : newState; // Youer - fall back to the NeoForge tool-modified state
++        } else if ((updatedState = blockState.getToolModifiedState(context, net.neoforged.neoforge.common.ItemAbilities.SHOVEL_DOUSE, false)) != null) {
++            afterAction = () -> { // Paper
++            if (!level.isClientSide()) {
++                level.levelEvent(null, 1009, pos, 0);
++            }
++            }; // Paper
++        }
++
++        if (updatedState != null) {
++            if (!level.isClientSide()) {
++                // Paper start
++                if (!org.bukkit.craftbukkit.event.CraftEventFactory.callEntityChangeBlockEvent(context.getPlayer(), pos, updatedState)) {
++                    return InteractionResult.PASS;
++                }
++                afterAction.run();
++                // Paper end
++                level.setBlock(pos, updatedState, 11);
++                level.gameEvent(GameEvent.BLOCK_CHANGE, pos, GameEvent.Context.of(player, updatedState));
++                if (player != null) {
++                    context.getItemInHand().hurtAndBreak(1, player, context.getHand().asEquipmentSlot());
++                }
++            }
++
++            return InteractionResult.SUCCESS;
          } else {
-             Player player = context.getPlayer();
+-            Player player = context.getPlayer();
 -            BlockState newState = FLATTENABLES.get(blockState.getBlock());
-+            BlockState newState = blockState.getToolModifiedState(context, net.neoforged.neoforge.common.ItemAbilities.SHOVEL_FLATTEN, false);
-             BlockState updatedState = null;
-             if (newState != null && level.getBlockState(pos.above()).isAir()) {
-                 level.playSound(player, pos, SoundEvents.SHOVEL_FLATTEN, SoundSource.BLOCKS, 1.0F, 1.0F);
-                 updatedState = newState;
+-            BlockState updatedState = null;
+-            if (newState != null && level.getBlockState(pos.above()).isAir()) {
+-                level.playSound(player, pos, SoundEvents.SHOVEL_FLATTEN, SoundSource.BLOCKS, 1.0F, 1.0F);
+-                updatedState = newState;
 -            } else if (blockState.getBlock() instanceof CampfireBlock && blockState.getValue(CampfireBlock.LIT)) {
-+            } else if ((updatedState = blockState.getToolModifiedState(context, net.neoforged.neoforge.common.ItemAbilities.SHOVEL_DOUSE, false)) != null) {
-                 if (!level.isClientSide()) {
-                     level.levelEvent(null, 1009, pos, 0);
-                 }
+-                if (!level.isClientSide()) {
+-                    level.levelEvent(null, 1009, pos, 0);
+-                }
 -
 -                CampfireBlock.dowse(context.getPlayer(), level, pos, blockState);
 -                updatedState = blockState.setValue(CampfireBlock.LIT, false);
-             }
- 
-             if (updatedState != null) {
-@@ -70,5 +_,15 @@
-                 return InteractionResult.PASS;
-             }
+-            }
+-
+-            if (updatedState != null) {
+-                if (!level.isClientSide()) {
+-                    level.setBlock(pos, updatedState, 11);
+-                    level.gameEvent(GameEvent.BLOCK_CHANGE, pos, GameEvent.Context.of(player, updatedState));
+-                    if (player != null) {
+-                        context.getItemInHand().hurtAndBreak(1, player, context.getHand().asEquipmentSlot());
+-                    }
+-                }
+-
+-                return InteractionResult.SUCCESS;
+-            } else {
+-                return InteractionResult.PASS;
+-            }
++            return InteractionResult.PASS;
          }
 +    }
 +

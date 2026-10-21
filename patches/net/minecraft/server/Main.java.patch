@@ -1,20 +1,14 @@
 --- a/net/minecraft/server/Main.java
 +++ b/net/minecraft/server/Main.java
-@@ -1,5 +_,7 @@
+@@ -1,6 +_,6 @@
  package net.minecraft.server;
  
-+import com.google.common.base.Charsets;
+-import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
 +import com.mohistmc.youer.Youer;
- import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
  import com.mojang.datafixers.DataFixer;
  import com.mojang.logging.LogUtils;
-@@ -8,12 +_,16 @@
- import java.awt.GraphicsEnvironment;
- import java.io.File;
- import java.io.IOException;
-+import java.io.InputStreamReader;
- import java.io.UncheckedIOException;
- import java.net.Proxy;
+ import com.mojang.serialization.Dynamic;
+@@ -13,14 +_,16 @@
  import java.nio.file.Files;
  import java.nio.file.Path;
  import java.nio.file.Paths;
@@ -25,32 +19,60 @@
  import java.util.function.BooleanSupplier;
  import joptsimple.OptionParser;
  import joptsimple.OptionSet;
-@@ -33,6 +_,7 @@
+ import joptsimple.OptionSpec;
+ import joptsimple.util.PathConverter;
+ import net.minecraft.CrashReport;
+-import net.minecraft.DefaultUncaughtExceptionHandler;
+ import net.minecraft.SharedConstants;
+ import net.minecraft.SuppressForbidden;
+ import net.minecraft.commands.Commands;
+@@ -29,19 +_,17 @@
+ import net.minecraft.core.registries.Registries;
+ import net.minecraft.nbt.NbtException;
+ import net.minecraft.nbt.ReportedNbtException;
+-import net.minecraft.network.chat.Component;
  import net.minecraft.server.dedicated.DedicatedServer;
  import net.minecraft.server.dedicated.DedicatedServerProperties;
  import net.minecraft.server.dedicated.DedicatedServerSettings;
 +import net.minecraft.server.packs.PackType;
  import net.minecraft.server.packs.repository.PackRepository;
  import net.minecraft.server.packs.repository.ServerPacksSource;
- import net.minecraft.util.Mth;
-@@ -53,9 +_,11 @@
+-import net.minecraft.util.Mth;
+ import net.minecraft.util.Util;
+ import net.minecraft.util.datafix.DataFixers;
+ import net.minecraft.util.profiling.jfr.Environment;
+ import net.minecraft.util.profiling.jfr.JvmProfiler;
+ import net.minecraft.util.worldupdate.UpgradeProgress;
+-import net.minecraft.util.worldupdate.WorldUpgrader;
+ import net.minecraft.world.flag.FeatureFlags;
+ import net.minecraft.world.level.LevelSettings;
+ import net.minecraft.world.level.WorldDataConfiguration;
+@@ -53,21 +_,30 @@
  import net.minecraft.world.level.levelgen.presets.WorldPresets;
  import net.minecraft.world.level.storage.LevelDataAndDimensions;
  import net.minecraft.world.level.storage.LevelStorageSource;
 +import net.minecraft.world.level.storage.LevelResource;
  import net.minecraft.world.level.storage.LevelSummary;
  import net.minecraft.world.level.storage.PrimaryLevelData;
- import net.minecraft.world.level.storage.WorldData;
-+import org.bukkit.configuration.file.YamlConfiguration;
+-import net.minecraft.world.level.storage.WorldData;
  import org.jspecify.annotations.Nullable;
  import org.slf4j.Logger;
  
-@@ -64,10 +_,11 @@
++import static java.util.Arrays.asList;
++
+ public class Main {
+     private static final Logger LOGGER = LogUtils.getLogger();
  
      @SuppressForbidden(reason = "System.out needed before bootstrap")
      public static void main(String[] args) {
++        Youer.initProperty();
++        io.papermc.paper.log.LogManagerShutdownThread.hook(); // Paper - Improved watchdog support
 +        Youer.initI18n(); // Youer
          SharedConstants.tryDetectVersion();
++        // Paper start - Perf: Skip data fixer schema sanity check
++        // This is a startup sanity check for entity and block entity types and forces Vanilla datafixer building
++        SharedConstants.CHECK_DATA_FIXER_SCHEMA = Boolean.getBoolean("paper.updatingMinecraft");
++        // Paper end - Perf: Skip data fixer schema sanity check
          OptionParser parser = new OptionParser();
          OptionSpec<Void> nogui = parser.accepts("nogui");
 -        OptionSpec<Void> initSettings = parser.accepts("initSettings", "Initializes 'server.properties' and 'eula.txt', then quits");
@@ -58,7 +80,7 @@
          OptionSpec<Void> demo = parser.accepts("demo");
          OptionSpec<Void> bonusChest = parser.accepts("bonusChest");
          OptionSpec<Void> forceUpgrade = parser.accepts("forceUpgrade");
-@@ -83,12 +_,70 @@
+@@ -83,45 +_,219 @@
          OptionSpec<Path> pidFile = parser.accepts("pidFile").withRequiredArg().withValuesConvertedBy(new PathConverter());
          OptionSpec<String> nonOptions = parser.nonOptions();
  
@@ -96,6 +118,44 @@
 +                .describedAs("Yml file");
 +        // Spigot End
 +
++        parser.acceptsAll(asList("paper-dir", "paper-settings-directory"), "Directory for Paper settings")
++                .withRequiredArg()
++                .ofType(File.class)
++                .defaultsTo(new File(io.papermc.paper.configuration.PaperConfigurations.CONFIG_DIR))
++                .describedAs("Config directory");
++
++        parser.acceptsAll(asList("paper", "paper-settings"), "File for Paper settings")
++                .withRequiredArg()
++                .ofType(File.class)
++                .defaultsTo(new File("paper.yml"))
++                .describedAs("Yml file");
++
++        parser.acceptsAll(asList("add-plugin", "add-extra-plugin-jar"), "Specify paths to extra plugin jars to be loaded in addition to those in the plugins folder. This argument can be specified multiple times, once for each extra plugin jar path.")
++                .withRequiredArg()
++                .ofType(File.class)
++                .defaultsTo(new File[] {})
++                .describedAs("Jar file");
++
++        parser.acceptsAll(asList("add-plugin-dir", "add-extra-plugin-dir"), "Specify paths to extra plugin directories to be loaded in addition to the plugins folder. This argument can be specified multiple times, once for each extra plugin dir path.")
++                .withRequiredArg()
++                .ofType(File.class)
++                .defaultsTo(new File[] {})
++                .describedAs("Plugin directory");
++
++        parser.accepts("server-name", "Name of the server")
++                .withRequiredArg()
++                .ofType(String.class)
++                .defaultsTo("Unknown Server")
++                .describedAs("Name");
++
++        // Purpur start - Purpur config files
++        parser.acceptsAll(Arrays.asList("purpur", "purpur-settings"), "File for purpur settings")
++                .withRequiredArg()
++                .ofType(File.class)
++                .defaultsTo(new File("purpur.yml"))
++                .describedAs("Yml file");
++        // Purpur end - Purpur config files
++
 +        // Youer Start
 +        parser.acceptsAll(Arrays.asList("Y", "youer-settings"), "File for youer settings")
 +                .withRequiredArg()
@@ -111,48 +171,81 @@
                  parser.printHelpOn(System.err);
                  return;
              }
++            if (options.has("nojline")) {
++                System.setProperty(net.minecrell.terminalconsole.TerminalConsoleAppender.JLINE_OVERRIDE_PROPERTY, "false");
++                org.bukkit.craftbukkit.Main.useJline = false;
++            }
++
++            if (options.has("noconsole")) {
++                org.bukkit.craftbukkit.Main.useConsole = false;
++                org.bukkit.craftbukkit.Main.useJline = false; // Paper
++                System.setProperty(net.minecrell.terminalconsole.TerminalConsoleAppender.JLINE_OVERRIDE_PROPERTY, "false"); // Paper
++            }
 +            Path eulaFile = Paths.get("eula.txt");
 +            Eula eula = new Eula(eulaFile);
 +
-+            // Spigot Start
-+            boolean eulaAgreed = Boolean.getBoolean( "com.mojang.eula.agree" );
-+            if ( eulaAgreed )
-+            {
-+                System.err.println( "You have used the Spigot command line EULA agreement flag." );
-+                System.err.println( "By using this setting you are indicating your agreement to Mojang's EULA (https://account.mojang.com/documents/minecraft_eula)." );
-+                System.err.println( "If you do not agree to the above EULA please stop your server and remove this flag immediately." );
-+            }
-+            // Spigot End
-+            if (!eula.hasAgreedToEULA() && !eulaAgreed) { // Spigot
-+                LOGGER.info("You need to agree to the EULA in order to run the server. Go to eula.txt for more info.");
-+                return;
-+            }
++            // Paper start - load config files early for access below if needed
++            org.bukkit.configuration.file.YamlConfiguration bukkitConfiguration = io.papermc.paper.configuration.PaperConfigurations.loadLegacyConfigFile((File) options.valueOf("bukkit-settings"));
++            org.bukkit.configuration.file.YamlConfiguration spigotConfiguration = io.papermc.paper.configuration.PaperConfigurations.loadLegacyConfigFile((File) options.valueOf("spigot-settings"));
++            // Paper end - load config files early for access below if needed
  
              Path pidFilePath = options.valueOf(pidFile);
              if (pidFilePath != null) {
-@@ -104,26 +_,45 @@
+                 writePidFile(pidFilePath);
+             }
+ 
+-            CrashReport.preload();
++            // Paper start - Perf: Run CrashReport preload asynchronously
++            // The actual result is discarded/irrelevant, but hardware and software info is memoized
++            Thread.ofPlatform().daemon().name("CrashReport preload thread").start(CrashReport::preload);
++            // Paper end - Perf: Run CrashReport preload asynchronously
+             if (options.has(jfrProfilingOption)) {
+                 JvmProfiler.INSTANCE.start(Environment.SERVER);
+             }
+ 
++            // Purpur start - Add toggle for enchant level clamping - load config files early
++            org.bukkit.configuration.file.YamlConfiguration purpurConfiguration = io.papermc.paper.configuration.PaperConfigurations.loadLegacyConfigFile((File) options.valueOf("purpur-settings"));
++            org.purpurmc.purpur.PurpurConfig.clampEnchantLevels = purpurConfiguration.getBoolean("settings.enchantment.clamp-levels", true);
++            org.purpurmc.purpur.PurpurConfig.registerMinecraftDebugCommands = purpurConfiguration.getBoolean("settings.register-minecraft-debug-commands"); // Purpur - register minecraft debug commands
++            org.purpurmc.purpur.PurpurConfig.registerMinecraftDisabledCommands = purpurConfiguration.getBoolean("settings.register-minecraft-disabled-commands"); // Purpur - register disabled minecraft commands
++            // Purpur end - Add toggle for enchant level clamping - load config files early
++
++            io.papermc.paper.plugin.PluginInitializerManager.load(options); // Paper
+             Bootstrap.bootStrap();
              Bootstrap.validate();
++            // Paper start - Perf: Init DataConverter asynchronously
++            // Init for both of these are fairly expensive class-loading wise. Both are called again below/in MinecraftServer.spin,
++            // so failure during class init will become visible there.
++            Thread.ofPlatform().daemon().name("DataConverter MCTypeRegistry init thread").start(ca.spottedleaf.dataconverter.minecraft.datatypes.MCTypeRegistry::init);
++            Thread.ofPlatform().daemon().name("DataFixers init thread").start(DataFixers::getDataFixer);
++            // Paper end - Perf: Init DataConverter asynchronously
              Util.startTimerHackThread();
              Path settingsFile = Paths.get("server.properties");
 -            DedicatedServerSettings settings = new DedicatedServerSettings(settingsFile);
 +            if (!options.has(initSettings)) net.neoforged.neoforge.server.loading.ServerModLoader.load(false); // Load mods before we load almost anything else anymore. Single spot now. Only loads if they haven't passed the initserver param
 +            DedicatedServerSettings settings = new DedicatedServerSettings(options);// CraftBukkit - CLI argument support
              settings.forceSave();
++            // Paper start
++            if (options.has("forceUpgrade") || options.has("recreateRegionFiles")) {
++                LOGGER.error("World upgrade and region file recreation are not yet implemented in Paper 26.1.");
++                return;
++            }
++            // Paper end
              RegionFileVersion.configure(settings.getProperties().regionFileComression);
 -            Path eulaFile = Paths.get("eula.txt");
 -            Eula eula = new Eula(eulaFile);
              if (options.has(initSettings)) {
 +                // CraftBukkit start - SPIGOT-5761: Create bukkit.yml and commands.yml if not present
 +                File configFile = (File) options.valueOf("bukkit-settings");
-+                YamlConfiguration configuration = YamlConfiguration.loadConfiguration(configFile);
++                org.bukkit.configuration.file.YamlConfiguration configuration = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(configFile);
 +                configuration.options().copyDefaults(true);
-+                configuration.setDefaults(YamlConfiguration.loadConfiguration(new InputStreamReader(Main.class.getClassLoader().getResourceAsStream("configurations/bukkit.yml"), Charsets.UTF_8)));
++                configuration.setDefaults(org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(new java.io.InputStreamReader(Main.class.getClassLoader().getResourceAsStream("configurations/bukkit.yml"), java.nio.charset.StandardCharsets.UTF_8)));
 +                configuration.save(configFile);
 +
 +                File commandFile = (File) options.valueOf("commands-settings");
-+                YamlConfiguration commandsConfiguration = YamlConfiguration.loadConfiguration(commandFile);
++                org.bukkit.configuration.file.YamlConfiguration commandsConfiguration = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(commandFile);
 +                commandsConfiguration.options().copyDefaults(true);
-+                commandsConfiguration.setDefaults(YamlConfiguration.loadConfiguration(new InputStreamReader(Main.class.getClassLoader().getResourceAsStream("configurations/commands.yml"), Charsets.UTF_8)));
++                commandsConfiguration.setDefaults(org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(new java.io.InputStreamReader(Main.class.getClassLoader().getResourceAsStream("configurations/commands.yml"), java.nio.charset.StandardCharsets.UTF_8)));
 +                commandsConfiguration.save(commandFile);
 +                // CraftBukkit end
                  LOGGER.info("Initialized '{}' and '{}'", settingsFile.toAbsolutePath(), eulaFile.toAbsolutePath());
@@ -160,64 +253,113 @@
              }
  
 -            if (!eula.hasAgreedToEULA()) {
--                LOGGER.info("You need to agree to the EULA in order to run the server. Go to eula.txt for more info.");
--                return;
++            // Paper start - eula system property
++            boolean eulaAgreed = Boolean.getBoolean("com.mojang.eula.agree");
++            if (eulaAgreed) {
++                LOGGER.warn("You have used the Paper command line EULA agreement flag.");
++                LOGGER.warn("By using this setting you are indicating your agreement to Mojang's EULA (https://aka.ms/MinecraftEULA).");
++                LOGGER.warn("If you do not agree to the above EULA please stop your server and remove this flag immediately.");
++            } else if (!eula.hasAgreedToEULA()) {
++                // Paper end - eula system property
+                 LOGGER.info("You need to agree to the EULA in order to run the server. Go to eula.txt for more info.");
+                 return;
+             }
+ 
+-            File universePath = new File(options.valueOf(universe));
+-            Services services = Services.create(new YggdrasilAuthenticationService(Proxy.NO_PROXY), universePath);
++            // Paper start - Detect headless JRE
++            String awtException = io.papermc.paper.util.ServerEnvironment.awtDependencyCheck();
++            if (awtException != null) {
++                LOGGER.error("You are using a headless JRE distribution.");
++                LOGGER.error("This distribution is missing certain graphic libraries that the Minecraft server needs to function.");
++                LOGGER.error("For instructions on how to install the non-headless JRE, see https://docs.papermc.io/misc/java-install");
++                LOGGER.error("");
++                LOGGER.error(awtException);
++                return;
++            }
++            // Paper end - Detect headless JRE
++
 +            File configYmenu = new File("youer-config/menu", "example.yml");
 +            if (!configYmenu.exists()) {
 +                org.bukkit.configuration.file.YamlConfiguration configurationYmenu = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(configYmenu);
 +                configurationYmenu.options().copyDefaults(true);
 +                configurationYmenu.setDefaults(org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(new java.io.InputStreamReader(Main.class.getClassLoader().getResourceAsStream("youer-config/menu/example.yml"), com.google.common.base.Charsets.UTF_8)));
 +                configurationYmenu.save(configYmenu);
-             }
- 
-             File universePath = new File(options.valueOf(universe));
-             Services services = Services.create(new YggdrasilAuthenticationService(Proxy.NO_PROXY), universePath);
++            }
++
++            org.spigotmc.SpigotConfig.disabledAdvancements = spigotConfiguration.getStringList("advancements.disabled"); // Paper - fix SPIGOT-5885, must be set early in init
++
++            // Paper start - fix SPIGOT-5824
++            File universePath;
++            File userCacheFile = new File(Services.USERID_CACHE_FILE);
++            if (options.has(universe)) {
++                universePath = new File(options.valueOf(universe)); // CraftBukkit
++                userCacheFile = new File(universePath, Services.USERID_CACHE_FILE);
++            } else {
++                universePath = new File(bukkitConfiguration.getString("settings.world-container", "."));
++            }
++            // Paper end - fix SPIGOT-5824
++            Services services = Services.create(new com.destroystokyo.paper.profile.PaperAuthenticationService(Proxy.NO_PROXY), universePath, userCacheFile, options); // Paper - pass OptionSet to load paper config files; override authentication service; fix world-container
              String levelName = Optional.ofNullable(options.valueOf(worldName)).orElse(settings.getProperties().levelName);
 +            if (levelName == null || levelName.isEmpty() || new File(universePath, levelName).getAbsolutePath().equals(new File(levelName).getAbsolutePath())) {
 +                LOGGER.error("Invalid world directory specified, must not be null, empty or the same directory as your universe! {}", levelName);
 +                return;
 +            }
              LevelStorageSource levelStorageSource = LevelStorageSource.createDefault(universePath.toPath());
--            LevelStorageSource.LevelStorageAccess access = levelStorageSource.validateAndCreateAccess(levelName);
-+            LevelStorageSource.LevelStorageAccess access = levelStorageSource.validateAndCreateAccess(levelName, LevelStem.OVERWORLD);
+             LevelStorageSource.LevelStorageAccess access = levelStorageSource.validateAndCreateAccess(levelName);
              Dynamic<?> levelDataTag;
-             if (access.hasWorldData()) {
-                 Dynamic<?> levelDataUnfixed;
-@@ -156,6 +_,26 @@
+@@ -149,6 +_,7 @@
+             } else {
+                 levelDataTag = null;
+             }
++            io.papermc.paper.world.migration.WorldFolderMigration.didInitialLoad = true; // Paper
+ 
+             boolean safeModeEnabled = options.has(safeMode);
+             if (safeModeEnabled) {
+@@ -156,6 +_,13 @@
              }
  
              PackRepository packRepository = ServerPacksSource.createPackRepository(access);
-+            // CraftBukkit start
-+            File bukkitDataPackFolder = new File(access.getLevelPath(LevelResource.DATAPACK_DIR).toFile(), "bukkit");
-+            if (!bukkitDataPackFolder.exists()) {
-+                bukkitDataPackFolder.mkdirs();
++            // Paper start
++            if (!safeModeEnabled) {
++                io.papermc.paper.datapack.DynamicBuiltinPacks.refreshAllMetadata(access);
 +            }
-+            File mcMeta = new File(bukkitDataPackFolder, "pack.mcmeta");
-+            try {
-+                com.google.common.io.Files.write("{\n"
-+                        + "    \"pack\": {\n"
-+                        + "        \"description\": \"Data pack for resources provided by Bukkit plugins\",\n"
-+                        + "        \"min_format\": " + SharedConstants.getCurrentVersion().packVersion(PackType.SERVER_DATA) + ",\n"
-+                        + "        \"max_format\": " + SharedConstants.getCurrentVersion().packVersion(PackType.SERVER_DATA) + "\n"
-+                        + "    }\n"
-+                        + "}\n", mcMeta, com.google.common.base.Charsets.UTF_8);
-+            } catch (java.io.IOException ex) {
-+                throw new RuntimeException("Could not initialize Bukkit datapack", ex);
-+            }
-+            // CraftBukkit end
-+
++            // Paper end
 +            AtomicReference<WorldLoader.DataLoadContext> worldLoader = new AtomicReference<>();
++            // CraftBukkit end
  
              WorldStem worldStem;
              try {
-@@ -164,6 +_,7 @@
+@@ -164,13 +_,27 @@
                          executor -> WorldLoader.load(
                              worldLoadConfig,
                              context -> {
 +                                worldLoader.set(context); // CraftBukkit
                                  Registry<LevelStem> datapackDimensions = context.datapackDimensions().lookupOrThrow(Registries.LEVEL_STEM);
                                  if (levelDataTag != null) {
++                                    // Paper start - migrate startup world
++                                    try {
++                                        io.papermc.paper.world.migration.WorldFolderMigration.migrateStartupWorld(
++                                                access,
++                                                context.datapackWorldgen(),
++                                                levelName,
++                                                LevelStem.OVERWORLD,
++                                                Registries.levelStemToLevel(LevelStem.OVERWORLD)
++                                        );
++                                    } catch (final IOException ex) {
++                                        throw new UncheckedIOException("Failed to migrate world storage for " + LevelStem.OVERWORLD.identifier(), ex);
++                                    }
++                                    // Paper end - migrate startup world
                                      LevelDataAndDimensions worldData = LevelStorageSource.getLevelDataAndDimensions(
+-                                        access, levelDataTag, context.dataConfiguration(), datapackDimensions, context.datapackWorldgen()
++                                            access, levelDataTag, context.dataConfiguration(), datapackDimensions, context.datapackWorldgen(), net.minecraft.world.level.Level.OVERWORLD // Paper
+                                     );
+                                     return new WorldLoader.DataLoadOutput<>(
+-                                        worldData.worldDataAndGenSettings(), worldData.dimensions().dimensionsRegistryAccess()
++                                            worldData.worldDataAndGenSettings(), worldData.dimensions().dimensionsRegistryAccess()
+                                     );
+                                 } else {
+                                     LOGGER.info("No existing world data, creating new world");
 @@ -190,7 +_,7 @@
                  );
                  return;
@@ -239,7 +381,7 @@
                          thread, access, packRepository, worldStem, Optional.empty(), settings, DataFixers.getDataFixer(), services
                      );
                      server.setPort(options.valueOf(port));
-@@ -215,14 +_,17 @@
+@@ -215,20 +_,23 @@
                      return server;
                  }
              );
@@ -257,6 +399,13 @@
          } catch (Throwable var40) {
              LOGGER.error(LogUtils.FATAL_MARKER, "Failed to start the minecraft server", var40);
          }
+     }
+ 
+-    private static WorldLoader.DataLoadOutput<LevelDataAndDimensions.WorldDataAndGenSettings> createNewWorldData(
++    public static WorldLoader.DataLoadOutput<LevelDataAndDimensions.WorldDataAndGenSettings> createNewWorldData(
+         DedicatedServerSettings settings, WorldLoader.DataLoadContext context, Registry<LevelStem> datapackDimensions, boolean demoMode, boolean bonusChest
+     ) {
+         LevelSettings createLevelSettings;
 @@ -251,6 +_,9 @@
              dimensions = properties.createDimensions(context.datapackWorldgen());
          }
@@ -267,12 +416,21 @@
          WorldDimensions.Complete finalDimensions = dimensions.bake(datapackDimensions);
          Lifecycle lifecycle = finalDimensions.lifecycle().add(context.datapackWorldgen().allRegistriesLifecycle());
          PrimaryLevelData primaryLevelData = new PrimaryLevelData(createLevelSettings, finalDimensions.specialWorldProperty(), lifecycle);
-@@ -295,7 +_,7 @@
+@@ -295,7 +_,8 @@
          RegistryAccess registryAccess,
          boolean recreateRegionFiles
      ) {
 -        LOGGER.info("Forcing world upgrade!");
++        /*
 +        LOGGER.info("Forcing world upgrade! {}", storageSource.getLevelId()); // CraftBukkit
  
          try (WorldUpgrader upgrader = new WorldUpgrader(storageSource, fixerUpper, registryAccess, eraseCache, recreateRegionFiles)) {
              Component lastStatus = null;
+@@ -322,6 +_,6 @@
+                     }
+                 }
+             }
+-        }
++        }*/
+     }
+ }

@@ -1,5 +1,13 @@
 --- a/net/minecraft/world/level/portal/PortalShape.java
 +++ b/net/minecraft/world/level/portal/PortalShape.java
+@@ -12,6 +_,7 @@
+ import net.minecraft.world.entity.EntityDimensions;
+ import net.minecraft.world.level.BlockGetter;
+ import net.minecraft.world.level.LevelAccessor;
++import net.minecraft.world.level.block.Block;
+ import net.minecraft.world.level.block.Blocks;
+ import net.minecraft.world.level.block.NetherPortalBlock;
+ import net.minecraft.world.level.block.state.BlockBehaviour;
 @@ -23,12 +_,17 @@
  import org.apache.commons.lang3.mutable.MutableInt;
  import org.jspecify.annotations.Nullable;
@@ -33,7 +41,7 @@
          this.axis = axis;
          this.numPortalBlocks = portalBlockCount;
          this.rightDir = rightDir;
-@@ -62,23 +_,24 @@
+@@ -62,23 +_,25 @@
      }
  
      public static PortalShape findAnyShape(BlockGetter level, BlockPos pos, Direction.Axis axis) {
@@ -43,21 +51,28 @@
 +        BlockPos bottomLeft = calculateBottomLeft(level, rightDir, pos, blocks); // CraftBukkit
          if (bottomLeft == null) {
 -            return new PortalShape(axis, 0, rightDir, pos, 0, 0);
-+            return new PortalShape(axis, 0, rightDir, pos, 0, 0, blocks); // CraftBukkit
-         } else {
+-        } else {
 -            int width = calculateWidth(level, bottomLeft, rightDir);
-+            int width = calculateWidth(level, bottomLeft, rightDir, blocks); // CraftBukkit
-             if (width == 0) {
+-            if (width == 0) {
 -                return new PortalShape(axis, 0, rightDir, bottomLeft, 0, 0);
-+                return new PortalShape(axis, 0, rightDir, bottomLeft, 0, 0, blocks); // CraftBukkit
-             } else {
-                 MutableInt portalBlockCountOutput = new MutableInt();
+-            } else {
+-                MutableInt portalBlockCountOutput = new MutableInt();
 -                int height = calculateHeight(level, bottomLeft, rightDir, width, portalBlockCountOutput);
 -                return new PortalShape(axis, portalBlockCountOutput.intValue(), rightDir, bottomLeft, width, height);
-+                int height = calculateHeight(level, bottomLeft, rightDir, width, portalBlockCountOutput, blocks); // CraftBukkit
-+                return new PortalShape(axis, portalBlockCountOutput.intValue(), rightDir, bottomLeft, width, height, blocks); // CraftBukkit
-             }
-         }
+-            }
+-        }
++            return new PortalShape(axis, 0, rightDir, pos, 0, 0, blocks); // CraftBukkit
++        }
++
++        int width = calculateWidth(level, bottomLeft, rightDir, blocks); // CraftBukkit
++        if (width == 0) {
++            return new PortalShape(axis, 0, rightDir, bottomLeft, 0, 0, blocks); // CraftBukkit
++        }
++
++        MutableInt portalBlockCountOutput = new MutableInt();
++        int height = calculateHeight(level, bottomLeft, rightDir, width, portalBlockCountOutput, blocks); // CraftBukkit
++        return new PortalShape(axis, portalBlockCountOutput.intValue(), rightDir, bottomLeft, width, height, blocks); // CraftBukkit
++
      }
  
 -    private static @Nullable BlockPos calculateBottomLeft(BlockGetter level, Direction rightDir, BlockPos pos) {
@@ -143,37 +158,28 @@
          }
  
          return 21;
-@@ -172,10 +_,32 @@
+@@ -172,10 +_,23 @@
          return this.width >= 2 && this.width <= 21 && this.height >= 3 && this.height <= 21;
      }
  
+-    public void createPortalBlocks(LevelAccessor level) {
 +    // CraftBukkit start - return boolean, add entity
-     public void createPortalBlocks(LevelAccessor level) {
-+        this.createPortalBlocks(level, null);
-+    }
-+
-+    public boolean createPortalBlocks(LevelAccessor level, net.minecraft.world.entity.Entity entity) {
++    public boolean createPortalBlocks(final LevelAccessor level, final Entity entity) {
 +        org.bukkit.World bworld = level.getMinecraftWorld().getWorld();
-+
 +        // Copy below for loop
          BlockState portalState = Blocks.NETHER_PORTAL.defaultBlockState().setValue(NetherPortalBlock.AXIS, this.axis);
--        BlockPos.betweenClosed(this.bottomLeft, this.bottomLeft.relative(Direction.UP, this.height - 1).relative(this.rightDir, this.width - 1))
+         BlockPos.betweenClosed(this.bottomLeft, this.bottomLeft.relative(Direction.UP, this.height - 1).relative(this.rightDir, this.width - 1))
 -            .forEach(pos -> level.setBlock(pos, portalState, 18));
-+
-+        BlockPos.betweenClosed(this.bottomLeft, this.bottomLeft.relative(Direction.UP, this.height - 1).relative(this.rightDir, this.width - 1)).forEach((blockpos) -> {
-+            blocks.setBlock(blockpos, portalState, 18);
-+        });
-+
-+        PortalCreateEvent event = new PortalCreateEvent((java.util.List<org.bukkit.block.BlockState>) (java.util.List) blocks.getList(), bworld, (entity == null) ? null : entity.getBukkitEntity(), PortalCreateEvent.CreateReason.FIRE);
-+        level.getMinecraftWorld().getServer().server.getPluginManager().callEvent(event);
++                .forEach(pos -> this.blocks.setBlock(pos, portalState, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE));
++        org.bukkit.event.world.PortalCreateEvent event = new org.bukkit.event.world.PortalCreateEvent((java.util.List<org.bukkit.block.BlockState>) (java.util.List) this.blocks.getSnapshotBlocks(), bworld, (entity == null) ? null : entity.getBukkitEntity(), org.bukkit.event.world.PortalCreateEvent.CreateReason.FIRE);
++        level.getMinecraftWorld().getServer().server.getPluginManager().callEvent(event); // todo the list is not really mutable here unlike other call and the portal frame is included
 +
 +        if (event.isCancelled()) {
 +            return false;
 +        }
 +        // CraftBukkit end
-+        BlockPos.betweenClosed(this.bottomLeft, this.bottomLeft.relative(Direction.UP, this.height - 1).relative(this.rightDir, this.width - 1)).forEach((blockpos) -> {
-+            level.setBlock(blockpos, portalState, 18);
-+        });
++        BlockPos.betweenClosed(this.bottomLeft, this.bottomLeft.relative(Direction.UP, this.height - 1).relative(this.rightDir, this.width - 1))
++                .forEach(pos -> level.setBlock(pos, portalState, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE));
 +        return true; // CraftBukkit
      }
  

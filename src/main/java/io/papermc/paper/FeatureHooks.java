@@ -202,7 +202,7 @@ public final class FeatureHooks {
 
         for (final org.apache.logging.log4j.core.Appender appender : context.getConfiguration().getAppenders().values()) {
             if (appender instanceof org.apache.logging.log4j.core.appender.AsyncAppender asyncAppender) {
-                final boolean flushed = asyncAppender.flush(100, java.util.concurrent.TimeUnit.MILLISECONDS);
+                final boolean flushed = io.papermc.paper.FeatureHooks.flushAsyncAppender(asyncAppender, 100); // Youer - log4j 2.25.2 (MC 26.1.2) has no AsyncAppender#flush
                 if (!flushed) {
                     net.minecraft.server.MinecraftServer.LOGGER.warn("Failed to flush log messages before plugin unload.");
                 }
@@ -210,4 +210,15 @@ public final class FeatureHooks {
         }
         // Paper end - add explicit flush method
     }
+
+    // Youer start - AsyncAppender#flush only exists in newer log4j; Minecraft 26.1.2 pins log4j 2.25.2
+    public static boolean flushAsyncAppender(final org.apache.logging.log4j.core.appender.AsyncAppender appender, final long timeoutMillis) {
+        try {
+            final java.lang.reflect.Method flush = appender.getClass().getMethod("flush", long.class, java.util.concurrent.TimeUnit.class);
+            return (boolean) flush.invoke(appender, timeoutMillis, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (final ReflectiveOperationException ignored) {
+            return true;
+        }
+    }
+    // Youer end
 }

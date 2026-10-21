@@ -18,3 +18,12 @@
          }
  
          @Override
+@@ -274,7 +_,7 @@
+             }
+ 
+             void apply(ServerLevel level) {
+-                level.getServer().setWeatherParameters(this.clearTime, this.rainTime, this.raining, this.thundering);
++                level.getServer().setWeatherParameters(level, this.clearTime, this.rainTime, this.raining, this.thundering); // Paper - per-level WeatherData
+             }
+ 
+             @Override

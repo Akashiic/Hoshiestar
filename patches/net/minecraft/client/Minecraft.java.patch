@@ -1,5 +1,23 @@
 --- a/net/minecraft/client/Minecraft.java
 +++ b/net/minecraft/client/Minecraft.java
+@@ -394,7 +_,7 @@
+     private final SimpleGizmoCollector perTickGizmos = new SimpleGizmoCollector();
+     private List<SimpleGizmoCollector.GizmoInstance> drainedLatestTickGizmos = new ArrayList<>();
+ 
+-    public Minecraft(GameConfig gameConfig) {
++    public Minecraft(GameConfig gameConfig) throws Exception {
+         super("Client", true);
+         instance = this;
+         this.clientStartTimeMs = System.currentTimeMillis();
+@@ -417,7 +_,7 @@
+         YggdrasilAuthenticationService authenticationService = this.offlineDeveloperMode
+             ? YggdrasilAuthenticationService.createOffline(this.proxy)
+             : new YggdrasilAuthenticationService(this.proxy);
+-        this.services = Services.create(authenticationService, this.gameDirectory);
++        this.services = Services.create(authenticationService, this.gameDirectory, null, null);
+         this.user = gameConfig.user.user;
+         this.profileFuture = this.offlineDeveloperMode
+             ? CompletableFuture.completedFuture(null)
 @@ -432,7 +_,6 @@
              }
          }, Util.nonCriticalIoPool());

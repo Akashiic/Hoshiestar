@@ -1,14 +1,25 @@
 --- a/net/minecraft/world/level/block/CampfireBlock.java
 +++ b/net/minecraft/world/level/block/CampfireBlock.java
-@@ -108,7 +_,7 @@
+@@ -107,8 +_,9 @@
+ 
      @Override
      protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity, InsideBlockEffectApplier effectApplier, boolean isPrecise) {
++        if (!new io.papermc.paper.event.entity.EntityInsideBlockEvent(entity.getBukkitEntity(), org.bukkit.craftbukkit.block.CraftBlock.at(level, pos)).callEvent()) { return; } // Paper - Add EntityInsideBlockEvent
          if (state.getValue(LIT) && entity instanceof LivingEntity) {
 -            entity.hurt(level.damageSources().campfire(), this.fireDamage);
-+            entity.hurt(level.damageSources().campfire().directBlock(level, pos), this.fireDamage); // CraftBukkit
++            entity.hurt(level.damageSources().campfire().eventBlockDamager(level, pos), this.fireDamage); // CraftBukkit
          }
  
          super.entityInside(state, level, pos, entity, effectApplier, isPrecise);
+@@ -122,7 +_,7 @@
+         return this.defaultBlockState()
+             .setValue(WATERLOGGED, replacedWater)
+             .setValue(SIGNAL_FIRE, this.isSmokeSource(level.getBlockState(pos.below())))
+-            .setValue(LIT, !replacedWater)
++            .setValue(LIT, level.getMinecraftWorld().purpurConfig.campFireLitWhenPlaced && !replacedWater) // Purpur - Campfire option for lit when placed
+             .setValue(FACING, context.getHorizontalDirection());
+     }
+ 
 @@ -219,6 +_,11 @@
              && projectile.mayInteract(serverLevel, pos)
              && !state.getValue(LIT)

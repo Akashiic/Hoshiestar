@@ -1,5 +1,7 @@
 package org.bukkit.entity;
 
+import org.bukkit.Bukkit;
+
 import com.google.common.base.Preconditions;
 import com.mohistmc.youer.api.ServerAPI;
 import io.papermc.paper.InternalAPIBridge;

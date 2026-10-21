@@ -1,5 +1,8 @@
 package io.papermc.paper.util;
 
+import net.minecraft.server.packs.metadata.MetadataSectionType;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;

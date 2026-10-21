@@ -14,9 +14,24 @@
  @SuppressForbidden(reason = "System.out setup")
  public class Bootstrap {
      public static final PrintStream STDOUT = System.out;
-@@ -56,8 +_,73 @@
+@@ -43,6 +_,7 @@
+         if (!isBootstrapped) {
+             isBootstrapped = true;
+             Instant start = Instant.now();
++            io.papermc.paper.plugin.entrypoint.LaunchEntryPointHandler.enterBootstrappers(); // Paper - Entrypoint for bootstrapping
+             if (BuiltInRegistries.REGISTRY.keySet().isEmpty()) {
+                 throw new IllegalStateException("Unable to load registries");
+             } else {
+@@ -54,10 +_,79 @@
+                     EntitySelectorOptions.bootStrap();
+                     DispenseItemBehavior.bootStrap();
                      CauldronInteractions.bootStrap();
-                     BuiltInRegistries.bootStrap();
+-                    BuiltInRegistries.bootStrap();
++                    // Paper start
++                    BuiltInRegistries.bootStrap(() -> {
++                        io.papermc.paper.world.worldgen.OptionallyFlatBedrockConditionSource.bootstrap(); // Paper - Flat bedrock generator settings
++                    });
++                    // Paper end
                      CreativeModeTabs.validate();
 +                    net.neoforged.neoforge.registries.GameData.vanillaSnapshot();
 +                    if (false) // skip redirectOutputToLog, Forge already redirects stdout and stderr output to log so that they print with more context

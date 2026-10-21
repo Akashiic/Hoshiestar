@@ -1,5 +1,13 @@
 --- a/net/minecraft/world/entity/EntityType.java
 +++ b/net/minecraft/world/entity/EntityType.java
+@@ -187,6 +_,7 @@
+ import org.slf4j.Logger;
+ 
+ public class EntityType<T extends Entity> implements EntityTypeTest<Entity, T>, FeatureElement {
++    private static final boolean DEBUG_ENTITIES_WITH_INVALID_IDS = Boolean.getBoolean("paper.debugEntitiesWithInvalidIds"); // Paper - Add logging for debugging entity tags with invalid ids
+     private static final Logger LOGGER = LogUtils.getLogger();
+     private final Holder.Reference<EntityType<?>> builtInRegistryHolder = BuiltInRegistries.ENTITY_TYPE.createIntrusiveHolder(this);
+     public static final Codec<EntityType<?>> CODEC = BuiltInRegistries.ENTITY_TYPE.byNameCodec();
 @@ -225,7 +_,7 @@
              .fireImmune()
              .sized(6.0F, 0.5F)
@@ -9,7 +17,13 @@
      );
      public static final EntityType<Armadillo> ARMADILLO = register(
          "armadillo", EntityType.Builder.of(Armadillo::new, MobCategory.CREATURE).sized(0.7F, 0.65F).eyeHeight(0.26F).clientTrackingRange(10)
-@@ -1225,6 +_,11 @@
+@@ -1220,11 +_,16 @@
+     private final String descriptionId;
+     private @Nullable Component description;
+     private final Optional<ResourceKey<LootTable>> lootTable;
+-    private final EntityDimensions dimensions;
++    public EntityDimensions dimensions;
+     private final float spawnDimensionsScale;
      private final FeatureFlagSet requiredFeatures;
      private final boolean allowedInPeaceful;
  
@@ -21,6 +35,34 @@
      private static <T extends Entity> EntityType<T> register(ResourceKey<EntityType<?>> id, EntityType.Builder<T> builder) {
          return Registry.register(BuiltInRegistries.ENTITY_TYPE, id, builder.build(id));
      }
+@@ -1236,14 +_,25 @@
+     private static <T extends Entity> EntityType<T> register(String vanillaId, EntityType.Builder<T> builder) {
+         return register(vanillaEntityId(vanillaId), builder);
+     }
++    // Purpur start - PlayerSetSpawnerTypeWithEggEvent
++    public static EntityType<?> getFromBukkitType(org.bukkit.entity.EntityType bukkitType) {
++        return getFromKey(Identifier.parse(bukkitType.getKey().toString()));
++    }
++
++    public static EntityType<?> getFromKey(Identifier location) {
++        return BuiltInRegistries.ENTITY_TYPE.getValue(location);
++    }
++    // Purpur end - PlayerSetSpawnerTypeWithEggEvent
+ 
+     public static Identifier getKey(EntityType<?> type) {
+         return BuiltInRegistries.ENTITY_TYPE.getKey(type);
+     }
+ 
+-    public static Optional<EntityType<?>> byString(String id) {
+-        return BuiltInRegistries.ENTITY_TYPE.getOptional(Identifier.tryParse(id));
++    // Purpur start
++    public static Optional<EntityType<?>> byString(String key) {
++        return BuiltInRegistries.ENTITY_TYPE.getOptional(Identifier.tryParse(key));
+     }
++    // Purpur end
+ 
+     public EntityType(
+         EntityType.EntityFactory<T> factory,
 @@ -1262,6 +_,30 @@
          FeatureFlagSet requiredFeatures,
          boolean allowedInPeaceful
@@ -96,7 +138,7 @@
      }
  
      public static <T extends Entity> Consumer<T> createDefaultStackConfig(Level level, ItemStack itemStack, @Nullable LivingEntity user) {
-@@ -1315,20 +_,38 @@
+@@ -1315,20 +_,48 @@
      public static <T extends Entity> Consumer<T> appendCustomEntityStackConfig(
          Consumer<T> initialConfig, Level level, ItemStack itemStack, @Nullable LivingEntity user
      ) {
@@ -132,6 +174,16 @@
 +
 +    public @Nullable T spawn(ServerLevel level, @Nullable Consumer<T> postSpawnConfig, BlockPos spawnPos, EntitySpawnReason spawnReason, boolean tryMoveDown, boolean movedUp, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason bukkitSpawnReason) {
 +        // CraftBukkit end
++        // Paper start - PreCreatureSpawnEvent
++        com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent event = new com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent(
++            org.bukkit.craftbukkit.util.CraftLocation.toBukkit(spawnPos, level),
++            org.bukkit.craftbukkit.entity.CraftEntityType.minecraftToBukkit(this),
++            bukkitSpawnReason
++        );
++        if (!event.callEvent()) {
++            return null;
++        }
++        // Paper end - PreCreatureSpawnEvent
          T entity = this.create(level, postSpawnConfig, spawnPos, spawnReason, tryMoveDown, movedUp);
          if (entity != null) {
 -            level.addFreshEntityWithPassengers(entity);
@@ -158,6 +210,88 @@
              }
  
              if (postSpawnConfig != null) {
+@@ -1384,6 +_,13 @@
+                 if (level.isClientSide()
+                     || !entity.getType().onlyOpCanSetNbt()
+                     || user instanceof Player player && server.getPlayerList().isOp(player.nameAndId())) {
++                    // Paper start - filter out protected tags
++                    if (user == null || !user.getBukkitEntity().hasPermission("minecraft.nbt.place")) {
++                        for (net.minecraft.commands.arguments.NbtPathArgument.NbtPath tag : level.paperConfig().entities.spawning.filteredEntityTagNbtPaths) {
++                            tag.remove(entityData.getUnsafe());
++                        }
++                    }
++                    // Paper end - filter out protected tags
+                     entityData.loadInto(entity);
+                 }
+             }
+@@ -1410,6 +_,16 @@
+         return this.category;
+     }
+ 
++    // Purpur start - PlayerSetSpawnerTypeWithEggEvent
++    public String getName() {
++        return BuiltInRegistries.ENTITY_TYPE.getKey(this).getPath();
++    }
++
++    public String getTranslatedName() {
++        return getDescription().getString();
++    }
++    // Purpur end - PlayerSetSpawnerTypeWithEggEvent
++
+     public String getDescriptionId() {
+         return this.descriptionId;
+     }
+@@ -1454,10 +_,29 @@
+     }
+ 
+     public static Optional<Entity> create(ValueInput input, Level level, EntitySpawnReason reason) {
++        // Paper start - Don't fire sync event during generation
++        return create(input, level, reason, false);
++    }
++
++    public static Optional<Entity> create(final ValueInput input, final Level level, final EntitySpawnReason reason, final boolean generation) {
++        // Paper end - Don't fire sync event during generation
+         return Util.ifElse(
+             by(input).map(type -> type.create(level, reason)),
+-            entity -> entity.load(input),
+-            () -> LOGGER.warn("Skipping Entity with id {}", input.getStringOr("id", "[invalid]"))
++            // Paper start - Don't fire sync event during generation
++            entity -> {
++                if (generation) entity.generation = true; // Paper - Don't fire sync event during generation
++                entity.load(input);
++            },
++            // Paper end - Don't fire sync event during generation
++            // Paper start - Add logging for debugging entity tags with invalid ids
++            () -> {
++                LOGGER.debug("Skipping Entity with id {}", input.getStringOr("id", "[invalid]"));
++                LOGGER.debug("Location: {} {}", level.getWorld().getName(), input.read("Pos", net.minecraft.world.phys.Vec3.CODEC).orElse(net.minecraft.world.phys.Vec3.ZERO)); // Purpur - log skipped entity's position
++                if ((DEBUG_ENTITIES_WITH_INVALID_IDS || level.getCraftServer().getServer().isDebugging()) && input instanceof TagValueInput tagInput) {
++                    LOGGER.debug("Skipped entity tag: {}", tagInput.input);
++                }
++            }
++            // Paper end - Add logging for debugging entity tags with invalid ids
+         );
+     }
+ 
+@@ -1535,7 +_,18 @@
+     }
+ 
+     public static Stream<Entity> loadEntitiesRecursive(ValueInput.ValueInputList entities, Level level, EntitySpawnReason reason) {
++        final java.util.Map<EntityType<?>, Integer> loadedEntityCounts = new java.util.HashMap<>(); // Paper - Entity load/save limit per chunk
+         return entities.stream().mapMulti((tag, output) -> loadEntityRecursive(tag, level, reason, entity -> {
++            // Paper start - Entity load/save limit per chunk
++            final EntityType<?> entityType = entity.getType();
++            final int saveLimit = level.paperConfig().chunks.entityPerChunkSaveLimit.getOrDefault(entityType, -1);
++            if (saveLimit > -1) {
++                if (loadedEntityCounts.getOrDefault(entityType, 0) >= saveLimit) {
++                    return null;
++                }
++                loadedEntityCounts.merge(entityType, 1, Integer::sum);
++            }
++            // Paper end - Entity load/save limit per chunk
+             output.accept(entity);
+             return entity;
+         }));
 @@ -1560,14 +_,23 @@
      }
  
@@ -182,6 +316,15 @@
          return this != PLAYER
              && this != LLAMA_SPIT
              && this != WITHER
+@@ -1594,7 +_,7 @@
+         return this.builtInRegistryHolder;
+     }
+ 
+-    public boolean isAllowedInPeaceful() {
++    public final boolean isAllowedInPeaceful() {
+         return this.allowedInPeaceful;
+     }
+ 
 @@ -1615,9 +_,12 @@
      }
  

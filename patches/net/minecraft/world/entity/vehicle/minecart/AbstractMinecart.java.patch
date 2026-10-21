@@ -12,10 +12,10 @@
  import org.jspecify.annotations.Nullable;
  
  public abstract class AbstractMinecart extends VehicleEntity {
-@@ -97,6 +_,18 @@
+@@ -96,14 +_,34 @@
+             }
          )
      );
- 
 +    // CraftBukkit start
 +    public boolean slowWhenEmpty = true;
 +    private double derailedX = 0.5;
@@ -24,17 +24,62 @@
 +    private double flyingX = 0.95;
 +    private double flyingY = 0.95;
 +    private double flyingZ = 0.95;
-+    public Double maxSpeed;
-+    public double powRailAccelMult = 1.0;
++    public @Nullable Double maxSpeed;
++    // Purpur start - Minecart settings and WASD controls
++    public double storedMaxSpeed;
++    public boolean isNewBehavior;
++    // Purpur end - Minecart settings and WASD controls
++    public net.kyori.adventure.util.TriState frictionState = net.kyori.adventure.util.TriState.NOT_SET; // Paper - Friction API
 +    // CraftBukkit end
-+
+ 
      protected AbstractMinecart(EntityType<?> type, Level level) {
          super(type, level);
          this.blocksBuilding = true;
-@@ -263,6 +_,14 @@
+         if (useExperimentalMovement(level)) {
+             this.behavior = new NewMinecartBehavior(this);
++            this.isNewBehavior = true; // Purpur - Minecart settings and WASD controls
+         } else {
+             this.behavior = new OldMinecartBehavior(this);
++            // Purpur start - Minecart settings and WASD controls
++            this.isNewBehavior = false;
++            maxSpeed = storedMaxSpeed = level.purpurConfig.minecartMaxSpeed;
++            // Purpur end - Minecart settings and WASD controls
+         }
+     }
+ 
+@@ -154,11 +_,19 @@
+ 
+     @Override
+     public boolean canCollideWith(Entity entity) {
+-        return AbstractBoat.canVehicleCollide(this, entity);
++        // Paper start - fix VehicleEntityCollisionEvent not called when colliding with player
++        boolean collides = AbstractBoat.canVehicleCollide(this, entity);
++        if (!collides) {
++            return false;
++        }
++
++        org.bukkit.event.vehicle.VehicleEntityCollisionEvent collisionEvent = new org.bukkit.event.vehicle.VehicleEntityCollisionEvent((org.bukkit.entity.Vehicle) this.getBukkitEntity(), entity.getBukkitEntity());
++        return collisionEvent.callEvent();
++        // Paper end - fix VehicleEntityCollisionEvent not called when colliding with player
+     }
+ 
+     @Override
+-    public boolean isPushable() {
++    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
+         return true;
+     }
+ 
+@@ -263,6 +_,21 @@
  
      @Override
      public void tick() {
++        // Purpur start - Minecart settings and WASD controls
++        if (!this.isNewBehavior) {
++            if (storedMaxSpeed != level().purpurConfig.minecartMaxSpeed) {
++                maxSpeed = storedMaxSpeed = level().purpurConfig.minecartMaxSpeed;
++            }
++        }
++        // Purpur end - Minecart settings and WASD controls
 +        // CraftBukkit start
 +        double prevX = this.getX();
 +        double prevY = this.getY();
@@ -68,15 +113,67 @@
          this.updateFluidInteraction();
          if (this.isInLava()) {
              this.lavaIgnite();
-@@ -362,12 +_,16 @@
+@@ -357,17 +_,68 @@
+         this.behavior.moveAlongTrack(level);
+     }
+ 
++    // Purpur start - Minecart settings and WASD controls
++    private Double lastSpeed;
++
++    public double getControllableSpeed() {
++        BlockState blockState = level().getBlockState(this.blockPosition());
++        if (!blockState.isSolid()) {
++            blockState = level().getBlockState(this.blockPosition().relative(Direction.DOWN));
++        }
++        Double speed = level().purpurConfig.minecartControllableBlockSpeeds.get(blockState.getBlock());
++        if (!blockState.isSolid()) {
++            speed = lastSpeed;
++        }
++        if (speed == null) {
++            speed = level().purpurConfig.minecartControllableBaseSpeed;
++        }
++        return lastSpeed = speed;
++    }
++    // Purpur end - Minecart settings and WASD controls
++
+     protected void comeOffTrack(ServerLevel level) {
+         double maxSpeed = this.getMaxSpeed(level);
          Vec3 movement = this.getDeltaMovement();
          this.setDeltaMovement(Mth.clamp(movement.x, -maxSpeed, maxSpeed), movement.y, Mth.clamp(movement.z, -maxSpeed, maxSpeed));
++
++        // Purpur start - Minecart settings and WASD controls
++        if (level().purpurConfig.minecartControllable && !isInWater() && !isInLava() && !passengers.isEmpty()) {
++            Entity passenger = passengers.get(0);
++            if (passenger instanceof net.minecraft.server.level.ServerPlayer player) {
++                net.minecraft.world.entity.player.Input lastClientInput = player.getLastClientInput();
++                float forward = (lastClientInput.forward() == lastClientInput.backward() ? 0.0F : lastClientInput.forward() ? 1.0F : -1.0F);
++                if (lastClientInput.jump() && this.onGround) {
++                    setDeltaMovement(new Vec3(getDeltaMovement().x, level().purpurConfig.minecartControllableHopBoost, getDeltaMovement().z));
++                }
++                if (forward != 0.0F) {
++                    org.bukkit.util.Vector velocity = player.getBukkitEntity().getEyeLocation().getDirection().normalize().multiply(getControllableSpeed());
++                    if (forward < 0.0) {
++                        velocity.multiply(-0.5);
++                    }
++                    setDeltaMovement(new Vec3(velocity.getX(), getDeltaMovement().y, velocity.getZ()));
++                }
++                this.setYRot(passenger.getYRot() - 90);
++                maxUpStep = level().purpurConfig.minecartControllableStepHeight;
++            } else {
++                maxUpStep = 0.0F;
++            }
++        } else {
++            maxUpStep = 0.0F;
++        }
++        // Purpur end - Minecart settings and WASD controls
++
          if (this.onGround()) {
 -            this.setDeltaMovement(this.getDeltaMovement().scale(0.5));
 +            // CraftBukkit start - replace magic numbers with our variables
 +            this.setDeltaMovement(new Vec3(this.getDeltaMovement().x * this.derailedX, this.getDeltaMovement().y * this.derailedY, this.getDeltaMovement().z * this.derailedZ));
 +            // CraftBukkit end
          }
++        else if (level().purpurConfig.minecartControllable) setDeltaMovement(new Vec3(getDeltaMovement().x * derailedX, getDeltaMovement().y, getDeltaMovement().z * derailedZ)); // Purpur - Minecart settings and WASD controls
  
          this.move(MoverType.SELF, this.getDeltaMovement());
          if (!this.onGround()) {
@@ -98,18 +195,49 @@
              if (shape == RailShape.EAST_WEST) {
                  if (this.isRedstoneConductor(pos.west())) {
                      return new Vec3(1.0, 0.0, 0.0);
-@@ -488,6 +_,14 @@
+@@ -469,6 +_,15 @@
+         this.setDisplayOffset(input.getIntOr("DisplayOffset", this.getDefaultDisplayOffset()));
+         this.flipped = input.getBooleanOr("FlippedRotation", false);
+         this.firstTick = input.getBooleanOr("HasTicked", false);
++        // Paper start - Friction API
++        input.getString("Paper.FrictionState").ifPresent(frictionState -> {
++            try {
++                this.frictionState = net.kyori.adventure.util.TriState.valueOf(frictionState);
++            } catch (Exception ignored) {
++                com.mojang.logging.LogUtils.getLogger().error("Unknown friction state {} for {}", frictionState, this);
++            }
++        });
++        // Paper end - Friction API
+     }
+ 
+     @Override
+@@ -481,13 +_,29 @@
+ 
+         output.putBoolean("FlippedRotation", this.flipped);
+         output.putBoolean("HasTicked", this.firstTick);
++        // Paper start - Friction API
++        if (this.frictionState != net.kyori.adventure.util.TriState.NOT_SET) {
++            output.putString("Paper.FrictionState", this.frictionState.toString());
++        }
++        // Paper end - Friction API
+     }
+ 
+     @Override
+     public void push(Entity entity) {
          if (!this.level().isClientSide()) {
              if (!entity.noPhysics && !this.noPhysics) {
++                if (!this.level().paperConfig().collisions.allowVehicleCollisions && this.level().paperConfig().collisions.onlyPlayersCollide && !(entity instanceof Player)) return; // Paper - Collision option for requiring a player participant
                  if (!this.hasPassenger(entity)) {
-+                    // CraftBukkit start
-+                    VehicleEntityCollisionEvent collisionEvent = new VehicleEntityCollisionEvent((Vehicle) this.getBukkitEntity(), entity.getBukkitEntity());
-+                    this.level().getCraftServer().getPluginManager().callEvent(collisionEvent);
++                    // Paper start - Collision Events
++                    if (io.papermc.paper.event.entity.EntityCollideWithEntityEvent.getHandlerList().getRegisteredListeners().length != 0 &&
++                            !new io.papermc.paper.event.entity.EntityCollideWithEntityEvent(this.getBukkitEntity(), entity.getBukkitEntity()).callEvent()) return;
 +
-+                    if (collisionEvent.isCancelled()) {
-+                        return;
-+                    }
-+                    // CraftBukkit end
++                    org.bukkit.event.vehicle.VehicleEntityCollisionEvent collisionEvent = new org.bukkit.event.vehicle.VehicleEntityCollisionEvent(
++                            (org.bukkit.entity.Vehicle) this.getBukkitEntity(),
++                            entity.getBukkitEntity()
++                    );
++                    if (!collisionEvent.callEvent()) return;
++                    // Paper end - Collision Events
                      double xa = entity.getX() - this.getX();
                      double za = entity.getZ() - this.getZ();
                      double dd = xa * xa + za * za;

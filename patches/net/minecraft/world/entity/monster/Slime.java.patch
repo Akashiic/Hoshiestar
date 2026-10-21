@@ -16,6 +16,119 @@
  public class Slime extends Mob implements Enemy {
      private static final EntityDataAccessor<Integer> ID_SIZE = SynchedEntityData.defineId(Slime.class, EntityDataSerializers.INT);
      public static final int MIN_SIZE = 1;
+@@ -59,6 +_,8 @@
+     public float squish;
+     public float oSquish;
+     private boolean wasOnGround = false;
++    private boolean canWander = true; // Paper - Slime pathfinder events
++    protected boolean actualJump; // Purpur - Ridables
+ 
+     public Slime(EntityType<? extends Slime> type, Level level) {
+         super(type, level);
+@@ -77,6 +_,87 @@
+         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, IronGolem.class, true));
+     }
+ 
++    // Purpur start - Ridables
++    @Override
++    public boolean isRidable() {
++        return level().purpurConfig.slimeRidable;
++    }
++
++    @Override
++    public boolean dismountsUnderwater() {
++        return level().purpurConfig.useDismountsUnderwaterTag ? super.dismountsUnderwater() : !level().purpurConfig.slimeRidableInWater;
++    }
++
++    @Override
++    public boolean isControllable() {
++        return level().purpurConfig.slimeControllable;
++    }
++
++    @Override
++    public float getJumpPower() {
++        float height = super.getJumpPower();
++        return getRider() != null && this.isControllable() && actualJump ? height * 1.5F : height;
++    }
++
++    @Override
++    public boolean onSpacebar() {
++        if (onGround && getRider() != null && this.isControllable()) {
++            actualJump = true;
++            if (getRider().getForwardMot() == 0 || getRider().getStrafeMot() == 0) {
++                jumpFromGround(); // jump() here if not moving
++            }
++        }
++        return true; // do not jump() in wasd controller, let vanilla controller handle
++    }
++    // Purpur end - Ridables
++
++    // Purpur start - Configurable entity base attributes
++    protected String getMaxHealthEquation() {
++        return level().purpurConfig.slimeMaxHealth;
++    }
++
++    protected String getAttackDamageEquation() {
++        return level().purpurConfig.slimeAttackDamage;
++    }
++
++    protected java.util.Map<Integer, Double> getMaxHealthCache() {
++        return level().purpurConfig.slimeMaxHealthCache;
++    }
++
++    protected java.util.Map<Integer, Double> getAttackDamageCache() {
++        return level().purpurConfig.slimeAttackDamageCache;
++    }
++
++    protected double getFromCache(java.util.function.Supplier<String> equation, java.util.function.Supplier<java.util.Map<Integer, Double>> cache, java.util.function.Supplier<Double> defaultValue) {
++        int size = getSize();
++        Double value = cache.get().get(size);
++        if (value == null) {
++            try {
++                value = ((Number) scriptEngine.eval("let size = " + size + "; " + equation.get())).doubleValue();
++            } catch (javax.script.ScriptException e) {
++                e.printStackTrace();
++                value = defaultValue.get();
++            }
++            cache.get().put(size, value);
++        }
++        return value;
++    }
++    // Purpur end - Configurable entity base attributes
++
++    // Purpur start - Toggle for water sensitive mob damage
++    @Override
++    public boolean isSensitiveToWater() {
++        return this.level().purpurConfig.slimeTakeDamageFromWater;
++    }
++    // Purpur end - Toggle for water sensitive mob damage
++
++    // Purpur start - Mobs always drop experience
++    @Override
++    protected boolean isAlwaysExperienceDropper() {
++        return this.level().purpurConfig.slimeAlwaysDropExp;
++    }
++    // Purpur end - Mobs always drop experience
++
+     @Override
+     public SoundSource getSoundSource() {
+         return SoundSource.HOSTILE;
+@@ -113,6 +_,7 @@
+         super.addAdditionalSaveData(output);
+         output.putInt("Size", this.getSize() - 1);
+         output.putBoolean("wasOnGround", this.wasOnGround);
++        output.putBoolean("Paper.canWander", this.canWander); // Paper
+     }
+ 
+     @Override
+@@ -120,6 +_,7 @@
+         this.setSize(input.getIntOr("Size", 0) + 1, false);
+         super.readAdditionalSaveData(input);
+         this.wasOnGround = input.getBooleanOr("wasOnGround", false);
++        this.canWander = input.getBooleanOr("Paper.canWander", true); // Paper
+     }
+ 
+     public boolean isTiny() {
 @@ -139,6 +_,8 @@
              float size = this.getDimensions(this.getPose()).width() * 2.0F;
              float radius = size / 2.0F;
@@ -37,7 +150,7 @@
          int size = this.getSize();
          if (!this.level().isClientSide() && size > 1 && this.isDeadOrDying()) {
              float width = this.getDimensions(this.getPose()).width();
-@@ -203,17 +_,47 @@
+@@ -203,17 +_,53 @@
              int count = 2 + this.random.nextInt(3);
              PlayerTeam team = this.getTeam();
  
@@ -74,12 +187,18 @@
 +            this.preventConversionSpawns = false;
 +
 +            // CraftBukkit start
-+            if (CraftEventFactory.callEntityTransformEvent(this, slimes, EntityTransformEvent.TransformReason.SPLIT).isCancelled()) {
++            if (!slimes.isEmpty() && CraftEventFactory.callEntityTransformEvent(this, slimes, EntityTransformEvent.TransformReason.SPLIT).isCancelled()) {
 +                super.remove(reason, cause);
 +                return;
 +            }
++            List<net.minecraft.world.entity.Mob> children = new ArrayList<>(slimes.size());
 +            for (LivingEntity living : slimes) {
-+                this.level().addFreshEntity(living, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SLIME_SPLIT);
++                children.add((net.minecraft.world.entity.Mob) living);
++            }
++            if (!net.neoforged.neoforge.event.EventHooks.onMobSplit(this, children).isCanceled()) { // Neo
++                for (LivingEntity living : children) {
++                    this.level().addFreshEntity(living, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SLIME_SPLIT);
++                }
 +            }
 +            // CraftBukkit end
          }
@@ -89,6 +208,43 @@
      }
  
      @Override
+@@ -269,12 +_,21 @@
+     }
+ 
+     public static boolean checkSlimeSpawnRules(EntityType<Slime> type, LevelAccessor level, EntitySpawnReason spawnReason, BlockPos pos, RandomSource random) {
++        // Purpur start - Config to disable hostile mob spawn on ice
++        if (net.minecraft.world.entity.monster.Monster.canSpawnInBlueAndPackedIce(level, pos)) {
++            return false;
++        }
++        // Purpur end - Config to disable hostile mob spawn on ice
+         if (level.getDifficulty() != Difficulty.PEACEFUL) {
+             if (EntitySpawnReason.isSpawner(spawnReason)) {
+                 return checkMobSpawnRules(type, level, spawnReason, pos, random);
+             }
+ 
+-            if (level.getBiome(pos).is(BiomeTags.ALLOWS_SURFACE_SLIME_SPAWNS) && pos.getY() > 50 && pos.getY() < 70) {
++            // Paper start - Replace rules for Height in Swamp Biomes
++            final double maxHeightSwamp = level.getMinecraftWorld().paperConfig().entities.spawning.slimeSpawnHeight.surfaceBiome.maximum;
++            final double minHeightSwamp = level.getMinecraftWorld().paperConfig().entities.spawning.slimeSpawnHeight.surfaceBiome.minimum;
++            // Paper end - Replace rules for Height in Swamp Biomes
++            if (level.getBiome(pos).is(BiomeTags.ALLOWS_SURFACE_SLIME_SPAWNS) && pos.getY() > minHeightSwamp && pos.getY() < maxHeightSwamp) { // Paper - Replace rules for Height in Swamp Biomes
+                 float surfaceSlimeSpawnChance = level.environmentAttributes().getValue(EnvironmentAttributes.SURFACE_SLIME_SPAWN_CHANCE, pos);
+                 if (random.nextFloat() < surfaceSlimeSpawnChance && level.getMaxLocalRawBrightness(pos) <= random.nextInt(8)) {
+                     return checkMobSpawnRules(type, level, spawnReason, pos, random);
+@@ -286,8 +_,11 @@
+             }
+ 
+             ChunkPos chunkPos = ChunkPos.containing(pos);
+-            boolean slimeChunk = WorldgenRandom.seedSlimeChunk(chunkPos.x(), chunkPos.z(), ((WorldGenLevel)level).getSeed(), 987234911L).nextInt(10) == 0;
+-            if (random.nextInt(10) == 0 && slimeChunk && pos.getY() < 40) {
++            boolean slimeChunk = level.getMinecraftWorld().paperConfig().entities.spawning.allChunksAreSlimeChunks || WorldgenRandom.seedSlimeChunk(chunkPos.x(), chunkPos.z(), ((WorldGenLevel) level).getSeed(), level.getMinecraftWorld().spigotConfig.slimeSeed).nextInt(10) == 0; // Paper
++            // Paper start - Replace rules for Height in Slime Chunks
++            final double maxHeightSlimeChunk = level.getMinecraftWorld().paperConfig().entities.spawning.slimeSpawnHeight.slimeChunk.maximum;
++            if (random.nextInt(10) == 0 && slimeChunk && pos.getY() < maxHeightSlimeChunk) {
++            // Paper end - Replace rules for Height in Slime Chunks
+                 return checkMobSpawnRules(type, level, spawnReason, pos, random);
+             }
+         }
 @@ -314,6 +_,7 @@
          Vec3 movement = this.getDeltaMovement();
          this.setDeltaMovement(movement.x, this.getJumpPower(), movement.z);
@@ -97,16 +253,123 @@
      }
  
      @Override
-@@ -344,6 +_,12 @@
-     public EntityDimensions getDefaultDimensions(Pose pose) {
+@@ -345,6 +_,22 @@
          return super.getDefaultDimensions(pose).scale(this.getSize());
      }
-+
+ 
 +    /**
 +     * Called when the slime spawns particles on landing, see onUpdate.
 +     * Return true to prevent the spawning of the default particles.
 +     */
 +    protected boolean spawnCustomParticles() { return false; }
- 
++
++    // Paper start - Slime pathfinder events
++    public boolean canWander() {
++        return this.canWander;
++    }
++
++    public void setWander(boolean canWander) {
++        this.canWander = canWander;
++    }
++    // Paper end - Slime pathfinder events
++
      private static class SlimeAttackGoal extends Goal {
          private final Slime slime;
+         private int growTiredTimer;
+@@ -357,11 +_,16 @@
+         @Override
+         public boolean canUse() {
+             LivingEntity target = this.slime.getTarget();
+-            if (target == null) {
+-                return false;
+-            } else {
+-                return !this.slime.canAttack(target) ? false : this.slime.getMoveControl() instanceof Slime.SlimeMoveControl;
+-            }
++
++            // Paper start - Slime pathfinder events
++            if (target == null || !target.isAlive()) {
++                return false;
++            }
++            if (!this.slime.canAttack(target)) {
++                return false;
++            }
++            return this.slime.getMoveControl() instanceof Slime.SlimeMoveControl && this.slime.canWander && new com.destroystokyo.paper.event.entity.SlimeTargetLivingEntityEvent((org.bukkit.entity.Slime) this.slime.getBukkitEntity(), (org.bukkit.entity.LivingEntity) target.getBukkitEntity()).callEvent();
++            // Paper end - Slime pathfinder events
+         }
+ 
+         @Override
+@@ -373,11 +_,16 @@
+         @Override
+         public boolean canContinueToUse() {
+             LivingEntity target = this.slime.getTarget();
+-            if (target == null) {
+-                return false;
+-            } else {
+-                return !this.slime.canAttack(target) ? false : --this.growTiredTimer > 0;
+-            }
++
++            // Paper start - Slime pathfinder events
++            if (target == null || !target.isAlive()) {
++                return false;
++            }
++            if (!this.slime.canAttack(target)) {
++                return false;
++            }
++            return --this.growTiredTimer > 0 && this.slime.canWander && new com.destroystokyo.paper.event.entity.SlimeTargetLivingEntityEvent((org.bukkit.entity.Slime) this.slime.getBukkitEntity(), (org.bukkit.entity.LivingEntity) target.getBukkitEntity()).callEvent();
++            // Paper end - Slime pathfinder events
+         }
+ 
+         @Override
+@@ -396,6 +_,13 @@
+                 slimeMoveControl.setDirection(this.slime.getYRot(), this.slime.isDealsDamage());
+             }
+         }
++
++        // Paper start - Slime pathfinder events; clear timer and target when goal resets
++        public void stop() {
++            this.growTiredTimer = 0;
++            this.slime.setTarget(null);
++        }
++        // Paper end - Slime pathfinder events
+     }
+ 
+     private static class SlimeFloatGoal extends Goal {
+@@ -409,7 +_,7 @@
+ 
+         @Override
+         public boolean canUse() {
+-            return (this.slime.isInWater() || this.slime.isInLava()) && this.slime.getMoveControl() instanceof Slime.SlimeMoveControl;
++            return (this.slime.isInWater() || this.slime.isInLava()) && this.slime.getMoveControl() instanceof Slime.SlimeMoveControl && this.slime.canWander && new com.destroystokyo.paper.event.entity.SlimeSwimEvent((org.bukkit.entity.Slime) this.slime.getBukkitEntity()).callEvent(); // Paper - Slime pathfinder events
+         }
+ 
+         @Override
+@@ -439,7 +_,7 @@
+ 
+         @Override
+         public boolean canUse() {
+-            return !this.slime.isPassenger();
++            return !this.slime.isPassenger() && this.slime.canWander && new com.destroystokyo.paper.event.entity.SlimeWanderEvent((org.bukkit.entity.Slime) this.slime.getBukkitEntity()).callEvent(); // Paper - Slime pathfinder events
+         }
+ 
+         @Override
+@@ -517,7 +_,7 @@
+ 
+         @Override
+         public boolean canUse() {
+-            return this.slime.getTarget() == null
++            return this.slime.getTarget() == null && this.slime.canWander // Paper - Slime pathfinder events
+                 && (this.slime.onGround() || this.slime.isInWater() || this.slime.isInLava() || this.slime.hasEffect(MobEffects.LEVITATION))
+                 && this.slime.getMoveControl() instanceof Slime.SlimeMoveControl;
+         }
+@@ -527,6 +_,11 @@
+             if (--this.nextRandomizeTime <= 0) {
+                 this.nextRandomizeTime = this.adjustedTickDelay(40 + this.slime.getRandom().nextInt(60));
+                 this.chosenDegrees = this.slime.getRandom().nextInt(360);
++                // Paper start - Slime pathfinder events
++                com.destroystokyo.paper.event.entity.SlimeChangeDirectionEvent event = new com.destroystokyo.paper.event.entity.SlimeChangeDirectionEvent((org.bukkit.entity.Slime) this.slime.getBukkitEntity(), this.chosenDegrees);
++                if (!this.slime.canWander || !event.callEvent()) return;
++                this.chosenDegrees = event.getNewYaw();
++                // Paper end - Slime pathfinder events
+             }
+ 
+             if (this.slime.getMoveControl() instanceof Slime.SlimeMoveControl slimeMoveControl) {

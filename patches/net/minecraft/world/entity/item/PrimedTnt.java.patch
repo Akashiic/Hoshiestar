@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/entity/item/PrimedTnt.java
 +++ b/net/minecraft/world/entity/item/PrimedTnt.java
-@@ -26,6 +_,9 @@
+@@ -26,12 +_,16 @@
  import net.minecraft.world.level.portal.TeleportTransition;
  import net.minecraft.world.level.storage.ValueInput;
  import net.minecraft.world.level.storage.ValueOutput;
@@ -10,6 +10,13 @@
  import org.jspecify.annotations.Nullable;
  
  public class PrimedTnt extends Entity implements TraceableEntity {
+     private static final EntityDataAccessor<Integer> DATA_FUSE_ID = SynchedEntityData.defineId(PrimedTnt.class, EntityDataSerializers.INT);
+     private static final EntityDataAccessor<BlockState> DATA_BLOCK_STATE_ID = SynchedEntityData.defineId(PrimedTnt.class, EntityDataSerializers.BLOCK_STATE);
+     private static final short DEFAULT_FUSE_TIME = 80;
++    public static final int NO_FUSE = -1; // Paper
+     private static final float DEFAULT_EXPLOSION_POWER = 4.0F;
+     private static final BlockState DEFAULT_BLOCK_STATE = Blocks.TNT.defaultBlockState();
+     private static final String TAG_BLOCK_STATE = "block_state";
 @@ -51,6 +_,7 @@
      public @Nullable EntityReference<LivingEntity> owner;
      private boolean usedPortal;
@@ -18,7 +25,16 @@
  
      public PrimedTnt(EntityType<? extends PrimedTnt> type, Level level) {
          super(type, level);
-@@ -92,6 +_,7 @@
+@@ -60,7 +_,7 @@
+     public PrimedTnt(Level level, double x, double y, double z, @Nullable LivingEntity owner) {
+         this(EntityType.TNT, level);
+         this.setPos(x, y, z);
+-        double rot = level.getRandom().nextDouble() * (float) (Math.PI * 2);
++        double rot = this.getRandom().nextDouble() * (float) (Math.PI * 2); // Paper - Don't use level random in entity constructors
+         this.setDeltaMovement(-Math.sin(rot) * 0.02, 0.2F, -Math.cos(rot) * 0.02);
+         this.setFuse(80);
+         this.xo = x;
+@@ -92,10 +_,17 @@
  
      @Override
      public void tick() {
@@ -26,7 +42,17 @@
          this.handlePortal();
          this.applyGravity();
          this.move(MoverType.SELF, this.getDeltaMovement());
-@@ -104,10 +_,13 @@
+         this.applyEffectsFromBlocks();
++        // Paper start - Configurable TNT height nerf
++        if (this.level().paperConfig().fixes.tntEntityHeightNerf.test(v -> this.getY() > v)) {
++            this.discard(EntityRemoveEvent.Cause.OUT_OF_WORLD);
++            return;
++        }
++        // Paper end - Configurable TNT height nerf
+         this.setDeltaMovement(this.getDeltaMovement().scale(0.98));
+         if (this.onGround()) {
+             this.setDeltaMovement(this.getDeltaMovement().multiply(0.7, -0.5, 0.7));
+@@ -104,20 +_,34 @@
          int fuse = this.getFuse() - 1;
          this.setFuse(fuse);
          if (fuse <= 0) {
@@ -41,7 +67,16 @@
          } else {
              this.updateFluidInteraction();
              if (this.level().isClientSide()) {
-@@ -118,6 +_,11 @@
+                 this.level().addParticle(ParticleTypes.SMOKE, this.getX(), this.getY() + 0.5, this.getZ(), 0.0, 0.0, 0.0);
+             }
+         }
++        // Paper start - Option to prevent TNT from moving in water
++        if (!this.isRemoved() && this.wasTouchingWater && this.level().paperConfig().fixes.preventTntFromMovingInWater) {
++            this.hurtMarked = true;
++            this.needsSync = true;
++        }
++        // Paper end - Option to prevent TNT from moving in water
+     }
  
      protected void explode() {
          if (this.level() instanceof ServerLevel level && level.getGameRules().get(GameRules.TNT_EXPLODES)) {
@@ -67,3 +102,43 @@
          }
      }
  
+@@ -198,4 +_,39 @@
+     public final boolean hurtServer(ServerLevel level, DamageSource source, float damage) {
+         return false;
+     }
++
++    // Paper start - Option to prevent TNT from moving in water
++    @Override
++    public boolean isPushedByFluid() {
++        return !this.level().paperConfig().fixes.preventTntFromMovingInWater && super.isPushedByFluid();
++    }
++    // Paper end - Option to prevent TNT from moving in water
++
++    // Purpur start - Shears can defuse TNT
++    @Override
++    public net.minecraft.world.InteractionResult interact(final net.minecraft.world.entity.player.Player player, final net.minecraft.world.InteractionHand hand, final net.minecraft.world.phys.Vec3 location) {
++        Level world = this.level();
++
++        if (world instanceof ServerLevel serverWorld && level().purpurConfig.shearsCanDefuseTnt) {
++            final net.minecraft.world.item.ItemStack inHand = player.getItemInHand(hand);
++
++            if (!inHand.is(net.minecraft.world.item.Items.SHEARS) || !player.getBukkitEntity().hasPermission("purpur.tnt.defuse") ||
++                    serverWorld.getRandom().nextFloat() > serverWorld.purpurConfig.shearsCanDefuseTntChance) return net.minecraft.world.InteractionResult.PASS;
++
++            net.minecraft.world.entity.item.ItemEntity tntItem = new net.minecraft.world.entity.item.ItemEntity(serverWorld, getX(), getY(), getZ(),
++                    new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.TNT));
++            tntItem.setPickUpDelay(10);
++
++            inHand.hurtAndBreak(1, player, hand.asEquipmentSlot());
++            serverWorld.addFreshEntity(tntItem, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CUSTOM);
++
++            this.playSound(net.minecraft.sounds.SoundEvents.SHEEP_SHEAR);
++
++            this.kill(serverWorld);
++            return net.minecraft.world.InteractionResult.SUCCESS;
++        }
++
++        return super.interact(player, hand, location);
++    }
++    // Purpur end - Shears can defuse TNT
+ }

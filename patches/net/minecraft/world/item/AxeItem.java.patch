@@ -9,7 +9,7 @@
      protected static final Map<Block, Block> STRIPPABLES = new Builder<Block, Block>()
          .put(Blocks.OAK_WOOD, Blocks.STRIPPED_OAK_WOOD)
          .put(Blocks.OAK_LOG, Blocks.STRIPPED_OAK_LOG)
-@@ -64,7 +_,7 @@
+@@ -64,11 +_,16 @@
          if (playerHasBlockingItemUseIntent(context)) {
              return InteractionResult.PASS;
          } else {
@@ -18,6 +18,15 @@
              if (newBlock.isEmpty()) {
                  return InteractionResult.PASS;
              } else {
+                 ItemStack itemInHand = context.getItemInHand();
++                // Paper start - EntityChangeBlockEvent
++                if (!org.bukkit.craftbukkit.event.CraftEventFactory.callEntityChangeBlockEvent(player, pos, newBlock.get())) {
++                    return InteractionResult.PASS;
++                }
++                // Paper end
+                 if (player instanceof ServerPlayer) {
+                     CriteriaTriggers.ITEM_USED_ON_BLOCK.trigger((ServerPlayer)player, pos, itemInHand);
+                 }
 @@ -91,19 +_,18 @@
              && !player.isSecondaryUseActive();
      }

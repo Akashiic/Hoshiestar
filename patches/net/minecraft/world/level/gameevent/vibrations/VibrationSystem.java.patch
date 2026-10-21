@@ -1,15 +1,5 @@
 --- a/net/minecraft/world/level/gameevent/vibrations/VibrationSystem.java
 +++ b/net/minecraft/world/level/gameevent/vibrations/VibrationSystem.java
-@@ -29,6 +_,9 @@
- import net.minecraft.world.level.gameevent.PositionSource;
- import net.minecraft.world.phys.HitResult;
- import net.minecraft.world.phys.Vec3;
-+import org.bukkit.craftbukkit.CraftGameEvent;
-+import org.bukkit.craftbukkit.block.CraftBlock;
-+import org.bukkit.event.block.BlockReceiveGameEvent;
- import org.jspecify.annotations.Nullable;
- 
- public interface VibrationSystem {
 @@ -50,6 +_,8 @@
          GameEvent.RESONATE_15.key()
      );
@@ -35,19 +25,64 @@
      }
  
      static ResourceKey<GameEvent> getResonanceEventByFrequency(int vibrationFrequency) {
-@@ -214,7 +_,14 @@
-                     return false;
-                 } else {
-                     Vec3 destination = listenerSourcePos.get();
+@@ -123,7 +_,7 @@
+         public static final Codec<VibrationSystem.Data> CODEC = RecordCodecBuilder.create(
+             i -> i.group(
+                     VibrationInfo.CODEC.lenientOptionalFieldOf("event").forGetter(o -> Optional.ofNullable(o.currentVibration)),
+-                    VibrationSelector.CODEC.fieldOf("selector").forGetter(VibrationSystem.Data::getSelectionStrategy),
++                    VibrationSelector.CODEC.optionalFieldOf("selector").xmap(o -> o.orElseGet(VibrationSelector::new), Optional::of).forGetter(VibrationSystem.Data::getSelectionStrategy), // Paper - fix MapLike spam for missing "selector" in 1.19.2
+                     ExtraCodecs.NON_NEGATIVE_INT.fieldOf("event_delay").orElse(0).forGetter(VibrationSystem.Data::getTravelTimeInTicks)
+                 )
+                 .apply(
+@@ -206,24 +_,33 @@
+             VibrationSystem.User user = this.system.getVibrationUser();
+             if (data.getCurrentVibration() != null) {
+                 return false;
+-            } else if (!user.isValidVibration(event, context)) {
+-                return false;
+-            } else {
+-                Optional<Vec3> listenerSourcePos = user.getPositionSource().getPosition(level);
+-                if (listenerSourcePos.isEmpty()) {
+-                    return false;
+-                } else {
+-                    Vec3 destination = listenerSourcePos.get();
 -                    if (!user.canReceiveVibration(level, BlockPos.containing(sourcePosition), event, context)) {
-+                    // CraftBukkit start
-+                    boolean defaultCancel = !user.canReceiveVibration(level, BlockPos.containing(sourcePosition), event, context);
-+                    Entity sourceEntity = context.sourceEntity();
-+                    BlockReceiveGameEvent bukkitEvent = new BlockReceiveGameEvent(CraftGameEvent.minecraftToBukkit(event.value()), CraftBlock.at(level, BlockPos.containing(destination)), (sourceEntity == null) ? null : sourceEntity.getBukkitEntity());
-+                    bukkitEvent.setCancelled(defaultCancel);
-+                    level.getCraftServer().getPluginManager().callEvent(bukkitEvent);
-+                    if (bukkitEvent.isCancelled()) {
-+                        // CraftBukkit end
-                         return false;
-                     } else if (isOccluded(level, sourcePosition, destination)) {
-                         return false;
+-                        return false;
+-                    } else if (isOccluded(level, sourcePosition, destination)) {
+-                        return false;
+-                    } else {
+-                        this.scheduleVibration(level, data, event, context, sourcePosition, destination);
+-                        return true;
+-                    }
+-                }
+-            }
++            }
++
++            if (!user.isValidVibration(event, context)) {
++                return false;
++            }
++
++            Optional<Vec3> listenerSourcePos = user.getPositionSource().getPosition(level);
++            if (listenerSourcePos.isEmpty()) {
++                return false;
++            }
++
++            Vec3 destination = listenerSourcePos.get();
++            // CraftBukkit start
++            boolean defaultCancel = !user.canReceiveVibration(level, BlockPos.containing(sourcePosition), event, context);
++            Entity entity = context.sourceEntity();
++            org.bukkit.event.block.BlockReceiveGameEvent event1 = new org.bukkit.event.block.BlockReceiveGameEvent(org.bukkit.craftbukkit.CraftGameEvent.minecraftHolderToBukkit(event), org.bukkit.craftbukkit.block.CraftBlock.at(level, BlockPos.containing(destination)), (entity == null) ? null : entity.getBukkitEntity());
++            event1.setCancelled(defaultCancel);
++            level.getCraftServer().getPluginManager().callEvent(event1);
++            if (event1.isCancelled()) {
++                // CraftBukkit end
++                return false;
++            }
++            if (isOccluded(level, sourcePosition, destination)) {
++                return false;
++            }
++            this.scheduleVibration(level, data, event, context, sourcePosition, destination);
++            return true;
+         }
+ 
+         public void forceScheduleVibration(ServerLevel level, Holder<GameEvent> event, GameEvent.Context context, Vec3 origin) {

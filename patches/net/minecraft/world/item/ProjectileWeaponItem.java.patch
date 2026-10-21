@@ -43,7 +43,15 @@
      public static ItemStack getHeldProjectile(LivingEntity entity, Predicate<ItemStack> valid) {
          if (valid.test(entity.getItemInHand(InteractionHand.OFF_HAND))) {
              return entity.getItemInHand(InteractionHand.OFF_HAND);
-@@ -62,12 +_,25 @@
+@@ -50,6 +_,7 @@
+         float uncertainty,
+         boolean isCrit,
+         @Nullable LivingEntity targetOverride
++        , final float drawStrength // Paper - Pass draw strength
+     ) {
+         float maxAngle = EnchantmentHelper.processProjectileSpread(level, weapon, shooter, 0.0F);
+         float angleStep = projectiles.size() == 1 ? 0.0F : 2.0F * maxAngle / (projectiles.size() - 1);
+@@ -62,12 +_,26 @@
                  float angle = angleOffset + direction * ((i + 1) / 2) * angleStep;
                  direction = -direction;
                  int index = i;
@@ -54,20 +62,21 @@
 -                    projectileEntity -> this.shootProjectile(shooter, projectileEntity, index, power, uncertainty, angle, targetOverride)
 -                );
 +                // CraftBukkit start
-+                Projectile projectilE = this.createProjectile(level, shooter, weapon, projectile, isCrit);
-+                this.shootProjectile(shooter, projectilE, index, power, uncertainty, angle, targetOverride);
++                Projectile projectileEntity = this.createProjectile(level, shooter, weapon, projectile, isCrit);
++                this.shootProjectile(shooter, projectileEntity, index, power, uncertainty, angle, targetOverride);
 +
-+                org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(shooter, weapon, projectile, projectilE, hand, power, true);
++                org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(shooter, weapon, projectile, projectileEntity, hand, drawStrength, true);
 +                if (event.isCancelled()) {
 +                    event.getProjectile().remove();
 +                    return;
 +                }
 +
-+                if (event.getProjectile() == projectilE.getBukkitEntity()) {
-+                    if (Projectile.spawnProjectile(projectilE, level, projectile).isRemoved()) {
-+                        if (shooter instanceof net.minecraft.server.level.ServerPlayer) {
-+                            ((net.minecraft.server.level.ServerPlayer) shooter).getBukkitEntity().updateInventory();
-+                        }
++                if (event.getProjectile() == projectileEntity.getBukkitEntity()) {
++                    if (Projectile.spawnProjectile(
++                            projectileEntity,
++                            level,
++                            projectile
++                    ).isRemoved()) {
 +                        return;
 +                    }
 +                }
@@ -75,16 +84,59 @@
                  weapon.hurtAndBreak(this.getDurabilityUse(projectile), shooter, hand.asEquipmentSlot());
                  if (weapon.isEmpty()) {
                      break;
-@@ -97,7 +_,7 @@
-             arrowx.setCritArrow(true);
-         }
+@@ -92,37 +_,42 @@
  
+     protected Projectile createProjectile(Level level, LivingEntity shooter, ItemStack weapon, ItemStack projectile, boolean isCrit) {
+         ArrowItem arrowItem = projectile.getItem() instanceof ArrowItem arrow ? arrow : (ArrowItem)Items.ARROW;
+-        AbstractArrow arrowx = arrowItem.createArrow(level, projectile, shooter, weapon);
++        AbstractArrow arrow = arrowItem.createArrow(level, projectile, shooter, weapon);
+         if (isCrit) {
+-            arrowx.setCritArrow(true);
++            arrow.setCritArrow(true);
+         }
+-
 -        return arrowx;
-+        return customArrow(arrowx, projectile, weapon);
++        arrow.setActualEnchantments(weapon.getEnchantments()); // Purpur - Add an option to fix MC-3304 projectile looting
++        return customArrow(arrow, projectile, weapon);
      }
  
      protected static List<ItemStack> draw(ItemStack weapon, ItemStack projectile, LivingEntity shooter) {
-@@ -122,7 +_,8 @@
++        // Paper start
++        return draw(weapon, projectile, shooter, true);
++    }
++
++    protected static List<ItemStack> draw(final ItemStack weapon, final ItemStack projectile, final LivingEntity shooter, final boolean consume) {
++        // Paper end
+         if (projectile.isEmpty()) {
+             return List.of();
+-        } else {
+-            int numProjectiles = shooter.level() instanceof ServerLevel serverLevel
+-                ? EnchantmentHelper.processProjectileCount(serverLevel, weapon, shooter, 1)
+-                : 1;
+-            List<ItemStack> drawn = new ArrayList<>(numProjectiles);
+-            ItemStack projectileCopy = projectile.copy();
+-
+-            for (int i = 0; i < numProjectiles; i++) {
+-                ItemStack drawnStack = useAmmo(weapon, i == 0 ? projectile : projectileCopy, shooter, i > 0);
+-                if (!drawnStack.isEmpty()) {
+-                    drawn.add(drawnStack);
+-                }
++        }
++
++        int numProjectiles = shooter.level() instanceof ServerLevel serverLevel ? EnchantmentHelper.processProjectileCount(serverLevel, weapon, shooter, 1) : 1;
++        List<ItemStack> drawn = new ArrayList<>(numProjectiles);
++        ItemStack projectileCopy = projectile.copy();
++
++        for (int i = 0; i < numProjectiles; i++) {
++            ItemStack drawnStack = useAmmo(weapon, i == 0 ? projectile : projectileCopy, shooter, i > 0|| !consume); // Paper
++            if (!drawnStack.isEmpty()) {
++                drawn.add(drawnStack);
+             }
+-
+-            return drawn;
+         }
++
++        return drawn;
      }
  
      protected static ItemStack useAmmo(ItemStack weapon, ItemStack projectile, LivingEntity holder, boolean forceInfinite) {

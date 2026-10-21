@@ -1,11 +1,11 @@
 --- a/net/minecraft/world/level/storage/SavedDataStorage.java
 +++ b/net/minecraft/world/level/storage/SavedDataStorage.java
-@@ -46,8 +_,17 @@
+@@ -46,13 +_,27 @@
      private final Path dataFolder;
      private CompletableFuture<?> pendingWriteFuture = CompletableFuture.completedFuture(null);
      private boolean closed;
 +    // Neo: Needed to make level context available to modded saved data
-+    private final net.minecraft.server.level.@org.jspecify.annotations.Nullable ServerLevel level;
++    private net.minecraft.server.level.@org.jspecify.annotations.Nullable ServerLevel level;
  
 +    /** @deprecated Neo: Use the version that has a level */
 +    @Deprecated
@@ -18,6 +18,16 @@
          this.fixerUpper = fixerUpper;
          this.dataFolder = dataFolder;
          this.registries = registries;
+     }
+ 
++    // Youer: Allow setting the level after construction (e.g. after ServerLevel is created)
++    public void setLevel(net.minecraft.server.level.@org.jspecify.annotations.Nullable ServerLevel level) {
++        this.level = level;
++    }
++
+     private Path getDataFile(Identifier id) {
+         Path path = id.withSuffix(".dat").resolveAgainst(this.dataFolder);
+         if (!path.toAbsolutePath().startsWith(this.dataFolder.toAbsolutePath())) {
 @@ -67,7 +_,7 @@
          if (data != null) {
              return data;
@@ -27,15 +37,18 @@
              this.set(type, newData);
              return newData;
          }
-@@ -89,7 +_,7 @@
+@@ -89,9 +_,9 @@
              if (Files.exists(file)) {
                  CompoundTag tag = this.readTagFromDisk(file, type.dataFixType(), SharedConstants.getCurrentVersion().dataVersion().version());
                  RegistryOps<Tag> ops = this.registries.createSerializationContext(NbtOps.INSTANCE);
 -                return type.codec()
 +                return type.codecFactory().create(this.level)
                      .parse(ops, tag.get("data"))
-                     .resultOrPartial(error -> LOGGER.error("Failed to parse saved data for '{}': {}", type, error))
+-                    .resultOrPartial(error -> LOGGER.error("Failed to parse saved data for '{}': {}", type, error))
++                    .resultOrPartial(error -> LOGGER.debug("Failed to parse saved data for '{}': {}", type, error))
                      .orElse(null);
+             }
+         } catch (Exception var5) {
 @@ -106,7 +_,7 @@
          data.setDirty();
      }
@@ -67,6 +80,83 @@
  
          return var8;
      }
+@@ -149,43 +_,43 @@
+     public CompletableFuture<?> scheduleSave() {
+         if (this.closed) {
+             throw new IllegalStateException("Trying to schedule save when SavedDataStorage is already closed");
+-        } else {
+-            Map<SavedDataType<?>, CompoundTag> tagsToSave = this.collectDirtyTagsToSave();
+-            if (tagsToSave.isEmpty()) {
+-                return CompletableFuture.completedFuture(null);
+-            } else {
+-                int threads = Util.maxAllowedExecutorThreads();
+-                int taskCount = tagsToSave.size();
+-                if (taskCount > threads) {
+-                    this.pendingWriteFuture = this.pendingWriteFuture.thenCompose(ignored -> {
+-                        List<CompletableFuture<?>> tasks = new ArrayList<>(threads);
+-                        int bucketSize = Mth.positiveCeilDiv(taskCount, threads);
+-
+-                        for (List<Entry<SavedDataType<?>, CompoundTag>> entries : Iterables.partition(tagsToSave.entrySet(), bucketSize)) {
+-                            tasks.add(CompletableFuture.runAsync(() -> {
+-                                for (Entry<SavedDataType<?>, CompoundTag> entry : entries) {
+-                                    this.tryWrite(entry.getKey(), entry.getValue());
+-                                }
+-                            }, Util.ioPool()));
++        }
++
++        Map<SavedDataType<?>, CompoundTag> tagsToSave = this.collectDirtyTagsToSave();
++        if (tagsToSave.isEmpty()) {
++            return CompletableFuture.completedFuture(null);
++        }
++
++        int threads = Util.maxAllowedExecutorThreads();
++        int taskCount = tagsToSave.size();
++        if (false && taskCount > threads) { // Paper - Separate dimension data IO pool; just throw them into the fixed pool queue
++            this.pendingWriteFuture = this.pendingWriteFuture.thenCompose(ignored -> {
++                List<CompletableFuture<?>> tasks = new ArrayList<>(threads);
++                int bucketSize = Mth.positiveCeilDiv(taskCount, threads);
++
++                for (List<Entry<SavedDataType<?>, CompoundTag>> entries : Iterables.partition(tagsToSave.entrySet(), bucketSize)) {
++                    tasks.add(CompletableFuture.runAsync(() -> {
++                        for (Entry<SavedDataType<?>, CompoundTag> entry : entries) {
++                            this.tryWrite(entry.getKey(), entry.getValue());
+                         }
+-
+-                        return CompletableFuture.allOf(tasks.toArray(CompletableFuture[]::new));
+-                    });
+-                } else {
+-                    this.pendingWriteFuture = this.pendingWriteFuture
+-                        .thenCompose(
+-                            ignored -> CompletableFuture.allOf(
+-                                tagsToSave.entrySet()
+-                                    .stream()
+-                                    .map(entry -> CompletableFuture.runAsync(() -> this.tryWrite(entry.getKey(), entry.getValue()), Util.ioPool()))
+-                                    .toArray(CompletableFuture[]::new)
+-                            )
+-                        );
++                    }, Util.ioPool()));
+                 }
+ 
+-                return this.pendingWriteFuture;
+-            }
++                return CompletableFuture.allOf(tasks.toArray(CompletableFuture[]::new));
++            });
++        } else {
++            this.pendingWriteFuture = this.pendingWriteFuture
++                .thenCompose(
++                    ignored -> CompletableFuture.allOf(
++                        tagsToSave.entrySet()
++                            .stream()
++                            .map(entry -> CompletableFuture.runAsync(() -> this.tryWrite(entry.getKey(), entry.getValue()), Util.DIMENSION_DATA_IO_POOL)) // Paper - Separate dimension data IO pool
++                            .toArray(CompletableFuture[]::new)
++                    )
++                );
+         }
++
++        return this.pendingWriteFuture;
+     }
+ 
+     private Map<SavedDataType<?>, CompoundTag> collectDirtyTagsToSave() {
 @@ -199,7 +_,7 @@
      }
  

@@ -6,14 +6,14 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.entity.player.Player;
 
-public class WaterMoveControllerWASD<T extends Mob> extends MoveControllerWASD<T> {
+public class WaterMoveControllerWASD extends MoveControllerWASD {
     private final double speedModifier;
 
-    public WaterMoveControllerWASD(T entity) {
+    public WaterMoveControllerWASD(Mob entity) {
         this(entity, 1.0D);
     }
 
-    public WaterMoveControllerWASD(T entity, double speedModifier) {
+    public WaterMoveControllerWASD(Mob entity, double speedModifier) {
         super(entity);
         this.speedModifier = speedModifier;
     }
@@ -36,7 +36,7 @@ public class WaterMoveControllerWASD<T extends Mob> extends MoveControllerWASD<T
             vertical = 0.0F;
         }
 
-        if (rider.isJumping() && spacebarEvent(entity)) {
+        if (rider.jumping && spacebarEvent(entity)) {
             entity.onSpacebar();
         }
 
