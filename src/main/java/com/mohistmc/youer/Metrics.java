@@ -59,12 +59,16 @@ public class Metrics {
             Thread.ofVirtual()
                     .name("Metrics", 0)
                     .factory());
-    private final String name;
+    // Hoshiestar start - report to the Hoshiestar bStats service (https://bstats.org/plugin/server-implementation/Hoshiestar/34852)
+    // with the bStats v2 protocol, instead of MohistMC's "server implementation" entry
+    public static final int SERVICE_ID = 34852;
+    private static final String REPORT_URL = "https://bStats.org/api/v2/data/server-implementation";
+    private static final String METRICS_VERSION = "3.1.0";
+    // Hoshiestar end
     private final String serverUUID;
     private final List<CustomChart> charts = new ArrayList<>();
 
-    public Metrics(String name, String serverUUID) {
-        this.name = name;
+    public Metrics(String serverUUID) {
         this.serverUUID = serverUUID;
 
         startSubmitting();
@@ -75,7 +79,7 @@ public class Metrics {
             throw new IllegalArgumentException("Data cannot be null!");
         }
 
-        HttpsURLConnection connection = (HttpsURLConnection) URI.create("https://bStats.org/submitData/server-implementation").toURL().openConnection();
+        HttpsURLConnection connection = (HttpsURLConnection) URI.create(REPORT_URL).toURL().openConnection(); // Hoshiestar - bStats v2 service API
         byte[] compressedData = compress(data.toString());
 
         connection.setRequestMethod("POST");
@@ -84,7 +88,7 @@ public class Metrics {
         connection.addRequestProperty("Content-Encoding", "gzip"); // We gzip our request
         connection.addRequestProperty("Content-Length", String.valueOf(compressedData.length));
         connection.setRequestProperty("Content-Type", "application/json"); // We send our data in JSON format
-        connection.setRequestProperty("User-Agent", "MC-Server/" + 1);
+        connection.setRequestProperty("User-Agent", "Metrics-Service/1");
 
         // Send data
         connection.setDoOutput(true);
@@ -121,13 +125,12 @@ public class Metrics {
                 return;
             }
             submitData();
-        }, 1000 * 60 * 5, 1000 * 60 * 30, TimeUnit.MILLISECONDS);
+        }, (long) (1000 * 60 * (3 + Math.random() * 3)), 1000 * 60 * 30, TimeUnit.MILLISECONDS); // Hoshiestar - bStats requires a randomized first report
     }
 
-    public JSONObject getPluginData() {
-        JSONObject data = new JSONObject();
-
-        data.put("pluginName", name); // Append the name of the server software
+    private JSONObject getServiceData() {
+        JSONObject service = new JSONObject();
+        service.put("id", SERVICE_ID);
         JSONArray customCharts = new JSONArray();
         for (CustomChart customChart : charts) {
             JSONObject chart = customChart.getRequestJsonObject();
@@ -136,13 +139,19 @@ public class Metrics {
             }
             customCharts.add(chart);
         }
-        data.put("customCharts", customCharts);
-        return data;
+        service.put("customCharts", customCharts);
+        return service;
     }
 
     private JSONObject getServerData() {
         JSONObject data = new JSONObject();
         data.put("serverUUID", serverUUID);
+        data.put("metricsVersion", METRICS_VERSION);
+        data.put("playerAmount", Bukkit.getOnlinePlayers().size());
+        data.put("onlineMode", Bukkit.getOnlineMode() ? 1 : 0);
+        data.put("bukkitVersion", Bukkit.getVersion());
+        data.put("bukkitName", Bukkit.getName());
+        data.put("javaVersion", System.getProperty("java.version"));
         data.put("osName", System.getProperty("os.name"));
         data.put("osArch", System.getProperty("os.arch"));
         data.put("osVersion", System.getProperty("os.version"));
@@ -152,9 +161,7 @@ public class Metrics {
 
     private void submitData() {
         final JSONObject data = getServerData();
-        JSONArray pluginData = new JSONArray();
-        pluginData.add(getPluginData());
-        data.put("plugins", pluginData);
+        data.put("service", getServiceData());
 
         try {
             sendData(data);
@@ -273,6 +280,16 @@ public class Metrics {
     }
 
     public static class MohistMetrics {
+        private static String bucket(int n) { // Hoshiestar - grouped counts read better in a pie
+            if (n == 0) return "0";
+            if (n <= 10) return "1-10";
+            if (n <= 50) return "11-50";
+            if (n <= 100) return "51-100";
+            if (n <= 200) return "101-200";
+            if (n <= 300) return "201-300";
+            return "300+";
+        }
+
         public static void startMetrics() {
             File configFile = new File(new File((File) MinecraftServer.getServer().options.valueOf("plugins"), "bStats"), "config.yml");
             YamlConfiguration config = YamlConfiguration.loadConfiguration(configFile);
@@ -298,12 +315,17 @@ public class Metrics {
             String serverUUID = config.getString("serverUuid");
 
             if (config.getBoolean("enabled", true)) {
-                Metrics metrics = new Metrics("Mohist", serverUUID);
+                Metrics metrics = new Metrics(serverUUID);
 
+                // servers, OS, cores and location are bStats defaults; everything else is a custom chart of the service
                 metrics.addCustomChart(new SingleLineChart("players", () -> Bukkit.getOnlinePlayers().size()));
                 metrics.addCustomChart(new SimplePie("online_mode", () -> Bukkit.getOnlineMode() ? "online" : "offline"));
-                metrics.addCustomChart(new SimplePie("youer_version", Versioning::getBukkitVersion));
-                metrics.addCustomChart(new SimplePie("bungeecord", () -> String.valueOf(ProxyUtils.useProxy())));
+                metrics.addCustomChart(new SimplePie("minecraft_version", () -> SharedConstants.getCurrentVersion().name()));
+                metrics.addCustomChart(new SimplePie("hoshiestar_version", com.mohistmc.youer.util.YouerVersion::getVersion));
+                metrics.addCustomChart(new SimplePie("neoforge_version", () -> net.neoforged.fml.ModList.get().getModContainerById("neoforge").map(c -> c.getModInfo().getVersion().toString()).orElse(null)));
+                metrics.addCustomChart(new SimplePie("proxy", () -> String.valueOf(ProxyUtils.useProxy())));
+                metrics.addCustomChart(new SimplePie("mod_count", () -> bucket(ServerAPI.modlists_All.size())));
+                metrics.addCustomChart(new SimplePie("plugin_count", () -> bucket(Bukkit.getPluginManager().getPlugins().length)));
 
                 metrics.addCustomChart(new DrilldownPie("java_version", () -> {
                     Map<String, Map<String, Integer>> map = new HashMap<>();
