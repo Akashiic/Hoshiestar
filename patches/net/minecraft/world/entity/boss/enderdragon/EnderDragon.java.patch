@@ -399,13 +399,22 @@
      }
  
      @Override
-@@ -843,13 +_,18 @@
+@@ -843,13 +_,28 @@
          return this.dragonFight;
      }
  
--    @Override
--    public boolean addEffect(MobEffectInstance newEffect, @Nullable Entity source) {
 +    // Paper start - Only allow plugins to bypass this requirement
++    // Youer start - vanilla-signature calls must keep the "only plugins may add effects" rule now that the body lives there
+     @Override
+-    public boolean addEffect(MobEffectInstance newEffect, @Nullable Entity source) {
++    public boolean addEffect(final MobEffectInstance newEffect, final @Nullable Entity source) {
++        if (this.youer$pendingAddEffectCause() == org.bukkit.event.entity.EntityPotionEffectEvent.Cause.PLUGIN) {
++            return super.addEffect(newEffect, source);
++        }
++        return false;
++    }
++    // Youer end
++
 +    public boolean addEffect(final MobEffectInstance newEffect, final @Nullable Entity source, final org.bukkit.event.entity.EntityPotionEffectEvent.Cause cause, final boolean fireEvent) {
 +        if (cause == org.bukkit.event.entity.EntityPotionEffectEvent.Cause.PLUGIN) {
 +            return super.addEffect(newEffect, source, cause, fireEvent);

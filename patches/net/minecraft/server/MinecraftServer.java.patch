@@ -464,7 +464,7 @@
          if (profiledDuration != null) {
              profiledDuration.finish(true);
          }
-@@ -422,36 +_,156 @@
+@@ -422,36 +_,163 @@
          }
      }
  
@@ -502,6 +502,13 @@
 -        boolean isDebug = this.worldData.isDebugWorld();
 -        Registry<LevelStem> dimensions = this.registries.compositeAccess().lookupOrThrow(Registries.LEVEL_STEM);
 -        WorldOptions worldOptions = this.worldGenSettings.options();
++    // Youer start - Paper's PaperWorldLoader replaces the vanilla createLevels() body, but mods inject at its TAIL
++    // to register extra levels (AE2 spatial storage). Keep the method as an empty hook, called once the default
++    // levels exist and before they are prepared, i.e. where vanilla calls it.
++    public void createLevels() {
++    }
++    // Youer end
++
 +    // Paper start - rework world loading process
 +    public void createLevel(
 +            LevelStem levelStem,

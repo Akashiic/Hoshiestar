@@ -113,7 +113,7 @@
          this.updateFluidInteraction();
          if (this.isInLava()) {
              this.lavaIgnite();
-@@ -357,17 +_,68 @@
+@@ -357,17 +_,77 @@
          this.behavior.moveAlongTrack(level);
      }
  
@@ -170,7 +170,12 @@
          if (this.onGround()) {
 -            this.setDeltaMovement(this.getDeltaMovement().scale(0.5));
 +            // CraftBukkit start - replace magic numbers with our variables
-+            this.setDeltaMovement(new Vec3(this.getDeltaMovement().x * this.derailedX, this.getDeltaMovement().y * this.derailedY, this.getDeltaMovement().z * this.derailedZ));
++            // Youer - keep vanilla's Vec3#scale call for uniform factors so mod redirects (ordinal-based, e.g. Railcraft) still match
++            if (this.derailedX == this.derailedY && this.derailedY == this.derailedZ) {
++                this.setDeltaMovement(this.getDeltaMovement().scale(this.derailedX));
++            } else {
++                this.setDeltaMovement(new Vec3(this.getDeltaMovement().x * this.derailedX, this.getDeltaMovement().y * this.derailedY, this.getDeltaMovement().z * this.derailedZ));
++            }
 +            // CraftBukkit end
          }
 +        else if (level().purpurConfig.minecartControllable) setDeltaMovement(new Vec3(getDeltaMovement().x * derailedX, getDeltaMovement().y, getDeltaMovement().z * derailedZ)); // Purpur - Minecart settings and WASD controls
@@ -179,7 +184,11 @@
          if (!this.onGround()) {
 -            this.setDeltaMovement(this.getDeltaMovement().scale(0.95));
 +            // CraftBukkit start - replace magic numbers with our variables
-+            this.setDeltaMovement(new Vec3(this.getDeltaMovement().x * this.flyingX, this.getDeltaMovement().y * this.flyingY, this.getDeltaMovement().z * this.flyingZ));
++            if (this.flyingX == this.flyingY && this.flyingY == this.flyingZ) { // Youer - see above
++                this.setDeltaMovement(this.getDeltaMovement().scale(this.flyingX));
++            } else {
++                this.setDeltaMovement(new Vec3(this.getDeltaMovement().x * this.flyingX, this.getDeltaMovement().y * this.flyingY, this.getDeltaMovement().z * this.flyingZ));
++            }
 +            // CraftBukkit end
          }
      }

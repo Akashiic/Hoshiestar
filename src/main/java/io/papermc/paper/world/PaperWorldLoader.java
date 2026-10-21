@@ -140,6 +140,7 @@ public record PaperWorldLoader(MinecraftServer server, String levelId) {
         }
 
         // ((DedicatedServer) this.server).forceDifficulty();
+        this.server.createLevels(); // Youer - vanilla hook point for mods adding their own levels (e.g. AE2 spatial storage)
 
         for (ServerLevel serverLevel : this.server.getAllLevels()) {
             this.server.prepareLevel(serverLevel);

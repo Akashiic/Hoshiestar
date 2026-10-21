@@ -388,7 +388,7 @@
      }
  
      @Override
-@@ -740,19 +_,35 @@
+@@ -740,19 +_,39 @@
      }
  
      @Override
@@ -400,6 +400,10 @@
 -            float var8 = Math.max(dmg - this.getAbsorptionAmount(), 0.0F);
 -            this.setAbsorptionAmount(this.getAbsorptionAmount() - (dmg - var8));
 -            float absorbedDamage = dmg - var8;
++            // Youer - cancelled event, attack cooldown, helmet/armor durability and shield blocking (previously skipped for players)
++            if (!this.youer$bukkitDamageSideEffects(level, source, dmg, event)) {
++                return false;
++            }
 +            // Neo (ImplNote): Keep this in-sync with the equivalent patches in LivingEntity#actuallyHurt.
 +            // Neo: Primary damage pipeline hooks. Compute the armor and enchantment reductions against the "original" damage, and then fire LivingDamageEvent.Pre
 +            this.damageContainers.peek().setReduction(net.neoforged.neoforge.common.damagesource.DamageContainer.Reduction.ARMOR, this.damageContainers.peek().getNewDamage() - this.getDamageAfterArmorAbsorb(source, this.damageContainers.peek().getNewDamage()));
