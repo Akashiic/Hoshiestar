@@ -20,7 +20,7 @@ import org.apache.logging.log4j.Logger;
  */
 public class EntityLimitsDatabaseStorage {
 
-    private static final Logger LOGGER = LogManager.getLogger("Youer-DB");
+    private static final Logger LOGGER = LogManager.getLogger("Hoshiestar-DB");
     private static final String MODULE = "entity_limits";
     private final String tableName;
 
@@ -42,7 +42,7 @@ public class EntityLimitsDatabaseStorage {
             }
             stmt.executeUpdate(ddl);
         } catch (SQLException e) {
-            throw new RuntimeException("[Youer-DB] Failed to init entity_limits table", e);
+            throw new RuntimeException("[Hoshiestar-DB] Failed to init entity_limits table", e);
         }
     }
 
@@ -69,7 +69,7 @@ public class EntityLimitsDatabaseStorage {
                         rs.getString("world"), rs.getString("entity_type"), rs.getInt("limit_count")));
             }
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to get entity limits: {}", e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to get entity limits: {}", e.getMessage());
         }
         return list;
     }
@@ -83,7 +83,7 @@ public class EntityLimitsDatabaseStorage {
             ps.setInt(3, limit);
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to set entity limit: {}", e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to set entity limit: {}", e.getMessage());
         }
     }
 
@@ -95,7 +95,7 @@ public class EntityLimitsDatabaseStorage {
             ps.setString(2, entityName);
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to remove entity limit: {}", e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to remove entity limit: {}", e.getMessage());
         }
     }
 
@@ -109,7 +109,7 @@ public class EntityLimitsDatabaseStorage {
                 if (rs.next()) return rs.getInt("limit_count");
             }
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to get entity limit: {}", e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to get entity limit: {}", e.getMessage());
         }
         return -1;
     }

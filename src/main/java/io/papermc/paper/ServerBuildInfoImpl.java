@@ -31,7 +31,7 @@ public record ServerBuildInfoImpl(
     private static final String ATTRIBUTE_GIT_COMMIT = "Git-Commit";
 
     private static final String BRAND_PAPER_NAME = "Paper";
-    private static final String BRAND_PURPUR_NAME = "Youer"; // Purpur - Rebrand
+    private static final String BRAND_PURPUR_NAME = "Hoshiestar"; // Purpur - Rebrand
 
     private static final String BUILD_DEV = "DEV";
 
@@ -62,7 +62,7 @@ public record ServerBuildInfoImpl(
 
     @Override
     public boolean isBrandCompatible(final @NotNull Key brandId) {
-        return brandId.equals(this.brandId) || brandId.equals(BRAND_PAPER_ID); // Purpur - Fix pufferfish issues // Purpur - Rebrand
+        return brandId.equals(this.brandId) || brandId.equals(BRAND_PAPER_ID) || brandId.equals(BRAND_PURPUR_ID); // Hoshiestar - also Purpur-compatible // Purpur - Fix pufferfish issues // Purpur - Rebrand
     }
 
     @Override

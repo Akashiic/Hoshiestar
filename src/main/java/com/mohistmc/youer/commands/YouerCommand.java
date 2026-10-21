@@ -59,8 +59,9 @@ public class YouerCommand extends Command {
 
     public YouerCommand(String name) {
         super(name);
-        this.description = "Youer related commands";
-        this.usageMessage = "/youer [" + String.join("|", COMMAND_LIST) + "]";
+        this.description = "Hoshiestar related commands";
+        this.usageMessage = "/hoshiestar [" + String.join("|", COMMAND_LIST) + "]";
+        this.setAliases(java.util.List.of("youer")); // Hoshiestar - keep the old command name working
         this.setPermission("youer.command.youer");
     }
 
@@ -149,7 +150,7 @@ public class YouerCommand extends Command {
                 return true;
             }
             case "version" -> {
-                sender.sendMessage("Youer: " + YouerVersion.getVersion());
+                sender.sendMessage("Hoshiestar: " + YouerVersion.getVersion());
                 sender.sendMessage("NeoForge: " + NeoForgeVersion.getVersion());
                 sender.sendMessage("Paper: " + YouerVersion.getPaperVersion());
                 sender.sendMessage("Purpur: " + YouerVersion.getPurpurVersion());

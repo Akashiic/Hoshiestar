@@ -61,16 +61,16 @@ SHA-256. Builds de cada commit ficam disponíveis por 14 dias em [Actions](https
 git clone https://github.com/Akashiic/Hoshiestar
 cd Hoshiestar
 ./gradlew setup      # decompila o Minecraft e aplica os patches
-./gradlew youerJar   # gera o jar do servidor
+./gradlew hoshiestarJar   # gera o jar do servidor
 ```
 
-O jar fica em `projects/youer/build/libs/youer-26.1.2-<commit>-server.jar`.
+O jar fica em `projects/youer/build/libs/hoshiestar-26.1.2-<commit>.jar`.
 
 ## Rodando o servidor
 
 ```bash
 mkdir servidor && cd servidor
-cp ../projects/youer/build/libs/youer-26.1.2-*-server.jar server.jar
+cp ../projects/youer/build/libs/hoshiestar-26.1.2-*.jar server.jar
 java -Xmx4G -jar server.jar nogui
 ```
 
@@ -87,7 +87,7 @@ Depois disso:
 | `plugins/` | plugins Bukkit/Spigot/Paper/Purpur |
 | `config/` | configurações do Paper (`paper-global.yml`, `paper-world-defaults.yml`), do NeoForge e dos mods |
 | `purpur.yml`, `spigot.yml`, `bukkit.yml` | configurações do Purpur, do Spigot e do Bukkit |
-| `youer-config/` | configurações próprias da camada híbrida |
+| `hoshiestar-config/` | configurações próprias da camada híbrida (`hoshiestar.yml`; uma pasta `youer-config/` antiga é renomeada sozinha) |
 
 ## Compatibilidade testada
 
@@ -99,7 +99,7 @@ Testes automáticos feitos num servidor real:
 | Plugin: LuckPerms (Bukkit) 5.5.71 | carrega e funciona ("Running on Bukkit") |
 | Materiais e biomas de mods vistos pela API Bukkit | 512 materiais e 68 biomas do Biomes O' Plenty |
 | Blocos, entidades, eventos, Adventure, schedulers síncrono e assíncrono | 15 de 15 verificações OK |
-| Clone limpo → `setup` → `youerJar` → boot → `stop` | OK, sem erros no log |
+| Clone limpo → `setup` → `hoshiestarJar` → boot → `stop` | OK, sem erros no log |
 | **All the Mods 11** (server pack 0.12.0-beta, 280 mods) | sobe em ~6 min, 20 TPS e ~4 ms/tick gerando chunks nas três dimensões, nenhum erro depois do "Done", `stop` limpo |
 | 3 jogadores (bots) por 15 min num servidor sem mods, com mortes, PvE e troca de dimensão forçadas via RCON | 20 TPS, nenhum kick, nenhum erro no servidor |
 

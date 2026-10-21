@@ -4,7 +4,7 @@
      private boolean trackingStackTrace = true;
      private StackTraceElement[] uncategorizedStackTrace = new StackTraceElement[0];
      private final SystemReport systemReport = new SystemReport();
-+    private List<String> extraInfo = List.of("", "DO NOT REPORT THIS TO PAPER! REPORT TO PURPUR INSTEAD!", ""); // Purpur - Rebrand
++    private List<String> extraInfo = List.of("", "DO NOT REPORT THIS TO PAPER OR PURPUR! REPORT TO HOSHIESTAR INSTEAD: https://github.com/Akashiic/Hoshiestar/issues", ""); // Purpur - Rebrand
  
      public CrashReport(String title, Throwable t) {
          this.title = title;

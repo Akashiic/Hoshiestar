@@ -26,7 +26,7 @@ import org.bukkit.inventory.ItemStack;
  */
 public class ItemDatabaseStorage {
 
-    private static final Logger LOGGER = LogManager.getLogger("Youer-DB");
+    private static final Logger LOGGER = LogManager.getLogger("Hoshiestar-DB");
     private static final String MODULE = "items";
     private static final long MAX_ITEM_SIZE = 10 * 1024 * 1024; // 10 MB max per item
     private final boolean isMysql;
@@ -59,7 +59,7 @@ public class ItemDatabaseStorage {
                 );
             }
         } catch (SQLException e) {
-            throw new RuntimeException("[Youer-DB] Failed to initialize item storage table", e);
+            throw new RuntimeException("[Hoshiestar-DB] Failed to initialize item storage table", e);
         }
     }
 
@@ -80,7 +80,7 @@ public class ItemDatabaseStorage {
             ps.setBytes(2, compressed);
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to save item '{}': {}", key, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to save item '{}': {}", key, e.getMessage());
         }
     }
 
@@ -101,7 +101,7 @@ public class ItemDatabaseStorage {
                     byte[] compressed = rs.getBytes("data");
                     long decompressedSize = Zstd.decompressedSize(compressed);
                     if (decompressedSize > MAX_ITEM_SIZE) {
-                        LOGGER.warn("[Youer-DB] Item '{}' has suspiciously large decompressed size ({} bytes), skipping", key, decompressedSize);
+                        LOGGER.warn("[Hoshiestar-DB] Item '{}' has suspiciously large decompressed size ({} bytes), skipping", key, decompressedSize);
                         return new ItemStack(Material.AIR);
                     }
                     byte[] raw = Zstd.decompress(compressed, (int) decompressedSize);
@@ -109,7 +109,7 @@ public class ItemDatabaseStorage {
                 }
             }
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to get item '{}': {}", key, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to get item '{}': {}", key, e.getMessage());
         }
         return new ItemStack(Material.AIR);
     }
@@ -124,7 +124,7 @@ public class ItemDatabaseStorage {
             ps.setString(1, key);
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to remove item '" + key + "': " + e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to remove item '" + key + "': " + e.getMessage());
         }
     }
 
@@ -140,7 +140,7 @@ public class ItemDatabaseStorage {
                 keys.add(rs.getString("name"));
             }
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to list item keys: {}", e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to list item keys: {}", e.getMessage());
         }
         return keys;
     }
@@ -158,17 +158,17 @@ public class ItemDatabaseStorage {
                     byte[] compressed = rs.getBytes("data");
                     long decompressedSize = Zstd.decompressedSize(compressed);
                     if (decompressedSize > MAX_ITEM_SIZE) {
-                        LOGGER.warn("[Youer-DB] Item '{}' has suspiciously large decompressed size ({} bytes), skipping", rs.getString("name"), decompressedSize);
+                        LOGGER.warn("[Hoshiestar-DB] Item '{}' has suspiciously large decompressed size ({} bytes), skipping", rs.getString("name"), decompressedSize);
                         continue;
                     }
                     byte[] raw = Zstd.decompress(compressed, (int) decompressedSize);
                     items.add(ItemStack.deserializeBytes(raw));
                 } catch (Exception e) {
-                    LOGGER.warn("[Youer-DB] Failed to deserialize item '{}': {}", rs.getString("name"), e.getMessage());
+                    LOGGER.warn("[Hoshiestar-DB] Failed to deserialize item '{}': {}", rs.getString("name"), e.getMessage());
                 }
             }
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to list items: {}", e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to list items: {}", e.getMessage());
         }
         return items;
     }

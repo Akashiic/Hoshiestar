@@ -157,10 +157,10 @@
 +        // Purpur end - Purpur config files
 +
 +        // Youer Start
-+        parser.acceptsAll(Arrays.asList("Y", "youer-settings"), "File for youer settings")
++        parser.acceptsAll(Arrays.asList("Y", "youer-settings", "hoshiestar-settings"), "File for Hoshiestar settings")
 +                .withRequiredArg()
 +                .ofType(File.class)
-+                .defaultsTo(new File("youer-config","youer.yml"))
++                .defaultsTo(new File("hoshiestar-config","hoshiestar.yml"))
 +                .describedAs("Yml file");
 +        // Youer End
 +
@@ -279,7 +279,7 @@
 +            }
 +            // Paper end - Detect headless JRE
 +
-+            File configYmenu = new File("youer-config/menu", "example.yml");
++            File configYmenu = new File("hoshiestar-config/menu", "example.yml");
 +            if (!configYmenu.exists()) {
 +                org.bukkit.configuration.file.YamlConfiguration configurationYmenu = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(configYmenu);
 +                configurationYmenu.options().copyDefaults(true);

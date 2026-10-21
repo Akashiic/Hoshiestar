@@ -13,7 +13,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class Youer {
-    public static final String NAME = "Youer";
+    public static final String NAME = "Hoshiestar";
     public static final String modid = "youer";
     public static Logger LOGGER = LogManager.getLogger();
     public static i18n i18n;

@@ -20,7 +20,7 @@ import org.bukkit.World;
  */
 public class BackDatabaseStorage {
 
-    private static final Logger LOGGER = LogManager.getLogger("Youer-DB");
+    private static final Logger LOGGER = LogManager.getLogger("Hoshiestar-DB");
 
     public void init() {
         Connection conn = DatabaseManager.getSqliteConnection();
@@ -37,9 +37,9 @@ public class BackDatabaseStorage {
                 "back_type TEXT NOT NULL" +
                 ")"
             );
-            LOGGER.info("[Youer-DB] Back location table ready (SQLite)");
+            LOGGER.info("[Hoshiestar-DB] Back location table ready (SQLite)");
         } catch (SQLException e) {
-            throw new RuntimeException("[Youer-DB] Failed to initialize back location table", e);
+            throw new RuntimeException("[Hoshiestar-DB] Failed to initialize back location table", e);
         }
     }
 
@@ -59,7 +59,7 @@ public class BackDatabaseStorage {
             ps.setString(8, backType);
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to save back location for '{}': {}", uuid, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to save back location for '{}': {}", uuid, e.getMessage());
         }
     }
 
@@ -78,7 +78,7 @@ public class BackDatabaseStorage {
                 }
             }
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to get back location for '{}': {}", uuid, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to get back location for '{}': {}", uuid, e.getMessage());
         }
         return null;
     }
@@ -94,7 +94,7 @@ public class BackDatabaseStorage {
                 }
             }
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to get back type for '{}': {}", uuid, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to get back type for '{}': {}", uuid, e.getMessage());
         }
         return null;
     }

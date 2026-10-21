@@ -618,10 +618,9 @@ def installerDeps = {
 
 dependencies installerDeps
 
-task youerJar(type: Jar, dependsOn: [youerJar0, downloadMinecraftJar, project(':youerlauncher').tasks.jar]) {
-    archiveClassifier = 'server'
+task hoshiestarJar(type: Jar, dependsOn: [youerJar0, downloadMinecraftJar, project(':youerlauncher').tasks.jar]) {
     archiveExtension = 'jar'
-    archiveBaseName = 'youer'
+    archiveBaseName = 'hoshiestar'
     archiveVersion = minecraft_version + '-' + gradleutils.gitInfo.abbreviatedId
     destinationDirectory = file('build/libs')
 
@@ -630,11 +629,11 @@ task youerJar(type: Jar, dependsOn: [youerJar0, downloadMinecraftJar, project(':
                 'Premain-Class': 'com.mohistmc.launcher.youer.util.JarLoader',
                 'Launcher-Agent-Class': 'com.mohistmc.launcher.youer.util.JarLoader',
                 'Main-Class': 'com.mohistmc.launcher.youer.Main',
-                'Specification-Title'   : 'Youer',
-                'Specification-Vendor'  : 'MohistMC',
-                'Implementation-Title'  : 'Youer',
+                'Specification-Title'   : 'Hoshiestar',
+                'Specification-Vendor'  : 'Hoshiestar',
+                'Implementation-Title'  : 'Hoshiestar',
                 'Implementation-Version': archiveVersion,
-                'Implementation-Vendor' : 'MohistMC'
+                'Implementation-Vendor' : 'Hoshiestar'
         ])
     }
 
@@ -677,4 +676,9 @@ task youerJar(type: Jar, dependsOn: [youerJar0, downloadMinecraftJar, project(':
         filter(ReplaceTokens, tokens: [VERSION: neoforge_version])
         rename { 'versions/neoforge.txt' }
     }
+}
+
+// Hoshiestar - old task name kept so existing scripts keep working
+tasks.register('youerJar') {
+    dependsOn hoshiestarJar
 }

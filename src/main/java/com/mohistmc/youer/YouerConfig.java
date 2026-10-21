@@ -36,7 +36,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 public class YouerConfig {
 
     private static final List<String> HEADER = Arrays.asList("""
-            This is the main configuration file for Youer.
+            This is the main configuration file for Hoshiestar.
             As you can see, there's tons to configure. Some options may impact gameplay, so use
             with caution, and make sure you know what each option does before configuring.
             For a reference for any variable inside this file, check out the Youer wiki at
@@ -53,7 +53,7 @@ public class YouerConfig {
             """.split("\\n"));
     /*========================================================================*/
     public static YamlConfiguration config;
-    public static File youeryml = new File("youer-config", "youer.yml");
+    public static File youeryml = new File("hoshiestar-config", "hoshiestar.yml");
     public static YamlConfiguration yml = YamlConfiguration.loadConfiguration(youeryml);
     public static boolean show_logo;
     public static String youer_lang;
@@ -148,7 +148,7 @@ public class YouerConfig {
         try {
             config.load(CONFIG_FILE);
         } catch (IOException | InvalidConfigurationException ex) {
-            Bukkit.getLogger().log(Level.SEVERE, "Could not load youer.yml, please correct your syntax errors", ex);
+            Bukkit.getLogger().log(Level.SEVERE, "Could not load hoshiestar.yml, please correct your syntax errors", ex);
             Throwables.throwIfUnchecked(ex);
         }
 
@@ -171,7 +171,7 @@ public class YouerConfig {
         config.options().copyDefaults(true);
 
         commands = new HashMap<>();
-        commands.put("youer", new YouerCommand("youer"));
+        commands.put("hoshiestar", new YouerCommand("hoshiestar"));
         commands.put("dump", new DumpCommand("dump"));
         commands.put("items", new ItemsCommand("items"));
         commands.put("permission", new PermissionCommand("permission"));
@@ -190,7 +190,7 @@ public class YouerConfig {
             Class.forName("com.mysql.cj.jdbc.Driver");
             Class.forName("org.mariadb.jdbc.Driver");
         } catch (Throwable t) {
-            throw new RuntimeException("Error initializing Youer", t);
+            throw new RuntimeException("Error initializing Hoshiestar", t);
         }
     }
 
@@ -200,7 +200,7 @@ public class YouerConfig {
 
     public static void registerCommands() {
         for (Map.Entry<String, Command> entry : commands.entrySet()) {
-            MinecraftServer.getServer().server.getCommandMap().register(entry.getKey(), "Youer", entry.getValue());
+            MinecraftServer.getServer().server.getCommandMap().register(entry.getKey(), "hoshiestar", entry.getValue());
         }
     }
 

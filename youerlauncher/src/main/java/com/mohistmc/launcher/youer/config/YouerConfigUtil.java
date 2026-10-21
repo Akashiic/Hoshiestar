@@ -26,7 +26,7 @@ import java.util.Locale;
 
 public class YouerConfigUtil {
 
-    public static final File youer_yml = new File("youer-config", "youer.yml");
+    public static final File youer_yml = new File("hoshiestar-config", "hoshiestar.yml");
     public static final YamlConfiguration yml = YamlConfiguration.loadConfiguration(youer_yml);
 
     public static void init() {

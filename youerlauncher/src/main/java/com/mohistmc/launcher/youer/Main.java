@@ -23,7 +23,6 @@ import com.mohistmc.launcher.youer.config.YouerConfigUtil;
 import com.mohistmc.launcher.youer.feature.DefaultLibraries;
 import com.mohistmc.launcher.youer.util.DataParser;
 import com.mohistmc.launcher.youer.util.I18n;
-import com.mohistmc.tools.Logo;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,17 +38,45 @@ public class Main {
         return (Main.class.getPackage().getImplementationVersion() != null) ? Main.class.getPackage().getImplementationVersion() : MCVERSION;
     }
 
+    // Hoshiestar start
+    private static final String LOGO = String.join("\n",
+            " _   _           _     _           _",
+            "| | | | ___  ___| |__ (_) ___  ___| |_ __ _ _ __",
+            "| |_| |/ _ \\/ __| '_ \\| |/ _ \\/ __| __/ _` | '__|",
+            "|  _  | (_) \\__ \\ | | | |  __/\\__ \\ || (_| | |",
+            "|_| |_|\\___/|___/_| |_|_|\\___||___/\\__\\__,_|_|");
+
+    /** Servers started with Youer keep their settings: move youer-config/ (and youer.yml in it) to the Hoshiestar names once. */
+    private static void migrateConfigFolder() {
+        java.io.File oldDir = new java.io.File("youer-config");
+        java.io.File newDir = new java.io.File("hoshiestar-config");
+        if (oldDir.isDirectory() && !newDir.exists()) {
+            if (oldDir.renameTo(newDir)) {
+                System.out.println("[Hoshiestar] Moved youer-config/ to hoshiestar-config/");
+            } else {
+                System.out.println("[Hoshiestar] Could not rename youer-config/ to hoshiestar-config/, please move it by hand");
+            }
+        }
+        java.io.File oldYml = new java.io.File(newDir, "youer.yml");
+        java.io.File newYml = new java.io.File(newDir, "hoshiestar.yml");
+        if (oldYml.isFile() && !newYml.exists() && oldYml.renameTo(newYml)) {
+            System.out.println("[Hoshiestar] Renamed hoshiestar-config/youer.yml to hoshiestar.yml");
+        }
+    }
+    // Hoshiestar end
+
     @SneakyThrows
     static void main(String[] args) {
         System.setProperty("org.jline.terminal.disableDeprecatedProviderWarning", "true");
         mainArgs.addAll(List.of(args));
         DataParser.parseVersions();
         DataParser.parseLaunchArgs();
+        migrateConfigFolder(); // Hoshiestar - youer-config/youer.yml -> hoshiestar-config/hoshiestar.yml
         YouerConfigUtil.init();
         YouerConfigUtil.i18n();
         if (YouerConfigUtil.aBoolean("youer.show_logo", true)) {
             System.out.printf("%n%s%n%s - %s, Java(%s) %s PID: %s%n",
-                    Logo.asYouer(),
+                    LOGO,
                     i18n.as("youer.launch.welcomemessage"),
                     getVersion(),
                     System.getProperty("java.class.version"),
@@ -58,8 +85,8 @@ public class Main {
             );
             System.out.println("+------------------------------------------------------+");
             System.out.println("|                                                      |");
-            System.out.println("| Patreon: https://www.patreon.com/c/mohistmc          |");
-            System.out.println("| 爱发电: https://ifdian.net/a/MohistMC                |");
+            System.out.println("| GitHub: https://github.com/Akashiic/Hoshiestar       |");
+            System.out.println("| Based on Youer by MohistMC                           |");
             System.out.println("|                                                      |");
             System.out.println("+------------------------------------------------------+");
         }

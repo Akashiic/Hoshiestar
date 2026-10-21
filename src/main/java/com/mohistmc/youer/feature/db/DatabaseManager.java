@@ -14,12 +14,12 @@ import org.jetbrains.annotations.NotNull;
  * @date 2026/07/01
  *
  * Manages database connections for all feature modules.
- * - SQLite: single shared file youer-config/database/youer.db, each module uses its own table
+ * - SQLite: single shared file hoshiestar-config/database/youer.db, each module uses its own table
  * - MySQL: shared connection, differentiated by table names
  */
 public class DatabaseManager {
 
-    private static final Logger LOGGER = LogManager.getLogger("Youer-DB");
+    private static final Logger LOGGER = LogManager.getLogger("Hoshiestar-DB");
     private static Connection sqliteConnection;
     private static Connection mysqlConnection;
     private static boolean initialized = false;
@@ -30,7 +30,7 @@ public class DatabaseManager {
     public static void init() {
         if (initialized) return;
         initialized = true;
-        LOGGER.info("[Youer-DB] DatabaseManager initialized.");
+        LOGGER.info("[Hoshiestar-DB] DatabaseManager initialized.");
     }
 
     /**
@@ -78,10 +78,10 @@ public class DatabaseManager {
                 stmt.execute("PRAGMA wal_autocheckpoint=100");
             }
 
-            LOGGER.info("[Youer-DB] SQLite connection opened: " + dbPath);
+            LOGGER.info("[Hoshiestar-DB] SQLite connection opened: " + dbPath);
             return sqliteConnection;
         } catch (SQLException e) {
-            throw new RuntimeException("[Youer-DB] Failed to open SQLite connection", e);
+            throw new RuntimeException("[Hoshiestar-DB] Failed to open SQLite connection", e);
         }
     }
 
@@ -104,10 +104,10 @@ public class DatabaseManager {
                     DatabaseConfig.getMysqlUsername(),
                     DatabaseConfig.getMysqlPassword()
             );
-            LOGGER.info("[Youer-DB] MySQL connection opened: " + url);
+            LOGGER.info("[Hoshiestar-DB] MySQL connection opened: " + url);
             return mysqlConnection;
         } catch (SQLException e) {
-            throw new RuntimeException("[Youer-DB] Failed to open MySQL connection: " +
+            throw new RuntimeException("[Hoshiestar-DB] Failed to open MySQL connection: " +
                     DatabaseConfig.getMysqlUrl(), e);
         }
     }
@@ -123,10 +123,10 @@ public class DatabaseManager {
                         stmt.execute("PRAGMA wal_checkpoint(TRUNCATE)");
                     }
                     sqliteConnection.close();
-                    LOGGER.info("[Youer-DB] SQLite connection closed.");
+                    LOGGER.info("[Hoshiestar-DB] SQLite connection closed.");
                 }
             } catch (SQLException e) {
-                LOGGER.warn("[Youer-DB] Error closing SQLite connection: " + e.getMessage());
+                LOGGER.warn("[Hoshiestar-DB] Error closing SQLite connection: " + e.getMessage());
             }
             sqliteConnection = null;
         }
@@ -135,10 +135,10 @@ public class DatabaseManager {
             try {
                 if (!mysqlConnection.isClosed()) {
                     mysqlConnection.close();
-                    LOGGER.info("[Youer-DB] MySQL connection closed.");
+                    LOGGER.info("[Hoshiestar-DB] MySQL connection closed.");
                 }
             } catch (SQLException e) {
-                LOGGER.warn("[Youer-DB] Error closing MySQL connection: " + e.getMessage());
+                LOGGER.warn("[Hoshiestar-DB] Error closing MySQL connection: " + e.getMessage());
             }
             mysqlConnection = null;
         }

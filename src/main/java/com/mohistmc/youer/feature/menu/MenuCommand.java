@@ -36,7 +36,7 @@ public class MenuCommand extends Command {
                 }
             }
         } else if (args.length == 2 && "open".equalsIgnoreCase(args[0]) && (sender.isOp() || testPermission(sender))) {
-            File menuFolder = new File("youer-config/menu");
+            File menuFolder = new File("hoshiestar-config/menu");
             if (menuFolder.exists() && menuFolder.isDirectory()) {
                 File[] files = menuFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".yml"));
                 if (files != null) {
@@ -86,7 +86,7 @@ public class MenuCommand extends Command {
 
     private MenuConfig loadMenuConfig(String fileName) {
         try {
-            File menuFolder = new File("youer-config/menu");
+            File menuFolder = new File("hoshiestar-config/menu");
             File menuFile = new File(menuFolder, fileName + ".yml");
 
             if (!menuFile.exists()) {

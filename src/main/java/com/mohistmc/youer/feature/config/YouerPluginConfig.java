@@ -7,7 +7,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 public class YouerPluginConfig {
 
-    public static final String CONFIG_FILE = "youer-config";
+    public static final String CONFIG_FILE = "hoshiestar-config";
     public final FileConfiguration yaml;
     public final File config;
 

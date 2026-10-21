@@ -24,7 +24,7 @@ import org.apache.logging.log4j.Logger;
  */
 public class DatabaseMigration {
 
-    private static final Logger LOGGER = LogManager.getLogger("Youer-DB");
+    private static final Logger LOGGER = LogManager.getLogger("Hoshiestar-DB");
 
     // Module name -> base table name (insertion-ordered)
     private static final Map<String, String> MODULE_TABLES = new LinkedHashMap<>();

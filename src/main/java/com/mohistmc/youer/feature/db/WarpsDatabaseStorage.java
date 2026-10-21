@@ -22,7 +22,7 @@ import org.bukkit.World;
  */
 public class WarpsDatabaseStorage {
 
-    private static final Logger LOGGER = LogManager.getLogger("Youer-DB");
+    private static final Logger LOGGER = LogManager.getLogger("Hoshiestar-DB");
     private static final String MODULE = "warps";
     private final String tableName;
 
@@ -46,7 +46,7 @@ public class WarpsDatabaseStorage {
             }
             stmt.executeUpdate(ddl);
         } catch (SQLException e) {
-            throw new RuntimeException("[Youer-DB] Failed to init warps table", e);
+            throw new RuntimeException("[Hoshiestar-DB] Failed to init warps table", e);
         }
     }
 
@@ -63,7 +63,7 @@ public class WarpsDatabaseStorage {
             ps.setFloat(7, loc.getYaw());
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to set warp '{}': {}", name, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to set warp '{}': {}", name, e.getMessage());
         }
     }
 
@@ -82,7 +82,7 @@ public class WarpsDatabaseStorage {
                 }
             }
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to get warp '{}': {}", name, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to get warp '{}': {}", name, e.getMessage());
         }
         return null;
     }
@@ -94,7 +94,7 @@ public class WarpsDatabaseStorage {
             ps.setString(1, name);
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to remove warp '{}': {}", name, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to remove warp '{}': {}", name, e.getMessage());
         }
     }
 
@@ -118,7 +118,7 @@ public class WarpsDatabaseStorage {
              ResultSet rs = stmt.executeQuery("SELECT name FROM " + tableName)) {
             while (rs.next()) names.add(rs.getString("name"));
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to get warp names: {}", e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to get warp names: {}", e.getMessage());
         }
         return names;
     }

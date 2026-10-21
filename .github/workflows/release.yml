@@ -68,12 +68,12 @@ jobs:
         run: ./gradlew setup --no-configuration-cache
 
       - name: Build server jar
-        run: ./gradlew youerJar --no-configuration-cache
+        run: ./gradlew hoshiestarJar --no-configuration-cache
 
       - name: Prepare release files
         id: files
         run: |
-          SRC=$(ls projects/youer/build/libs/*-server.jar | head -n 1)
+          SRC=$(ls projects/youer/build/libs/hoshiestar-*.jar | head -n 1)
           NAME="Hoshiestar-${{ steps.tag.outputs.version }}.jar"
           mkdir -p dist
           cp "$SRC" "dist/$NAME"

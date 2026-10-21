@@ -102,12 +102,12 @@ public class WatchdogThread extends ca.spottedleaf.moonrise.common.util.TickThre
                     }
                     // Paper end
                 } else {
-                    logger.log(Level.SEVERE, "--- DO NOT REPORT THIS TO PURPUR - THIS IS NOT A BUG OR A CRASH  - " + Bukkit.getServer().getVersion() + " ---"); // Purpur - Rebrand
+                    logger.log(Level.SEVERE, "--- DO NOT REPORT THIS TO HOSHIESTAR - THIS IS NOT A BUG OR A CRASH  - " + Bukkit.getServer().getVersion() + " ---"); // Purpur - Rebrand
                     logger.log(Level.SEVERE, "The server has not responded for " + (currentTime - lastTick) / 1000 + " seconds! Creating thread dump");
                 }
                 // Paper end - Different message for short timeout
                 logger.log(Level.SEVERE, "------------------------------");
-                logger.log(Level.SEVERE, "Server thread dump (Look for plugins here before reporting to Purpur!):"); // Paper // Purpur - Rebrand
+                logger.log(Level.SEVERE, "Server thread dump (Look for plugins here before reporting to Hoshiestar!):"); // Paper // Purpur - Rebrand
                 FeatureHooks.dumpAllChunkLoadInfo(MinecraftServer.getServer(), isLongTimeout); // Paper - log detailed tick information
                 WatchdogThread.dumpThread(ManagementFactory.getThreadMXBean().getThreadInfo(MinecraftServer.getServer().getRunningThread().threadId(), Integer.MAX_VALUE), logger);
                 logger.log(Level.SEVERE, "------------------------------");
@@ -120,7 +120,7 @@ public class WatchdogThread extends ca.spottedleaf.moonrise.common.util.TickThre
                         WatchdogThread.dumpThread(thread, logger);
                     }
                 } else {
-                    logger.log(Level.SEVERE, "--- DO NOT REPORT THIS TO PURPUR - THIS IS NOT A BUG OR A CRASH ---"); // Purpur - Rebrand
+                    logger.log(Level.SEVERE, "--- DO NOT REPORT THIS TO HOSHIESTAR - THIS IS NOT A BUG OR A CRASH ---"); // Purpur - Rebrand
                 }
 
                 logger.log(Level.SEVERE, "------------------------------");

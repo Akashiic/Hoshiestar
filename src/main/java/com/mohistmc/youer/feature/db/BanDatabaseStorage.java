@@ -22,7 +22,7 @@ import org.apache.logging.log4j.Logger;
  */
 public class BanDatabaseStorage {
 
-    private static final Logger LOGGER = LogManager.getLogger("Youer-DB");
+    private static final Logger LOGGER = LogManager.getLogger("Hoshiestar-DB");
 
     private static final String ITEM        = "bans.item";
     private static final String ITEM_MOSHOU = "bans.item_moshou";
@@ -57,7 +57,7 @@ public class BanDatabaseStorage {
                 : "CREATE TABLE IF NOT EXISTS " + table + " (value TEXT PRIMARY KEY, message TEXT NOT NULL DEFAULT '')";
             stmt.executeUpdate(ddl);
         } catch (SQLException e) {
-            throw new RuntimeException("[Youer-DB] Failed to init " + baseTable, e);
+            throw new RuntimeException("[Hoshiestar-DB] Failed to init " + baseTable, e);
         }
     }
 
@@ -70,7 +70,7 @@ public class BanDatabaseStorage {
                 : "CREATE TABLE IF NOT EXISTS " + table + " (item_type TEXT NOT NULL, nbt_tag TEXT NOT NULL, PRIMARY KEY (item_type, nbt_tag))";
             stmt.executeUpdate(ddl);
         } catch (SQLException e) {
-            throw new RuntimeException("[Youer-DB] Failed to init ban_nbt", e);
+            throw new RuntimeException("[Hoshiestar-DB] Failed to init ban_nbt", e);
         }
     }
 
@@ -123,7 +123,7 @@ public class BanDatabaseStorage {
              ResultSet rs = stmt.executeQuery("SELECT value FROM " + table)) {
             while (rs.next()) list.add(rs.getString("value"));
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to get list '{}': {}", table, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to get list '{}': {}", table, e.getMessage());
         }
         return list;
     }
@@ -159,7 +159,7 @@ public class BanDatabaseStorage {
                 ps.executeUpdate();
             }
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to set list '{}': {}", table, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to set list '{}': {}", table, e.getMessage());
         }
     }
 
@@ -190,7 +190,7 @@ public class BanDatabaseStorage {
             ps.setString(2, key);
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to set message '{}': {}", key, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to set message '{}': {}", key, e.getMessage());
         }
     }
 
@@ -208,7 +208,7 @@ public class BanDatabaseStorage {
                 }
             }
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to get message '{}': {}", key, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to get message '{}': {}", key, e.getMessage());
         }
         return "";
     }
@@ -223,7 +223,7 @@ public class BanDatabaseStorage {
              ResultSet rs = stmt.executeQuery("SELECT DISTINCT item_type FROM " + table)) {
             while (rs.next()) keys.add(rs.getString("item_type"));
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to get NBT keys: {}", e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to get NBT keys: {}", e.getMessage());
         }
         return keys;
     }
@@ -239,7 +239,7 @@ public class BanDatabaseStorage {
                 while (rs.next()) list.add(rs.getString("nbt_tag"));
             }
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to get NBT list '{}': {}", itemType, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to get NBT list '{}': {}", itemType, e.getMessage());
         }
         return list;
     }
@@ -267,7 +267,7 @@ public class BanDatabaseStorage {
             ps.setString(2, nbtTag);
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to add NBT '{}': {}", itemType, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to add NBT '{}': {}", itemType, e.getMessage());
         }
     }
 
@@ -280,7 +280,7 @@ public class BanDatabaseStorage {
             ps.setString(2, nbtTag);
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to remove NBT '{}': {}", itemType, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to remove NBT '{}': {}", itemType, e.getMessage());
         }
     }
 
@@ -292,7 +292,7 @@ public class BanDatabaseStorage {
             ps.setString(1, itemType);
             ps.executeUpdate();
         } catch (SQLException e) {
-            LOGGER.warn("[Youer-DB] Failed to clear NBT '{}': {}", itemType, e.getMessage());
+            LOGGER.warn("[Hoshiestar-DB] Failed to clear NBT '{}': {}", itemType, e.getMessage());
         }
     }
 }

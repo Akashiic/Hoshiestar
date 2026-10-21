@@ -308,13 +308,13 @@ public class NeoDevPlugin implements Plugin<Project> {
                 manifest.attributes(Map.of("FML-System-Mods", "neoforge"));
                 manifest.attributes(Map.of("Build-Time", timestamp));
                 manifest.attributes(Map.of("Git-Commit", abbreviatedId));
-                manifest.attributes(Map.of("Brand-Id", "mohistmc:youer"));
-                manifest.attributes(Map.of("Specification-Title", "Youer"));
-                manifest.attributes(Map.of("Specification-Vendor", "MohistMC"));
+                manifest.attributes(Map.of("Brand-Id", "hoshiestar:hoshiestar"));
+                manifest.attributes(Map.of("Specification-Title", "Hoshiestar"));
+                manifest.attributes(Map.of("Specification-Vendor", "Hoshiestar"));
                 manifest.attributes(Map.of("Specification-Version", minecraftVersion));
-                manifest.attributes(Map.of("Implementation-Title", "Youer"));
+                manifest.attributes(Map.of("Implementation-Title", "Hoshiestar"));
                 manifest.attributes(Map.of("Implementation-Version", minecraftVersion));
-                manifest.attributes(Map.of("Implementation-Vendor", "MohistMC"));
+                manifest.attributes(Map.of("Implementation-Vendor", "Hoshiestar"));
             });
 
             task.from(project.zipTree(joinedJar.flatMap(AbstractArchiveTask::getArchiveFile)));

@@ -86,7 +86,7 @@ public class Action {
         copyFileFromJar(universalJar, "data/neoforge-%s-universal.jar".formatted(neoforgeVer), false);
 
         if (youerVer == null) {
-            System.out.println("[Youer] There is an error with the installation, the neoforge / neoform version is not set.");
+            System.out.println("[Hoshiestar] There is an error with the installation, the neoforge / neoform version is not set.");
             System.exit(0);
         }
         cleanMinecraftJars();
@@ -109,7 +109,7 @@ public class Action {
 
     protected void run(String mainClass, String... args) throws Exception {
         List<URL> classPath = installerTourls;
-        System.out.println("[Youer] Loading " + classPath);
+        System.out.println("[Hoshiestar] Loading " + classPath);
         URLClassLoader loader = URLClassLoader.newInstance(classPath.toArray(new URL[0]));
         Class.forName(mainClass, true, loader).getDeclaredMethod("main", String[].class).invoke(null, new Object[]{args});
         loader.clearAssertionStatus();
@@ -167,7 +167,7 @@ public class Action {
                 } catch (IOException ignored) {
                 }
             } else {
-                System.out.println("[Youer] The file " + pathInJar + " doesn't exists in the Youer jar !");
+                System.out.println("[Hoshiestar] The file " + pathInJar + " doesn't exists in the Youer jar !");
                 System.exit(0);
             }
         }

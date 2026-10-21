@@ -11,17 +11,17 @@ import org.bukkit.configuration.file.YamlConfiguration;
  * @author Mgazul by MohistMC
  * @date 2026/07/01
  *
- * Reads youer-config/database.yml and provides modular database type switches.
+ * Reads hoshiestar-config/database.yml and provides modular database type switches.
  * Each feature can independently choose "sqlite" (default) or "mysql".
  */
 public class DatabaseConfig {
 
-    public static final String DB_DIR = "youer-config" + File.separator + "database";
+    public static final String DB_DIR = "hoshiestar-config" + File.separator + "database";
     private static File configFile;
     private static YamlConfiguration yaml;
 
     public static void init() {
-        configFile = new File("youer-config", "database.yml");
+        configFile = new File("hoshiestar-config", "database.yml");
         if (!configFile.getParentFile().exists()) {
             configFile.getParentFile().mkdirs();
         }

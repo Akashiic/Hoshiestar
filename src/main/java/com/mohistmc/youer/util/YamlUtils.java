@@ -12,7 +12,7 @@ import org.bukkit.configuration.file.FileConfiguration;
  */
 public class YamlUtils {
 
-    private static final Logger LOGGER = LogManager.getLogger("Youer-YamlUtils");
+    private static final Logger LOGGER = LogManager.getLogger("Hoshiestar-YamlUtils");
 
     public static void save(File file, FileConfiguration yaml) {
         try {
