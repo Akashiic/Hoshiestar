@@ -1,56 +1,137 @@
 <div align="center">
-  <h1 align="center">Youer 26.1.2</h1>
-  <h3 align="center">Minecraft NeoForge Hybrid server implementing the Paper/Purpur API</h3>
+  <h1 align="center">Hoshiestar</h1>
+  <h3 align="center">Servidor híbrido NeoForge + Paper/Purpur para Minecraft 26.1.2</h3>
 
   <p align="center">
-    <a href="https://github.com/MohistMC/Youer/stargazers">
-      <img alt="GitHub Stars" src="https://img.shields.io/github/stars/MohistMC/Youer?logo=github&color=181717&style=flat-square">
-    </a>
+    <img alt="Minecraft" src="https://img.shields.io/badge/Minecraft-26.1.2-62B47A?style=flat-square">
     <a href="https://neoforged.net/">
       <img alt="NeoForge" src="https://img.shields.io/badge/NeoForge-26.1.2.122-FF8B00?style=flat-square">
     </a>
-    <a href="https://www.azul.com/downloads/?version=java-25-lts#zulu">
-      <img alt="JDK" src="https://img.shields.io/badge/JDK-25.0.1-007396?logo=java&logoColor=white&style=flat-square">
+    <a href="https://papermc.io/">
+      <img alt="Paper" src="https://img.shields.io/badge/Paper-26.1.2%20%2374-444444?style=flat-square">
     </a>
-    <a href="https://docs.gradle.org/9.7.0/release-notes.html">
-      <img alt="Gradle" src="https://img.shields.io/badge/Gradle-9.7.0-02303A?logo=gradle&logoColor=white&style=flat-square">
+    <a href="https://purpurmc.org/">
+      <img alt="Purpur" src="https://img.shields.io/badge/Purpur-26.1.2-9D5CFF?style=flat-square">
     </a>
-    <a href="https://discord.gg/mohistmc">
-      <img alt="Discord" src="https://img.shields.io/discord/311256119005937665?color=5865F2&logo=discord&logoColor=white&style=flat-square">
+    <img alt="Java" src="https://img.shields.io/badge/Java-25-007396?logo=openjdk&logoColor=white&style=flat-square">
+    <a href="LICENSE.md">
+      <img alt="Licença" src="https://img.shields.io/badge/licen%C3%A7a-GPLv3-blue?style=flat-square">
     </a>
   </p>
+
+  <p align="center"><i>O nome é uma homenagem à artista Hoshie Star.</i></p>
 </div>
 
-## 🚀 Features
+## Sobre
 
-- Hybrid server combining NeoForge mod support with Paper API compatibility
-- Seamless plugin support from Bukkit/Spigot/Paper ecosystem
-- Optimized performance and stability for modded environments
+O Hoshiestar roda **mods NeoForge e plugins Bukkit/Spigot/Paper/Purpur no mesmo servidor**, no Minecraft **26.1.2**.
 
-## 📊 Progress Status
+É um fork do [Youer](https://github.com/MohistMC/Youer), do MohistMC. O Youer oficial não tem uma versão 26.1.2 com Paper: o desenvolvimento passou direto da 26.1.2 (só com CraftBukkit) para a 26.2. O Hoshiestar fecha essa lacuna trazendo a integração Paper/Purpur da 26.2 de volta para a 26.1.2, para quem precisa ficar nessa versão (por exemplo, por causa de um modpack).
 
-✅ **Core Integration**
-- [x] NeoForge 26.1.2.122 ([02fa4bbcb](https://github.com/neoforged/NeoForge/commit/02fa4bbcb))
-- [x] Paper 26.1.2 ([e4e17fc90](https://github.com/PaperMC/Paper/commit/e4e17fc90), build #74)
-- [x] PurPur 26.1.2 (PurpurMC `ver/26.1.2`)
+> [!IMPORTANT]
+> Este é um projeto **não oficial**, sem vínculo com o MohistMC, o PaperMC ou o PurpurMC.
+> Problemas encontrados aqui devem ser reportados nas [issues deste repositório](https://github.com/Akashiic/Hoshiestar/issues), não nos projetos originais.
 
-> **Port note:** the Paper/Purpur integration of this branch was backported from the
-> Youer `26.2` branch: Paper/Purpur API and CraftBukkit sources come from the official
-> `ver/26.1.2` branches of PaperMC/PurpurMC, and the Minecraft source patches from
-> Youer 26.2 adapted to Minecraft 26.1.2. Content that only exists in 26.2
-> (sulfur cube, potent sulfur, speleothem) is not included.
+## Componentes
 
-🔄 **Compatible Progress**
+| Componente | Versão | Origem |
+|---|---|---|
+| Minecraft | 26.1.2 | Mojang |
+| NeoForge | 26.1.2.122 | [neoforged/NeoForge](https://github.com/neoforged/NeoForge) `26.1.x` (`02fa4bbcb`) |
+| Paper (API + servidor) | 26.1.2, build #74 | [PaperMC/Paper](https://github.com/PaperMC/Paper) `ver/26.1.2` (`e4e17fc90`) |
+| Purpur | 26.1.2 | [PurpurMC/Purpur](https://github.com/PurpurMC/Purpur) `ver/26.1.2` |
+| Integração híbrida | base 26.2 | [MohistMC/Youer](https://github.com/MohistMC/Youer) `26.2` |
+| Adventure | 4.26.1 | a mesma do Paper 26.1.2 |
 
-## 📚 Documentation
+## Requisitos
 
-- [English Documentation](https://mohistmc.com/youer/docs)
-- [中文文档](https://www.mohistmc.cn/docs/youer)
+- **Java 25** (recomendado: [Temurin](https://adoptium.net/) ou [Zulu](https://www.azul.com/downloads/?version=java-25-lts))
+- 4 GB de RAM ou mais para o servidor (mais, se usar muitos mods)
+- Para compilar: Git e cerca de 10 GB livres em disco
 
-## ⚙️ Technical Stack
+## Compilando
 
-| Component   | Source                                                              | Purpose                      | Status |
-|-------------|---------------------------------------------------------------------|------------------------------|--------|
-| NeoForge    | [GitHub](https://github.com/neoforged/NeoForge.git)                 | Mod support                  | ✅      |
-| Paper       | [GitHub](https://github.com/PaperMC/Paper.git)                      | Plugin support               | ✅      |
-| PurPur      | [GitHub](https://github.com/PurpurMC/Purpur.git)                    | Plugin support               | ✅      |
+```bash
+git clone https://github.com/Akashiic/Hoshiestar
+cd Hoshiestar
+./gradlew setup      # decompila o Minecraft e aplica os patches
+./gradlew youerJar   # gera o jar do servidor
+```
+
+O jar fica em `projects/youer/build/libs/youer-26.1.2-<commit>-server.jar`.
+
+## Rodando o servidor
+
+```bash
+mkdir servidor && cd servidor
+cp ../projects/youer/build/libs/youer-26.1.2-*-server.jar server.jar
+java -Xmx4G -jar server.jar nogui
+```
+
+Na primeira execução, o launcher monta o ambiente em `libraries/` e pede para aceitar a EULA (`eula.txt`). Depois disso:
+
+| Pasta / arquivo | Para que serve |
+|---|---|
+| `mods/` | mods NeoForge 26.1.2 |
+| `plugins/` | plugins Bukkit/Spigot/Paper/Purpur |
+| `config/` | configurações do Paper (`paper-global.yml`, `paper-world-defaults.yml`), do NeoForge e dos mods |
+| `purpur.yml`, `spigot.yml`, `bukkit.yml` | configurações do Purpur, do Spigot e do Bukkit |
+| `youer-config/` | configurações próprias da camada híbrida |
+
+## Compatibilidade testada
+
+Testes automáticos feitos num servidor real:
+
+| Teste | Resultado |
+|---|---|
+| Mods: Biomes O' Plenty, TerraBlender, GlitchCore, Architectury, spark | carregam sem erros |
+| Plugin: LuckPerms (Bukkit) 5.5.71 | carrega e funciona ("Running on Bukkit") |
+| Materiais e biomas de mods vistos pela API Bukkit | 512 materiais e 68 biomas do Biomes O' Plenty |
+| Blocos, entidades, eventos, Adventure, schedulers síncrono e assíncrono | 15 de 15 verificações OK |
+| Clone limpo → `setup` → `youerJar` → boot → `stop` | OK, sem erros no log |
+
+Ainda falta testar com jogadores de verdade e com modpacks grandes. Se você testar, conte nas issues o que funcionou e o que não funcionou.
+
+## Limitações conhecidas
+
+- **Conteúdo da 26.2 não existe aqui.** Sulfur Cube, Potent Sulfur, Speleothem e as APIs ligadas a eles ficaram de fora.
+- **Algumas APIs do Paper 26.2 foram trazidas para cá**, como os eventos de pick item e de efeito de poção com fonte. Elas só acrescentam recursos e não quebram plugins feitos para a 26.1.2.
+- **Paralelismo de mundos (Parallel World Ticking) fica desligado**, porque não é adequado para servidores com mods (mesma decisão do Youer 26.2).
+- **Mods que mexem nas mesmas partes do jogo que o Paper** (principalmente o sistema de chunks) podem precisar de compatibilidade específica, como já existe para o Architectury e o spark.
+
+## Como o port foi feito
+
+1. Ponto de partida: o último estado 26.1.2 do Youer (`dc8737b4d`, só com CraftBukkit), com o NeoForge atualizado para 26.1.2.122.
+2. API e CraftBukkit: a versão oficial `ver/26.1.2` do Paper e do Purpur, com as modificações do Youer reaplicadas em 3 vias.
+3. Patches do Minecraft: a diferença "Youer 26.2 sem Paper → Youer 26.2 atual", sem as atualizações do NeoForge 26.2, aplicada sobre a 26.1.2. Os conflitos foram resolvidos tendo como referência os patches oficiais do Paper 26.1.2.
+
+## Estrutura do repositório
+
+| Caminho | Conteúdo |
+|---|---|
+| `patches/` | patches aplicados ao código do Minecraft (NeoForge + Paper + Purpur + Youer) |
+| `src/main/java` | NeoForge, API Bukkit/Paper/Purpur, CraftBukkit e código da camada híbrida (`com.mohistmc.youer`) |
+| `youerlauncher/` | launcher que instala as bibliotecas e inicia o servidor |
+| `buildSrc/`, `projects/` | sistema de build (Gradle) |
+
+Para editar o código do Minecraft: rode `./gradlew setup`, altere `projects/youer/src/`, rode `./gradlew genPatches` e faça o commit dos arquivos em `patches/`.
+
+## Recebendo correções do Youer oficial
+
+O repositório original fica como um remoto separado, só para leitura:
+
+```bash
+git remote add mohistmc https://github.com/MohistMC/Youer
+git fetch mohistmc 26.2
+```
+
+Correções da branch `26.2` que também valham para a 26.1.2 podem ser portadas com `git cherry-pick`, adaptando o que for preciso.
+
+## Créditos
+
+- [MohistMC/Youer](https://github.com/MohistMC/Youer): a base híbrida NeoForge + Bukkit/Paper. Todo o trabalho de integração vem de lá.
+- [NeoForged](https://neoforged.net/), [PaperMC](https://papermc.io/), [PurpurMC](https://purpurmc.org/), [SpigotMC](https://www.spigotmc.org/) e [Arclight](https://github.com/IzzelAliz/Arclight).
+
+## Licença
+
+Assim como o Youer e o Paper, o Hoshiestar é distribuído sob a **GNU General Public License v3**. Veja [LICENSE.md](LICENSE.md) e a pasta [LICENCE](LICENCE/) para as licenças de cada projeto de origem.
