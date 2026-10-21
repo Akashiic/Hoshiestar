@@ -720,7 +720,7 @@
          }
      }
  
-@@ -600,15 +_,42 @@
+@@ -600,15 +_,44 @@
      }
  
      public void lavaIgnite() {
@@ -750,14 +750,16 @@
 +            // CraftBukkit end
          }
      }
++
++    // Youer start - keep the body in the vanilla signature (mod mixins); Paper's lava position is a one-shot field
++    private @Nullable BlockPos lavaHurt$pos;
++    private boolean lavaHurt$hasPos;
  
      public void lavaHurt() {
-+        // Paper start - track lava contact
-+        this.lavaHurt(this.lastLavaContact); // fallback for minecarts if defined
-+    }
-+
-+    public void lavaHurt(@Nullable BlockPos pos) {
-+        // Paper end - track lava contact
++        final BlockPos pos = this.lavaHurt$hasPos ? this.lavaHurt$pos : this.lastLavaContact; // Paper - track lava contact; fallback for minecarts if defined
++        this.lavaHurt$pos = null;
++        this.lavaHurt$hasPos = false;
++        // Youer end
          if (!this.fireImmune()) {
              if (this.level() instanceof ServerLevel serverLevel
 -                && this.hurtServer(serverLevel, this.damageSources().lava(), 4.0F)
@@ -765,7 +767,18 @@
                  && this.shouldPlayLavaHurtSound()
                  && !this.isSilent()) {
                  serverLevel.playSound(
-@@ -623,6 +_,22 @@
+@@ -618,11 +_,33 @@
+         }
+     }
+ 
++    public void lavaHurt(@Nullable BlockPos pos) { // Paper - track lava contact
++        this.lavaHurt$pos = pos;
++        this.lavaHurt$hasPos = true;
++        this.lavaHurt();
++    }
++
+     protected boolean shouldPlayLavaHurtSound() {
+         return true;
      }
  
      public final void igniteForSeconds(float numberOfSeconds) {
@@ -1332,7 +1345,7 @@
  
      public void awardKillScore(Entity victim, DamageSource killingBlow) {
          if (victim instanceof ServerPlayer) {
-@@ -1946,33 +_,62 @@
+@@ -1946,33 +_,68 @@
      }
  
      public boolean saveAsPassenger(ValueOutput output) {
@@ -1373,14 +1386,20 @@
      }
  
 -    public void saveWithoutId(ValueOutput output) {
-+    public void saveWithoutId(final ValueOutput output) {
-+        // CraftBukkit start - allow excluding certain data when saving
-+        // Paper start - Raw entity serialization API
-+        this.saveWithoutId(output, true, false, false);
-+    }
++    // Youer start - keep the body in the vanilla signature (mod mixins); the CraftBukkit/Paper flags are one-shot fields
++    private boolean saveWithoutId$custom;
++    private boolean saveWithoutId$includeAll;
++    private boolean saveWithoutId$includeNonSaveable;
++    private boolean saveWithoutId$forceSerialization;
 +
-+    public void saveWithoutId(final ValueOutput output, final boolean includeAll, final boolean includeNonSaveable, final boolean forceSerialization) {
-+        // Paper end - Raw entity serialization API
++    public void saveWithoutId(final ValueOutput output) {
++        // CraftBukkit - allow excluding certain data when saving // Paper - Raw entity serialization API
++        final boolean custom = this.saveWithoutId$custom;
++        final boolean includeAll = !custom || this.saveWithoutId$includeAll;
++        final boolean includeNonSaveable = custom && this.saveWithoutId$includeNonSaveable;
++        final boolean forceSerialization = custom && this.saveWithoutId$forceSerialization;
++        this.saveWithoutId$custom = false;
++        // Youer end
          try {
 -            if (this.vehicle != null) {
 -                output.store("Pos", Vec3.CODEC, new Vec3(this.vehicle.getX(), this.getY(), this.vehicle.getZ()));
@@ -1502,6 +1521,21 @@
          } catch (Throwable var7) {
              CrashReport report = CrashReport.forThrowable(var7, "Saving entity NBT");
              CrashReportCategory category = report.addCategory("Entity being saved");
+@@ -2038,6 +_,14 @@
+         }
+     }
+ 
++    public void saveWithoutId(final ValueOutput output, final boolean includeAll, final boolean includeNonSaveable, final boolean forceSerialization) { // Paper - Raw entity serialization API
++        this.saveWithoutId$custom = true;
++        this.saveWithoutId$includeAll = includeAll;
++        this.saveWithoutId$includeNonSaveable = includeNonSaveable;
++        this.saveWithoutId$forceSerialization = forceSerialization;
++        this.saveWithoutId(output);
++    }
++
+     public void load(ValueInput input) {
+         try {
+             Vec3 pos = input.read("Pos", Vec3.CODEC).orElse(Vec3.ZERO);
 @@ -2076,7 +_,23 @@
                  this.setGlowingTag(input.getBooleanOr("Glowing", false));
                  this.setTicksFrozen(input.getIntOr("TicksFrozen", 0));

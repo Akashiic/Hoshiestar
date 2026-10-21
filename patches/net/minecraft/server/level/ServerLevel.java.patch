@@ -1530,7 +1530,7 @@
          Entity existing = this.getEntity(player.getUUID());
          if (existing != null) {
              LOGGER.warn("Force-added player with duplicate UUID {}", player.getUUID());
-@@ -976,45 +_,138 @@
+@@ -976,45 +_,150 @@
              this.removePlayerImmediately((ServerPlayer)existing, Entity.RemovalReason.DISCARDED);
          }
  
@@ -1539,12 +1539,18 @@
 +        player.onAddedToLevel();
 +        this.server.addEntityToGlobalCache(player); // Youer - global entity cache
      }
++
++    // Youer start - keep the body in the vanilla signature (declared first, so name-only mixin selectors bind to it) so mod
++    // mixins on addEntity(Entity) apply (cupboard, fancymenu); the Bukkit spawn reason (null = no spawn event) is handed over
++    // through one-shot fields consumed on entry. Entity addition is main-thread only (Moonrise enforces it).
++    private boolean addEntity$hasSpawnReason;
++    private org.bukkit.event.entity.CreatureSpawnEvent.@Nullable SpawnReason addEntity$spawnReason;
  
      private boolean addEntity(Entity entity) {
-+        return this.addEntity(entity, CreatureSpawnEvent.SpawnReason.CUSTOM);
-+    }
-+
-+    private boolean addEntity(Entity entity, final org.bukkit.event.entity.CreatureSpawnEvent.@Nullable SpawnReason spawnReason) {
++        final org.bukkit.event.entity.CreatureSpawnEvent.@Nullable SpawnReason spawnReason = this.addEntity$hasSpawnReason ? this.addEntity$spawnReason : CreatureSpawnEvent.SpawnReason.CUSTOM;
++        this.addEntity$hasSpawnReason = false;
++        this.addEntity$spawnReason = null;
++        // Youer end
 +        entity.generation = false; // Paper - Don't fire sync event during generation; Reset flag if it was added during a ServerLevel generation process
 +        // Paper start - extra debug info
 +        if (entity.valid) {
@@ -1596,6 +1602,12 @@
 +                return false;
 +            }
 +        }
++    }
++
++    private boolean addEntity(Entity entity, final org.bukkit.event.entity.CreatureSpawnEvent.@Nullable SpawnReason spawnReason) {
++        this.addEntity$hasSpawnReason = true;
++        this.addEntity$spawnReason = spawnReason;
++        return this.addEntity(entity);
 +    }
 +
 +    public boolean tryAddFreshEntityWithPassengers(final Entity entity) {

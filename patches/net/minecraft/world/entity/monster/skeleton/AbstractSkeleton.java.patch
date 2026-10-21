@@ -95,13 +95,12 @@
      }
  
      @Override
-@@ -199,9 +_,18 @@
+@@ -199,8 +_,15 @@
          this.reassessWeaponGoal();
      }
  
 -    @Override
 -    public void onEquipItem(EquipmentSlot slot, ItemStack oldStack, ItemStack stack) {
--        super.onEquipItem(slot, oldStack, stack);
 +    // Paper start - shouldBurnInDay API
 +    @Override
 +    protected void addAdditionalSaveData(final net.minecraft.world.level.storage.ValueOutput output) {
@@ -110,10 +109,7 @@
 +    // Paper end - shouldBurnInDay API
 +
 +    @Override
-+    // CraftBukkit start
-+    public void onEquipItem(EquipmentSlot slot, ItemStack oldStack, ItemStack stack, boolean silent) {
-+        super.onEquipItem(slot, oldStack, stack, silent);
-+        // CraftBukkit end
++    public void onEquipItem(EquipmentSlot slot, ItemStack oldStack, ItemStack stack) { // Youer - vanilla signature; silent flag travels via LivingEntity
+         super.onEquipItem(slot, oldStack, stack);
          if (!this.level().isClientSide()) {
              this.reassessWeaponGoal();
-         }

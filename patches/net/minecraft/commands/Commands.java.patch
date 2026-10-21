@@ -127,15 +127,19 @@
          this.dispatcher.setConsumer(ExecutionCommandSource.resultConsumer());
      }
  
-@@ -318,7 +_,24 @@
+@@ -317,8 +_,28 @@
+         return command.startsWith("/") ? command.substring(1) : command;
      }
  
-     public void performCommand(ParseResults<CommandSourceStack> command, String commandString) {
-+        // Paper start
-+        this.performCommand(command, commandString, false);
-+    }
++    // Youer start - keep the body in the vanilla signature so mod mixins on performCommand(ParseResults, String) apply;
++    // Paper's throwCommandError flag is handed over through a one-shot field consumed on entry (main thread only)
++    private boolean performCommand$throwCommandError;
 +
-+    public void performCommand(ParseResults<CommandSourceStack> command, String commandString, boolean throwCommandError) {
+     public void performCommand(ParseResults<CommandSourceStack> command, String commandString) {
++        final boolean throwCommandError = this.performCommand$throwCommandError;
++        this.performCommand$throwCommandError = false;
++        // Youer end
++        // Paper start
 +        org.spigotmc.AsyncCatcher.catchOp("Cannot perform command async");
 +        // Paper end
          CommandSourceStack sender = command.getContext().getSource();
@@ -171,7 +175,7 @@
  
                  for (int i = 0; i < Math.min(stackTrace.length, 3); i++) {
                      hover.append("\n\n")
-@@ -349,8 +_,8 @@
+@@ -349,14 +_,19 @@
  
              sender.sendFailure(Component.translatable("command.failed").withStyle(s -> s.withHoverEvent(new HoverEvent.ShowText(hover))));
              if (SharedConstants.DEBUG_VERBOSE_COMMAND_ERRORS || SharedConstants.IS_RUNNING_IN_IDE) {
@@ -182,6 +186,17 @@
              }
          } finally {
              Profiler.get().pop();
+         }
+     }
+ 
++    public void performCommand(ParseResults<CommandSourceStack> command, String commandString, boolean throwCommandError) {
++        this.performCommand$throwCommandError = throwCommandError;
++        this.performCommand(command, commandString);
++    }
++
+     private static @Nullable ContextChain<CommandSourceStack> finishParsing(
+         ParseResults<CommandSourceStack> command, String commandString, CommandSourceStack sender
+     ) {
 @@ -365,12 +_,16 @@
              return ContextChain.tryFlatten(command.getContext().build(commandString))
                  .orElseThrow(() -> CommandSyntaxException.BUILT_IN_EXCEPTIONS.dispatcherUnknownCommand().createWithContext(command.getReader()));

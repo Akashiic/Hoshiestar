@@ -1813,19 +1813,20 @@
          } else {
              super.executeIfPossible(command);
          }
-@@ -1515,11 +_,20 @@
+@@ -1515,11 +_,21 @@
          return this.functionManager;
      }
  
 +    // Paper start - Add ServerResourcesReloadedEvent
-+    @Deprecated @io.papermc.paper.annotation.DoNotUse
-     public CompletableFuture<Void> reloadResources(Collection<String> packsToEnable) {
-+        return this.reloadResources(packsToEnable, io.papermc.paper.event.server.ServerResourcesReloadedEvent.Cause.PLUGIN);
-+    }
++    // Youer start - keep the body in the vanilla signature so mod mixins on reloadResources(Collection) apply (balm, kubejs,
++    // modernfix); the Paper cause is handed over through a one-shot thread-local (callers may be off the server thread)
++    private final ThreadLocal<io.papermc.paper.event.server.ServerResourcesReloadedEvent.Cause> reloadResources$cause = new ThreadLocal<>();
 +
-+    public CompletableFuture<Void> reloadResources(
-+            Collection<String> packsToEnable, final io.papermc.paper.event.server.ServerResourcesReloadedEvent.Cause cause
-+    ) {
+     public CompletableFuture<Void> reloadResources(Collection<String> packsToEnable) {
++        final io.papermc.paper.event.server.ServerResourcesReloadedEvent.Cause pendingCause = this.reloadResources$cause.get();
++        this.reloadResources$cause.remove();
++        final io.papermc.paper.event.server.ServerResourcesReloadedEvent.Cause cause = pendingCause != null ? pendingCause : io.papermc.paper.event.server.ServerResourcesReloadedEvent.Cause.PLUGIN;
++        // Youer end
 +        // Paper end - Add ServerResourcesReloadedEvent
          CompletableFuture<Void> result = CompletableFuture.<ImmutableList>supplyAsync(
 -                () -> packsToEnable.stream()
@@ -1889,7 +1890,20 @@
              }, this);
          if (this.isSameThread()) {
              this.managedBlock(result::isDone);
-@@ -1573,9 +_,11 @@
+@@ -1567,15 +_,24 @@
+         return result;
+     }
+ 
++    public CompletableFuture<Void> reloadResources(
++            Collection<String> packsToEnable, final io.papermc.paper.event.server.ServerResourcesReloadedEvent.Cause cause
++    ) {
++        this.reloadResources$cause.set(cause);
++        return this.reloadResources(packsToEnable);
++    }
++
+     public static WorldDataConfiguration configurePackRepository(
+         PackRepository packRepository, WorldDataConfiguration initialDataConfig, boolean initMode, boolean safeMode
+     ) {
          DataPackConfig dataPackConfig = initialDataConfig.dataPacks();
          FeatureFlagSet forcedFeatures = initMode ? FeatureFlagSet.of() : initialDataConfig.enabledFeatures();
          FeatureFlagSet allowedFeatures = initMode ? FeatureFlags.REGISTRY.allFlags() : initialDataConfig.enabledFeatures();

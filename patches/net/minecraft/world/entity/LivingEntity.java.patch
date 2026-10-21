@@ -244,16 +244,17 @@
      }
  
      public void setDiscardFriction(boolean discardFriction) {
-@@ -663,10 +_,16 @@
+@@ -662,11 +_,17 @@
+         return true;
      }
  
-     public void onEquipItem(EquipmentSlot slot, ItemStack oldStack, ItemStack stack) {
-+        // CraftBukkit start
-+        onEquipItem(slot, oldStack, stack, false);
-+    }
++    // Youer start - keep the body in the vanilla signature (mod mixins); CraftBukkit's silent flag is a one-shot field
++    private boolean onEquipItem$silent;
 +
-+    public void onEquipItem(EquipmentSlot slot, ItemStack oldStack, ItemStack stack, boolean silent) {
-+        // CraftBukkit end
+     public void onEquipItem(EquipmentSlot slot, ItemStack oldStack, ItemStack stack) {
++        final boolean silent = this.onEquipItem$silent;
++        this.onEquipItem$silent = false;
++        // Youer end
          if (!this.level().isClientSide() && !this.isSpectator()) {
              if (!ItemStack.isSameItemSameComponents(oldStack, stack) && !this.firstTick) {
                  Equippable equippable = stack.get(DataComponents.EQUIPPABLE);
@@ -262,7 +263,18 @@
                      this.level()
                          .playSeededSound(
                              null,
-@@ -694,11 +_,18 @@
+@@ -688,17 +_,29 @@
+         }
+     }
+ 
++    public void onEquipItem(EquipmentSlot slot, ItemStack oldStack, ItemStack stack, boolean silent) {
++        this.onEquipItem$silent = silent;
++        this.onEquipItem(slot, oldStack, stack);
++    }
++
+     protected Holder<SoundEvent> getEquipSound(EquipmentSlot slot, ItemStack stack, Equippable equippable) {
+         return equippable.equipSound();
+     }
  
      @Override
      public void remove(Entity.RemovalReason reason) {
@@ -574,7 +586,7 @@
      }
  
      public Collection<MobEffectInstance> getActiveEffects() {
-@@ -983,23 +_,94 @@
+@@ -983,23 +_,77 @@
      }
  
      public final boolean addEffect(MobEffectInstance newEffect) {
@@ -586,16 +598,6 @@
 +        return this.addEffect(newEffect, (Entity) null);
 +    }
 +
-+    // CraftBukkit start
-+    public boolean addEffect(final MobEffectInstance newEffect, final EntityPotionEffectEvent.Cause cause) {
-+        return this.addEffect(newEffect, (Entity)null, cause);
-+    }
-+
-+    public boolean addEffect(final MobEffectInstance newEffect, final @Nullable Entity source, final EntityPotionEffectEvent.Cause cause) {
-+        // Paper start - Don't fire sync event during generation
-+        return this.addEffect(newEffect, source, cause, true);
-+    }
-+
 +    // Youer start - keep the body in the vanilla signature so mod mixins targeting addEffect(MobEffectInstance, Entity) still apply;
 +    // the Bukkit cause / fireEvent are handed over through one-shot fields that the vanilla method consumes immediately.
 +    private EntityPotionEffectEvent.@Nullable Cause addEffect$cause;
@@ -605,19 +607,12 @@
 +        return this.addEffect$cause;
 +    }
 +
-+    public boolean addEffect(final MobEffectInstance newEffect, final @Nullable Entity source, final EntityPotionEffectEvent.Cause cause, final boolean fireEvent) {
-+        this.addEffect$cause = cause;
-+        this.addEffect$skipEvent = !fireEvent;
-+        return this.addEffect(newEffect, source);
-+    }
-+
 +    public boolean addEffect(final MobEffectInstance newEffect, final @Nullable Entity source) {
 +        final EntityPotionEffectEvent.Cause cause = this.addEffect$cause != null ? this.addEffect$cause : EntityPotionEffectEvent.Cause.UNKNOWN;
 +        final boolean fireEvent = !this.addEffect$skipEvent;
 +        this.addEffect$cause = null;
 +        this.addEffect$skipEvent = false;
 +        // Youer end
-+        // Paper end - Don't fire sync event during generation
 +        if (this.tickingEffects) {
 +            this.deferredEffectUpdates.offer(() -> this.addEffect(newEffect, source, cause, fireEvent));
 +            return true;
@@ -675,10 +670,27 @@
              }
  
              newEffect.onEffectStarted(this);
-@@ -1007,6 +_,14 @@
+@@ -1007,6 +_,31 @@
          }
      }
  
++    // CraftBukkit start - Bukkit overloads, declared after the vanilla signature (mixin selectors without descriptor bind the first match)
++    public boolean addEffect(final MobEffectInstance newEffect, final EntityPotionEffectEvent.Cause cause) {
++        return this.addEffect(newEffect, (Entity)null, cause);
++    }
++
++    public boolean addEffect(final MobEffectInstance newEffect, final @Nullable Entity source, final EntityPotionEffectEvent.Cause cause) {
++        // Paper start - Don't fire sync event during generation
++        return this.addEffect(newEffect, source, cause, true);
++    }
++
++    public boolean addEffect(final MobEffectInstance newEffect, final @Nullable Entity source, final EntityPotionEffectEvent.Cause cause, final boolean fireEvent) {
++        this.addEffect$cause = cause;
++        this.addEffect$skipEvent = !fireEvent;
++        return this.addEffect(newEffect, source);
++    }
++    // CraftBukkit end
++
 +    /**
 +     * Neo: Override-Only. Call via {@link net.neoforged.neoforge.common.CommonHooks#canMobEffectBeApplied(LivingEntity, MobEffectInstance, Entity)}
 +     *
@@ -2355,14 +2367,12 @@
                  }
  
                  this.gameEvent(GameEvent.ELYTRA_GLIDE);
-@@ -3106,6 +_,10 @@
+@@ -3105,7 +_,7 @@
+         }
      }
  
-     protected boolean canGlide() {
-+        return canGlide(true);
-+    }
-+
-+    protected boolean canGlide(boolean isNeoForgeConnection) {
+-    protected boolean canGlide() {
++    protected boolean canGlide() { // Youer - body kept here (no NeoForge 26.2 boolean overload) so mod mixins apply
          if (!this.onGround() && !this.isPassenger() && !this.hasEffect(MobEffects.LEVITATION)) {
              for (EquipmentSlot slot : EquipmentSlot.VALUES) {
                  if (canGlideUsing(this.getItemBySlot(slot), slot)) {

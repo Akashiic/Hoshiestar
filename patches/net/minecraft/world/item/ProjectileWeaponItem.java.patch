@@ -84,7 +84,7 @@
                  weapon.hurtAndBreak(this.getDurabilityUse(projectile), shooter, hand.asEquipmentSlot());
                  if (weapon.isEmpty()) {
                      break;
-@@ -92,37 +_,42 @@
+@@ -92,37 +_,59 @@
  
      protected Projectile createProjectile(Level level, LivingEntity shooter, ItemStack weapon, ItemStack projectile, boolean isCrit) {
          ArrowItem arrowItem = projectile.getItem() instanceof ArrowItem arrow ? arrow : (ArrowItem)Items.ARROW;
@@ -99,14 +99,17 @@
 +        arrow.setActualEnchantments(weapon.getEnchantments()); // Purpur - Add an option to fix MC-3304 projectile looting
 +        return customArrow(arrow, projectile, weapon);
      }
++
++    // Youer start - keep the body in the vanilla signature (declared first) so mod mixins on draw(ItemStack, ItemStack,
++    // LivingEntity) apply (Aether II redirects processProjectileCount); Paper's "consume" flag is handed over through a
++    // one-shot thread-local, read and cleared on entry
++    private static final ThreadLocal<Boolean> draw$consume = new ThreadLocal<>();
  
      protected static List<ItemStack> draw(ItemStack weapon, ItemStack projectile, LivingEntity shooter) {
-+        // Paper start
-+        return draw(weapon, projectile, shooter, true);
-+    }
-+
-+    protected static List<ItemStack> draw(final ItemStack weapon, final ItemStack projectile, final LivingEntity shooter, final boolean consume) {
-+        // Paper end
++        final Boolean consumeFlag = draw$consume.get();
++        draw$consume.remove();
++        final boolean consume = consumeFlag == null || consumeFlag;
++        // Youer end
          if (projectile.isEmpty()) {
              return List.of();
 -        } else {
@@ -134,10 +137,26 @@
              }
 -
 -            return drawn;
-         }
+-        }
+-    }
++        }
 +
 +        return drawn;
-     }
++    }
++
++    // Paper start
++    protected static List<ItemStack> draw(final ItemStack weapon, final ItemStack projectile, final LivingEntity shooter, final boolean consume) {
++        if (consume) {
++            return draw(weapon, projectile, shooter);
++        }
++        draw$consume.set(Boolean.FALSE);
++        try {
++            return draw(weapon, projectile, shooter);
++        } finally {
++            draw$consume.remove();
++        }
++    }
++    // Paper end
  
      protected static ItemStack useAmmo(ItemStack weapon, ItemStack projectile, LivingEntity holder, boolean forceInfinite) {
 -        int ammoToUse = !forceInfinite && !holder.hasInfiniteMaterials() && holder.level() instanceof ServerLevel serverLevel

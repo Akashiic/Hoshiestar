@@ -84,7 +84,7 @@
      }
  
      public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
-@@ -367,26 +_,78 @@
+@@ -367,26 +_,81 @@
          return state.getDrops(params);
      }
  
@@ -130,14 +130,9 @@
          }
      }
  
--    public static void dropResources(BlockState state, Level level, BlockPos pos, @Nullable BlockEntity blockEntity, @Nullable Entity breaker, ItemStack tool) {
-+    // Paper start - Properly handle xp dropping
-+    public static void dropResources(final BlockState state, final Level level, final BlockPos pos, final @Nullable BlockEntity blockEntity, final @Nullable Entity breaker, final ItemStack tool) {
-+        dropResources(state, level, pos, blockEntity, breaker, tool, true);
-+    }
-+    // Paper end - Properly handle xp dropping
-+
-+    public static void dropResources(BlockState state, Level level, BlockPos pos, @Nullable BlockEntity blockEntity, @Nullable Entity breaker, ItemStack tool, final boolean dropExperience) { // Paper - Properly handle xp dropping
++    // Youer - the body stays in the vanilla signature so mod mixins on dropResources(BlockState, Level, BlockPos,
++    // BlockEntity, Entity, ItemStack) also run when blocks are broken by players (playerDestroy calls Paper's overload)
+     public static void dropResources(BlockState state, Level level, BlockPos pos, @Nullable BlockEntity blockEntity, @Nullable Entity breaker, ItemStack tool) {
          if (level instanceof ServerLevel serverLevel) {
 -            getDrops(state, serverLevel, pos, blockEntity, breaker, tool).forEach(stack -> popResource(level, pos, stack));
 -            state.spawnAfterBreak(serverLevel, pos, tool, true);
@@ -149,6 +144,13 @@
 +            net.neoforged.neoforge.common.CommonHooks.handleBlockDrops(serverLevel, pos, state, blockEntity, captured, breaker, tool);
 +        }
 +    }
++
++    // Paper start - Properly handle xp dropping
++    // Youer - experience is handled by NeoForge's BlockDropsEvent in handleBlockDrops, so dropExperience is not used here
++    public static void dropResources(BlockState state, Level level, BlockPos pos, @Nullable BlockEntity blockEntity, @Nullable Entity breaker, ItemStack tool, final boolean dropExperience) {
++        dropResources(state, level, pos, blockEntity, breaker, tool);
++    }
++    // Paper end - Properly handle xp dropping
 +
 +    // Purpur start - Persistent BlockEntity Lore and DisplayName
 +    private static ItemStack applyLoreFromTile(ItemStack stack, @Nullable BlockEntity blockEntity) {

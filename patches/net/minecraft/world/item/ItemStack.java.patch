@@ -179,21 +179,49 @@
      }
  
      public boolean isBroken() {
-@@ -442,17 +_,48 @@
+@@ -442,31 +_,128 @@
          return this.isDamageableItem() && this.getDamageValue() >= this.getMaxDamage() - 1;
      }
  
--    public void hurtAndBreak(int amount, ServerLevel level, @Nullable ServerPlayer player, Consumer<Item> onBreak) {
-+    public void hurtAndBreak(int amount, ServerLevel level, @Nullable LivingEntity player, Consumer<Item> onBreak) {
-+        // Paper start - add force boolean overload
-+        this.hurtAndBreak(amount, level, player, onBreak, false);
++    // Youer start - keep the bodies in the vanilla signatures (declared before the Paper overloads) so mod mixins on
++    // hurtAndBreak / processDurabilityChange apply on every path; Paper's "force" (itemstack damage API) is handed over
++    // through a one-shot thread-local, read and cleared on entry. Only the rare force=true path touches it, and no
++    // per-ItemStack field is added.
++    private static final ThreadLocal<Boolean> youer$forceDamage = new ThreadLocal<>();
++
++    private static boolean youer$consumeForceDamage() {
++        final Boolean force = youer$forceDamage.get();
++        if (force == null) {
++            return false;
++        }
++        youer$forceDamage.remove();
++        return force;
 +    }
 +
-+    public void hurtAndBreak(int amount, ServerLevel level, @Nullable LivingEntity player, Consumer<Item> onBreak, final boolean force) { // Paper - Add EntityDamageItemEvent
-+        // Paper end
-+        amount = getItem().damageItem(this, amount, player, onBreak);
-         int newAmount = this.processDurabilityChange(amount, level, player);
++    // Neo: ServerPlayer overload kept for binary compatibility with mods
+     public void hurtAndBreak(int amount, ServerLevel level, @Nullable ServerPlayer player, Consumer<Item> onBreak) {
+-        int newAmount = this.processDurabilityChange(amount, level, player);
 -        if (newAmount != 0) {
++        this.hurtAndBreak(amount, level, (LivingEntity) player, onBreak);
++    }
++
++    public void hurtAndBreak(int amount, ServerLevel level, @Nullable LivingEntity player, Consumer<Item> onBreak) {
++        final boolean force = youer$consumeForceDamage();
++        // Youer end
++        amount = getItem().damageItem(this, amount, player, onBreak);
++        // Youer start - Paper passes force on to processDurabilityChange; clear it even if a mod short-circuits that call
++        int newAmount;
++        if (force) {
++            youer$forceDamage.set(Boolean.TRUE);
++            try {
++                newAmount = this.processDurabilityChange(amount, level, player);
++            } finally {
++                youer$forceDamage.remove();
++            }
++        } else {
++            newAmount = this.processDurabilityChange(amount, level, player);
++        }
++        // Youer end
 +        // CraftBukkit start
 +        if (player instanceof ServerPlayer serverplayer) {
 +            PlayerItemDamageEvent event = new PlayerItemDamageEvent(serverplayer.getBukkitEntity(), CraftItemStack.asCraftMirror(this), newAmount);
@@ -214,16 +242,25 @@
          }
      }
  
++    public void hurtAndBreak(int amount, ServerLevel level, @Nullable LivingEntity player, Consumer<Item> onBreak, final boolean force) { // Paper - Add EntityDamageItemEvent
++        if (!force) {
++            this.hurtAndBreak(amount, level, player, onBreak);
++            return;
++        }
++        youer$forceDamage.set(Boolean.TRUE);
++        try {
++            this.hurtAndBreak(amount, level, player, onBreak);
++        } finally {
++            youer$forceDamage.remove();
++        }
++    }
++
      private int processDurabilityChange(int amount, ServerLevel level, @Nullable ServerPlayer player) {
 +        return processDurabilityChange(amount, level, (LivingEntity) player);
 +    }
 +
 +    private int processDurabilityChange(int amount, ServerLevel level, @Nullable LivingEntity player) {
-+        // Paper start - itemstack damage api
-+        return this.processDurabilityChange(amount, level, player, false);
-+    }
-+    private int processDurabilityChange(final int amount, final ServerLevel level, final @Nullable LivingEntity player, final boolean force) {
-+        // Paper end - itemstack damage api
++        final boolean force = youer$consumeForceDamage(); // Youer - Paper itemstack damage api, see hurtAndBreak
          if (!this.isDamageableItem()) {
              return 0;
 -        } else if (player != null && player.hasInfiniteMaterials()) {
@@ -231,9 +268,23 @@
              return 0;
          } else {
              return amount > 0 ? EnchantmentHelper.processDurabilityChange(level, this, amount) : amount;
-@@ -460,13 +_,28 @@
+         }
      }
  
++    // Paper start - itemstack damage api
++    private int processDurabilityChange(final int amount, final ServerLevel level, final @Nullable LivingEntity player, final boolean force) {
++        if (!force) {
++            return this.processDurabilityChange(amount, level, player);
++        }
++        youer$forceDamage.set(Boolean.TRUE);
++        try {
++            return this.processDurabilityChange(amount, level, player);
++        } finally {
++            youer$forceDamage.remove();
++        }
++    }
++    // Paper end - itemstack damage api
++
      private void applyDamage(int newDamage, @Nullable ServerPlayer player, Consumer<Item> onBreak) {
 -        if (player != null) {
 -            CriteriaTriggers.ITEM_DURABILITY_CHANGED.trigger(player, this, newDamage);
@@ -289,41 +340,61 @@
              this.applyDamage(newDamage, serverPlayer, i -> {});
          }
      }
-@@ -489,9 +_,14 @@
-     }
- 
+@@ -491,11 +_,26 @@
      public void hurtAndBreak(int amount, LivingEntity owner, EquipmentSlot slot) {
-+        // Paper start - add param to skip infinite mats check
-+        this.hurtAndBreak(amount, owner, slot, false);
-+    }
-+    public void hurtAndBreak(final int amount, final LivingEntity owner, final EquipmentSlot slot, final boolean force) {
-+        // Paper end - add param to skip infinite mats check
          if (owner.level() instanceof ServerLevel serverLevel) {
              this.hurtAndBreak(
 -                amount, serverLevel, owner instanceof ServerPlayer player ? player : null, brokenItem -> owner.onEquippedItemBroken(brokenItem, slot)
-+                    amount, serverLevel, owner, brokenItem -> {if (slot != null) owner.onEquippedItemBroken(brokenItem, slot); }, force // Paper - Add EntityDamageItemEvent & itemstack damage API - do not process entity related callbacks when damaging from API
++                    amount, serverLevel, owner, brokenItem -> {if (slot != null) owner.onEquippedItemBroken(brokenItem, slot); } // Paper - Add EntityDamageItemEvent & itemstack damage API - do not process entity related callbacks when damaging from API
              );
          }
      }
-@@ -576,10 +_,16 @@
+ 
++    // Paper start - add param to skip infinite mats check
++    public void hurtAndBreak(final int amount, final LivingEntity owner, final EquipmentSlot slot, final boolean force) {
++        if (!force) {
++            this.hurtAndBreak(amount, owner, slot);
++            return;
++        }
++        youer$forceDamage.set(Boolean.TRUE); // Youer - consumed by the vanilla-signature hurtAndBreak, see above
++        try {
++            this.hurtAndBreak(amount, owner, slot);
++        } finally {
++            youer$forceDamage.remove();
++        }
++    }
++    // Paper end - add param to skip infinite mats check
++
+     public ItemStack hurtAndConvertOnBreak(int amount, ItemLike newItem, LivingEntity owner, EquipmentSlot slot) {
+         this.hurtAndBreak(amount, owner, slot);
+         if (this.isEmpty()) {
+@@ -575,6 +_,7 @@
+         return this.getItem().interactLivingEntity(this, player, target, hand);
      }
  
++    // Youer start - vanilla body stays in copy() (two returns; mods inject at RETURN ordinal=1, e.g. Apotheosis)
      public ItemStack copy() {
--        if (this.isEmpty()) {
-+        // Paper start - Perf: Optimize Hoppers
-+        return this.copy(false);
-+    }
-+
-+    public ItemStack copy(final boolean originalItem) {
-+        if (!originalItem && this.isEmpty()) {
-+            // Paper end - Perf: Optimize Hoppers
+         if (this.isEmpty()) {
              return EMPTY;
-         } else {
--            ItemStack copy = new ItemStack(this.typeHolder(), this.count, this.components.copy());
-+            ItemStack copy = new ItemStack(originalItem ? this.item : this.typeHolder(), this.count, this.components.copy()); // Paper - Perf: Optimize Hoppers
-             copy.setPopTime(this.getPopTime());
+@@ -584,6 +_,18 @@
              return copy;
          }
+     }
++    // Youer end
++
++    // Paper start - Perf: Optimize Hoppers
++    public ItemStack copy(final boolean originalItem) {
++        if (!originalItem) {
++            return this.copy(); // Youer - common path goes through the vanilla method
++        }
++        ItemStack copy = new ItemStack(this.item, this.count, this.components.copy());
++        copy.setPopTime(this.getPopTime());
++        return copy;
++    }
++    // Paper end - Perf: Optimize Hoppers
+ 
+     public ItemStack copyWithCount(int count) {
+         if (this.isEmpty()) {
 @@ -615,6 +_,16 @@
          }
      }

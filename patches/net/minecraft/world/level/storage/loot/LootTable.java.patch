@@ -94,17 +94,23 @@
          return result;
      }
  
-@@ -142,9 +_,22 @@
+@@ -141,10 +_,28 @@
+         Validatable.validate(context, "functions", this.functions);
      }
  
++    // Youer start - keep the body in the vanilla signature (declared first) so mod mixins on fill(Container, LootParams, long)
++    // apply (lootr); the CraftBukkit random source / plugin flag are handed over through a one-shot thread-local (loot tables
++    // are shared registry objects and may be filled off the main thread)
++    private record FillOverride(@org.jspecify.annotations.Nullable RandomSource randomSource, boolean plugin) {}
++    private static final ThreadLocal<FillOverride> fill$override = new ThreadLocal<>();
++
      public void fill(Container container, LootParams params, long optionalRandomSeed) {
 -        LootContext context = new LootContext.Builder(params).withOptionalRandomSeed(optionalRandomSeed).create(this.randomSequence);
-+        // CraftBukkit start
-+        this.fill(container, params, optionalRandomSeed == 0L ? null : RandomSource.create(optionalRandomSeed), false);
-+    }
-+
-+    public void fill(Container container, LootParams params, RandomSource randomSource, boolean plugin) {
-+        // CraftBukkit end
++        final FillOverride override = fill$override.get();
++        fill$override.remove();
++        final boolean plugin = override != null && override.plugin();
++        final RandomSource randomSource = override != null ? override.randomSource() : (optionalRandomSeed == 0L ? null : RandomSource.create(optionalRandomSeed)); // CraftBukkit
++        // Youer end
 +        LootContext context = new LootContext.Builder(params).withOptionalRandomSource(randomSource).create(this.randomSequence);
          ObjectArrayList<ItemStack> itemStacks = this.getRandomItems(context);
          RandomSource random = context.getRandom();
@@ -118,6 +124,18 @@
          List<Integer> availableSlots = this.getAvailableSlots(container, random);
          this.shuffleAndSplitItems(itemStacks, availableSlots.size(), random);
  
+@@ -162,6 +_,11 @@
+         }
+     }
+ 
++    public void fill(Container container, LootParams params, @org.jspecify.annotations.Nullable RandomSource randomSource, boolean plugin) { // CraftBukkit
++        fill$override.set(new FillOverride(randomSource, plugin));
++        this.fill(container, params, 0L);
++    }
++
+     private void shuffleAndSplitItems(ObjectArrayList<ItemStack> result, int availableSlots, RandomSource random) {
+         List<ItemStack> splittableItems = Lists.newArrayList();
+         Iterator<ItemStack> iterator = result.iterator();
 @@ -214,11 +_,68 @@
          return new LootTable.Builder();
      }

@@ -71,19 +71,23 @@
      }
  
      protected abstract void rewardTradeXp(final MerchantOffer offer);
-@@ -232,6 +_,11 @@
+@@ -231,7 +_,15 @@
+ 
      protected abstract void updateTrades(ServerLevel level);
  
++    // Youer start - keep the body in the vanilla signature (declared first) so mod mixins on
++    // addOffersFromTradeSet(ServerLevel, MerchantOffers, ResourceKey) apply (mahoutsukai); Paper's offerCount is handed over
++    // through a one-shot field consumed on entry (-1 = vanilla trade count)
++    private int addOffersFromTradeSet$offerCount = -1;
++
      protected void addOffersFromTradeSet(ServerLevel level, MerchantOffers offers, ResourceKey<TradeSet> resourceKey) {
-+        // Paper start - More vanilla friendly methods to update trades
-+        addOffersFromTradeSet(level, offers, resourceKey, -1);
-+    }
-+    protected void addOffersFromTradeSet(final ServerLevel level, final MerchantOffers offers, final ResourceKey<TradeSet> resourceKey, int offerCount) {
-+        // Paper end - More vanilla friendly methods to update trades
++        final int offerCount = this.addOffersFromTradeSet$offerCount;
++        this.addOffersFromTradeSet$offerCount = -1;
++        // Youer end
          Optional<TradeSet> tradeSetOpt = this.registryAccess().lookupOrThrow(Registries.TRADE_SET).getOptional(resourceKey);
          if (tradeSetOpt.isEmpty()) {
              LOGGER.debug("Missing expected trade set {}", resourceKey);
-@@ -245,9 +_,9 @@
+@@ -245,17 +_,22 @@
                          .create(LootContextParamSets.VILLAGER_TRADE)
                  )
                  .create(tradeSet.randomSequence());
@@ -95,9 +99,14 @@
              } else {
                  addOffersFromItemListingsWithoutDuplicates(lootContext, offers, tradeSet.getTrades(), numberOfOffers);
              }
-@@ -255,7 +_,7 @@
+         }
      }
  
++    protected void addOffersFromTradeSet(final ServerLevel level, final MerchantOffers offers, final ResourceKey<TradeSet> resourceKey, int offerCount) { // Paper - More vanilla friendly methods to update trades
++        this.addOffersFromTradeSet$offerCount = offerCount;
++        this.addOffersFromTradeSet(level, offers, resourceKey);
++    }
++
      private static void addOffersFromItemListings(
 -        LootContext lootContext, MerchantOffers merchantOffers, HolderSet<VillagerTrade> potentialOffers, int numberOfOffers
 +        LootContext lootContext, MerchantOffers merchantOffers, HolderSet<VillagerTrade> potentialOffers, int numberOfOffers, final AbstractVillager villager // Paper

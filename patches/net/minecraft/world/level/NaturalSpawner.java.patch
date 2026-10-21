@@ -202,30 +202,30 @@
          }
      }
  
-@@ -147,14 +_,28 @@
+@@ -142,19 +_,29 @@
+         spawnCategoryForPosition(mobCategory, level, level.getChunk(start), start, (type, chunk, pos) -> true, (mob, chunk) -> {});
+     }
+ 
++    // Youer start - keep the body in the vanilla signature so mod mixins on the 6-arg spawnCategoryForPosition apply
++    // (artifacts); Paper's per-player maxSpawns / trackEntity are handed over through a one-shot thread-local
++    private record SpawnLimits(int maxSpawns, @Nullable Consumer<Entity> trackEntity) {}
++    private static final ThreadLocal<SpawnLimits> spawnCategoryForPosition$limits = new ThreadLocal<>();
++
+     public static void spawnCategoryForPosition(
+         MobCategory mobCategory,
          ServerLevel level,
          ChunkAccess chunk,
          BlockPos start,
 -        NaturalSpawner.SpawnPredicate extraTest,
 -        NaturalSpawner.AfterSpawnCallback spawnCallback
--    ) {
 +        SpawnPredicate extraTest,
 +        AfterSpawnCallback spawnCallback
-+    ) {
-+        // Paper start - Optional per player mob spawns
-+        spawnCategoryForPosition(mobCategory, level, chunk, start, extraTest, spawnCallback, Integer.MAX_VALUE, null);
-+    }
-+    public static void spawnCategoryForPosition(
-+            final MobCategory mobCategory,
-+            final ServerLevel level,
-+            final ChunkAccess chunk,
-+            final BlockPos start,
-+            final NaturalSpawner.SpawnPredicate extraTest,
-+            final NaturalSpawner.AfterSpawnCallback spawnCallback,
-+            final int maxSpawns,
-+            final @Nullable Consumer<Entity> trackEntity
-+    ) {
-+        // Paper end - Optional per player mob spawns
+     ) {
++        final SpawnLimits limits = spawnCategoryForPosition$limits.get();
++        spawnCategoryForPosition$limits.remove();
++        final int maxSpawns = limits != null ? limits.maxSpawns() : Integer.MAX_VALUE; // Paper - Optional per player mob spawns
++        final @Nullable Consumer<Entity> trackEntity = limits != null ? limits.trackEntity() : null; // Paper - Optional per player mob spawns
++        // Youer end
          StructureManager structureManager = level.structureManager();
          ChunkGenerator generator = level.getChunkSource().getGenerator();
          int yStart = start.getY();
@@ -293,6 +293,27 @@
                                          return;
                                      }
  
+@@ -221,6 +_,20 @@
+         }
+     }
+ 
++    public static void spawnCategoryForPosition( // Paper - Optional per player mob spawns
++            final MobCategory mobCategory,
++            final ServerLevel level,
++            final ChunkAccess chunk,
++            final BlockPos start,
++            final NaturalSpawner.SpawnPredicate extraTest,
++            final NaturalSpawner.AfterSpawnCallback spawnCallback,
++            final int maxSpawns,
++            final @Nullable Consumer<Entity> trackEntity
++    ) {
++        spawnCategoryForPosition$limits.set(new SpawnLimits(maxSpawns, trackEntity));
++        spawnCategoryForPosition(mobCategory, level, chunk, start, extraTest, spawnCallback);
++    }
++
+     private static boolean isRightDistanceToPlayerAndSpawnPoint(
+         ServerLevel level, ChunkAccess chunk, BlockPos.MutableBlockPos pos, double nearestPlayerDistanceSqr
+     ) {
 @@ -238,7 +_,15 @@
          }
      }
