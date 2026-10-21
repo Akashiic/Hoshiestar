@@ -49,6 +49,12 @@ O Hoshiestar roda **mods NeoForge e plugins Bukkit/Spigot/Paper/Purpur no mesmo 
 - 4 GB de RAM ou mais para o servidor (mais, se usar muitos mods)
 - Para compilar: Git e cerca de 10 GB livres em disco
 
+## Baixando
+
+O jar pronto de cada versão fica em [Releases](https://github.com/Akashiic/Hoshiestar/releases), junto com o
+SHA-256. Builds de cada commit ficam disponíveis por 14 dias em [Actions](https://github.com/Akashiic/Hoshiestar/actions)
+(workflow **Build**, seção *Artifacts*).
+
 ## Compilando
 
 ```bash
@@ -68,7 +74,12 @@ cp ../projects/youer/build/libs/youer-26.1.2-*-server.jar server.jar
 java -Xmx4G -jar server.jar nogui
 ```
 
-Na primeira execução, o launcher monta o ambiente em `libraries/` e pede para aceitar a EULA (`eula.txt`). Depois disso:
+Na primeira execução, o launcher monta o ambiente em `libraries/` e pede para aceitar a EULA (`eula.txt`).
+Todas as bibliotecas (inclusive o jar do servidor vanilla e o NeoForge) vão **dentro do próprio jar** e são só
+extraídas: o servidor sobe sem acesso à internet e não depende de nenhum repositório externo. A única coisa que
+usa rede são as bibliotecas que plugins pedem no `plugin.yml`, baixadas do Maven Central como no Paper.
+
+Depois disso:
 
 | Pasta / arquivo | Para que serve |
 |---|---|
@@ -139,6 +150,15 @@ e o Moonrise já fazem (lista em `YouerMixinPlugin`).
 | `buildSrc/`, `projects/` | sistema de build (Gradle) |
 
 Para editar o código do Minecraft: rode `./gradlew setup`, altere `projects/youer/src/`, rode `./gradlew genPatches` e faça o commit dos arquivos em `patches/`.
+
+## Publicando uma versão
+
+1. Crie e envie uma tag começando com `v`, por exemplo `git tag v26.1.2-1 && git push origin v26.1.2-1`
+   (ou rode **Actions → Release → Run workflow** informando a tag).
+2. O workflow **Release** compila do zero, testa o boot e o `stop`, e publica a release com
+   `Hoshiestar-26.1.2-1.jar` e o `.sha256`. Tags com `alpha`, `beta` ou `rc` saem como pré-release.
+
+O workflow **Build** roda em cada push e pull request para `26.1.2`, com o mesmo teste de boot.
 
 ## Recebendo correções do Youer oficial
 
