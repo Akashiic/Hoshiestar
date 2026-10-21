@@ -210,26 +210,38 @@
      public float getExplosionResistance() {
          return this.explosionResistance;
      }
-@@ -441,14 +_,31 @@
+@@ -441,14 +_,42 @@
          return this.defaultBlockState();
      }
  
-+    // Paper start - fix drops not preventing stats/food exhaustion
-+    @Deprecated @io.papermc.paper.annotation.DoNotUse
-     public void playerDestroy(Level level, Player player, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity, ItemStack destroyedWith) {
-+        playerDestroy(level, player, pos, state, blockEntity, destroyedWith, true, true);
-+    }
-+    // Paper end - fix drops not preventing stats/food exhaustion
++    // Youer start - keep the body in the vanilla signature (declared first; mods override and mixin it, and vanilla
++    // subclasses override it too); Paper's drop flags travel via a one-shot thread-local
++    private static final ThreadLocal<boolean[]> playerDestroy$flags = new ThreadLocal<>();
 +
-+    public void playerDestroy(Level level, Player player, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity, ItemStack destroyedWith, final boolean includeDrops, final boolean dropExp) { // Paper - fix drops not preventing stats/food exhaustion
+     public void playerDestroy(Level level, Player player, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity, ItemStack destroyedWith) {
++        final boolean[] flags = playerDestroy$flags.get();
++        playerDestroy$flags.remove();
++        final boolean includeDrops = flags == null || flags[0]; // Paper - fix drops not preventing stats/food exhaustion
++        final boolean dropExp = flags == null || flags[1]; // Paper - Properly handle xp dropping
          player.awardStat(Stats.BLOCK_MINED.get(this));
 -        player.causeFoodExhaustion(0.005F);
 -        dropResources(state, level, pos, blockEntity, player, destroyedWith);
+-    }
 +        player.causeFoodExhaustion(0.005F, org.bukkit.event.entity.EntityExhaustionEvent.ExhaustionReason.BLOCK_MINED); // CraftBukkit - EntityExhaustionEvent
 +        if (includeDrops) { // Paper - fix drops not preventing stats/food exhaustion
 +            dropResources(state, level, pos, blockEntity, player, destroyedWith, dropExp); // Paper - Properly handle xp dropping
 +        } // Paper - fix drops not preventing stats/food exhaustion
-     }
++    }
++
++    public void playerDestroy(Level level, Player player, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity, ItemStack destroyedWith, final boolean includeDrops, final boolean dropExp) { // Paper - fix drops not preventing stats/food exhaustion
++        playerDestroy$flags.set(new boolean[] { includeDrops, dropExp });
++        try {
++            this.playerDestroy(level, player, pos, state, blockEntity, destroyedWith);
++        } finally {
++            playerDestroy$flags.remove();
++        }
++    }
++    // Youer end
  
      public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity by, ItemStack itemStack) {
 -    }
@@ -262,7 +274,7 @@
      public boolean dropFromExplosion(Explosion explosion) {
          return true;
      }
-@@ -577,17 +_,55 @@
+@@ -577,17 +_,54 @@
          return state.setValue(property, (T)value);
      }
  
@@ -300,19 +312,15 @@
          return this.builtInRegistryHolder;
      }
  
--    protected void tryDropExperience(ServerLevel level, BlockPos pos, ItemStack tool, IntProvider xpRange) {
-+    // CraftBukkit start
-+    protected int tryDropExperience(ServerLevel level, BlockPos pos, ItemStack tool, IntProvider xpRange) {
++    // Youer - vanilla signature/behaviour restored (CraftBukkit's int variant was unused; mods override/call this one)
+     protected void tryDropExperience(ServerLevel level, BlockPos pos, ItemStack tool, IntProvider xpRange) {
          int experience = EnchantmentHelper.processBlockExperience(level, tool, xpRange.sample(level.getRandom()));
          if (experience > 0) {
--            this.popExperience(level, pos, experience);
-+            // this.popExperience(level, pos, experience);
-+            return experience;
+             this.popExperience(level, pos, experience);
          }
--    }
+     }
 +
-+        return 0;
-+    }
++    // CraftBukkit start
 +
 +    public int getExpDrop(final BlockState state, final ServerLevel level, final BlockPos pos, final ItemStack tool, final boolean dropExperience) {
 +        return 0;

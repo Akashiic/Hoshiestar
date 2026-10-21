@@ -21,10 +21,12 @@ public final class ImprovedChatDecorator implements ChatDecorator {
         this.server = server;
     }
 
+    // Youer start - vanilla synchronous signature (mods calling MinecraftServer#getChatDecorator().decorate(player, message))
     @Override
-    public CompletableFuture<Component> decorate(final @Nullable ServerPlayer sender, final Component message) {
-        return decorate(this.server, sender, null, message);
+    public Component decorate(final @Nullable ServerPlayer sender, final Component message) {
+        return decorate(this.server, sender, null, message).join();
     }
+    // Youer end
 
     @Override
     public CompletableFuture<Component> decorate(final @Nullable ServerPlayer sender, final @Nullable CommandSourceStack commandSourceStack, final Component message) {

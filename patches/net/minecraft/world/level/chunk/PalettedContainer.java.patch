@@ -278,7 +278,7 @@
          this.acquire();
  
          try {
-@@ -167,24 +_,39 @@
+@@ -167,24 +_,46 @@
              newData.palette.read(buffer, this.strategy.globalMap());
              buffer.readFixedSizeLongArray(newData.storage.getRaw());
              this.data = newData;
@@ -315,8 +315,14 @@
          }
      }
  
++    // Youer start - keep the vanilla overload for mods (no Anti-Xray preset values; defaultValue is only read with presets)
      @VisibleForTesting
--    public static <T> DataResult<PalettedContainer<T>> unpack(Strategy<T> strategy, PalettedContainerRO.PackedData<T> discData) {
+     public static <T> DataResult<PalettedContainer<T>> unpack(Strategy<T> strategy, PalettedContainerRO.PackedData<T> discData) {
++        return unpack(strategy, discData, null, null);
++    }
++    // Youer end
++
++    @VisibleForTesting
 +    public static <T> DataResult<PalettedContainer<T>> unpack(final Strategy<T> strategy, final PalettedContainerRO.PackedData<T> discData, final T defaultValue, final T @Nullable [] presetValues) { // Paper - Anti-Xray
          List<T> paletteEntries = discData.paletteEntries();
          int entryCount = strategy.entryCount();

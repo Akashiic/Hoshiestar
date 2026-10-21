@@ -16,6 +16,15 @@
          WorldDataConfiguration dataConfig = SharedConstants.IS_RUNNING_IN_IDE
              ? new WorldDataConfiguration(new DataPackConfig(List.of("vanilla", "tests"), List.of()), FeatureFlags.DEFAULT_FLAGS)
              : WorldDataConfiguration.DEFAULT;
+@@ -210,7 +_,7 @@
+         result.uiState.setName(levelSettings.levelName());
+         result.uiState.setAllowCommands(levelSettings.allowCommands());
+         result.uiState.setDifficulty(levelSettings.difficultySettings().difficulty());
+-        result.uiState.getGameRules().setAll(worldCreationContext.initialWorldCreationOptions().gameRuleOverwrites(), null);
++        result.uiState.getGameRules().setAll(worldCreationContext.initialWorldCreationOptions().gameRuleOverwrites(), (net.minecraft.server.MinecraftServer) null); // Youer - disambiguate from the Paper ServerLevel overload
+         if (levelSettings.difficultySettings().hardcore()) {
+             result.uiState.setGameMode(WorldCreationUiState.SelectedGameMode.HARDCORE);
+         } else if (levelSettings.gameType().isSurvival()) {
 @@ -296,7 +_,7 @@
          GameRules gameRules;
          if (isDebug) {

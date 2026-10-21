@@ -1,24 +1,37 @@
 --- a/net/minecraft/world/level/chunk/ChunkGeneratorStructureState.java
 +++ b/net/minecraft/world/level/chunk/ChunkGeneratorStructureState.java
-@@ -41,22 +_,110 @@
+@@ -41,22 +_,125 @@
      private final Map<ConcentricRingsStructurePlacement, CompletableFuture<List<ChunkPos>>> ringPositions = new Object2ObjectArrayMap<>();
      private boolean hasGeneratedPositions;
      private final List<Holder<StructureSet>> possibleStructureSets;
-+    public final org.spigotmc.SpigotWorldConfig conf; // Paper - Add missing structure set seed configs
++    public final org.spigotmc.@Nullable SpigotWorldConfig conf; // Paper - Add missing structure set seed configs // Youer - null for vanilla factories
  
++    // Youer start - keep the vanilla factories for mods (no Spigot world config: vanilla salts)
      public static ChunkGeneratorStructureState createForFlat(
--        RandomState randomState, long levelSeed, BiomeSource biomeSource, Stream<Holder<StructureSet>> structureOverrides
-+            RandomState randomState, long levelSeed, BiomeSource biomeSource, Stream<Holder<StructureSet>> structureOverrides, org.spigotmc.SpigotWorldConfig conf // Spigot
+         RandomState randomState, long levelSeed, BiomeSource biomeSource, Stream<Holder<StructureSet>> structureOverrides
      ) {
-         List<Holder<StructureSet>> structures = structureOverrides.filter(structureSet -> hasBiomesForStructureSet(structureSet.value(), biomeSource)).toList();
+-        List<Holder<StructureSet>> structures = structureOverrides.filter(structureSet -> hasBiomesForStructureSet(structureSet.value(), biomeSource)).toList();
 -        return new ChunkGeneratorStructureState(randomState, biomeSource, levelSeed, 0L, structures);
-+        return new ChunkGeneratorStructureState(randomState, biomeSource, levelSeed, 0L, ChunkGeneratorStructureState.injectSpigot(structures, conf), conf); // Spigot
++        return createForFlat(randomState, levelSeed, biomeSource, structureOverrides, null);
      }
  
      public static ChunkGeneratorStructureState createForNormal(
--        RandomState randomState, long levelSeed, BiomeSource biomeSource, HolderLookup<StructureSet> allStructures
-+            RandomState randomState, long levelSeed, BiomeSource biomeSource, final HolderLookup<StructureSet> allStructures, org.spigotmc.SpigotWorldConfig conf // Spigot
+         RandomState randomState, long levelSeed, BiomeSource biomeSource, HolderLookup<StructureSet> allStructures
      ) {
++        return createForNormal(randomState, levelSeed, biomeSource, allStructures, null);
++    }
++    // Youer end
++
++    public static ChunkGeneratorStructureState createForFlat(
++            RandomState randomState, long levelSeed, BiomeSource biomeSource, Stream<Holder<StructureSet>> structureOverrides, org.spigotmc.@Nullable SpigotWorldConfig conf // Spigot
++    ) {
++        List<Holder<StructureSet>> structures = structureOverrides.filter(structureSet -> hasBiomesForStructureSet(structureSet.value(), biomeSource)).toList();
++        return new ChunkGeneratorStructureState(randomState, biomeSource, levelSeed, 0L, ChunkGeneratorStructureState.injectSpigot(structures, conf), conf); // Spigot
++    }
++
++    public static ChunkGeneratorStructureState createForNormal(
++            RandomState randomState, long levelSeed, BiomeSource biomeSource, final HolderLookup<StructureSet> allStructures, org.spigotmc.@Nullable SpigotWorldConfig conf // Spigot
++    ) {
          List<Holder<StructureSet>> structures = allStructures.listElements()
 -            .filter(structureSet -> hasBiomesForStructureSet(structureSet.value(), biomeSource))
 -            .collect(Collectors.toUnmodifiableList());
@@ -40,7 +53,8 @@
 +    // Paper end - Add missing structure set seed configs
 +
 +    // Spigot start
-+    private static List<Holder<StructureSet>> injectSpigot(List<Holder<StructureSet>> list, org.spigotmc.SpigotWorldConfig conf) {
++    private static List<Holder<StructureSet>> injectSpigot(List<Holder<StructureSet>> list, org.spigotmc.@Nullable SpigotWorldConfig conf) {
++        if (conf == null) return list; // Youer - vanilla factories / mod generators without a Spigot world config
 +        return list.stream().map((holder) -> {
 +            StructureSet structureset = holder.value();
 +            final Holder<StructureSet> newHolder; // Paper - Add missing structure set seed configs
@@ -139,7 +153,7 @@
              HolderSet<Biome> preferredBiomes = placement.preferredBiomes();
              RandomSource random = RandomSource.create();
 +        // Paper start - Add missing structure set seed configs
-+        if (this.conf.strongholdSeed != null && structureSet.is(net.minecraft.world.level.levelgen.structure.BuiltinStructureSets.STRONGHOLDS)) {
++        if (this.conf != null && this.conf.strongholdSeed != null && structureSet.is(net.minecraft.world.level.levelgen.structure.BuiltinStructureSets.STRONGHOLDS)) {
 +            random.setSeed(this.conf.strongholdSeed);
 +        } else {
 +            // Paper end - Add missing structure set seed configs

@@ -126,37 +126,65 @@
  
      public int getFreeSlot() {
          for (int i = 0; i < this.items.size(); i++) {
-@@ -108,8 +_,10 @@
+@@ -108,8 +_,19 @@
          return -1;
      }
  
 -    public void addAndPickItem(ItemStack itemStack) {
 -        this.setSelectedSlot(this.getSuitableHotbarSlot());
-+    // Paper start - Add PlayerPickItemEvent
-+    public void addAndPickItem(final ItemStack itemStack, final int targetSlot) {
-+        this.setSelectedSlot(targetSlot);
-+        // Paper end - Add PlayerPickItemEvent
++    // Youer start - keep the bodies in the vanilla addAndPickItem(ItemStack)/pickSlot(int) so mod mixins apply; Paper's
++    // event target slot is a one-shot field (-1: the vanilla getSuitableHotbarSlot()).
++    private int pick$targetSlot = -1;
++
++    private int youer$takePickTargetSlot() {
++        final int targetSlot = this.pick$targetSlot;
++        this.pick$targetSlot = -1;
++        return targetSlot >= 0 ? targetSlot : this.getSuitableHotbarSlot();
++    }
++
++    public void addAndPickItem(final ItemStack itemStack) {
++        this.setSelectedSlot(this.youer$takePickTargetSlot()); // Paper - Add PlayerPickItemEvent
++        // Youer end
          if (!this.items.get(this.selected).isEmpty()) {
              int freeSlot = this.getFreeSlot();
              if (freeSlot != -1) {
-@@ -120,8 +_,10 @@
+@@ -120,13 +_,25 @@
          this.items.set(this.selected, itemStack);
      }
  
 -    public void pickSlot(int slot) {
 -        this.setSelectedSlot(this.getSuitableHotbarSlot());
-+    // Paper start - Add PlayerPickItemEvent
-+    public void pickSlot(final int slot, final int targetSlot) {
-+        this.setSelectedSlot(targetSlot);
-+        // Paper end - Add PlayerPickItemEvent
++    public void pickSlot(final int slot) { // Youer - vanilla signature
++        this.setSelectedSlot(this.youer$takePickTargetSlot()); // Paper - Add PlayerPickItemEvent
          ItemStack tmp = this.items.get(this.selected);
          this.items.set(this.selected, this.items.get(slot));
          this.items.set(slot, tmp);
-@@ -145,12 +_,12 @@
+     }
+ 
++    // Paper start - Add PlayerPickItemEvent
++    public void addAndPickItem(final ItemStack itemStack, final int targetSlot) { // Youer - delegates to the vanilla signature
++        this.pick$targetSlot = targetSlot;
++        this.addAndPickItem(itemStack);
++    }
++
++    public void pickSlot(final int slot, final int targetSlot) { // Youer - delegates to the vanilla signature
++        this.pick$targetSlot = targetSlot;
++        this.pickSlot(slot);
++    }
++    // Paper end - Add PlayerPickItemEvent
++
+     public static boolean isHotbarSlot(int slot) {
+         return slot >= 0 && slot < 9;
+     }
+@@ -145,12 +_,16 @@
          return !item.isDamaged() && !item.isEnchanted() && !item.has(DataComponents.CUSTOM_NAME);
      }
  
 -    public int findSlotMatchingCraftingIngredient(Holder<Item> item, ItemStack existingItem) {
++    public int findSlotMatchingCraftingIngredient(net.minecraft.core.Holder<net.minecraft.world.item.Item> item, ItemStack existingItem) { // Youer - vanilla signature
++        return this.findSlotMatchingCraftingIngredient(new io.papermc.paper.inventory.recipe.ItemOrExact.Item(item), existingItem);
++    }
++
 +    public int findSlotMatchingCraftingIngredient(io.papermc.paper.inventory.recipe.ItemOrExact item, ItemStack existingItem) {
          for (int i = 0; i < this.items.size(); i++) {
              ItemStack inventoryItemStack = this.items.get(i);

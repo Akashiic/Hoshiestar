@@ -56,16 +56,16 @@
          }
  
          super.addPassenger(passenger);
-@@ -314,16 +_,21 @@
+@@ -314,15 +_,20 @@
      }
  
      @Override
 -    protected void removePassenger(Entity passenger) {
--        super.removePassenger(passenger);
-+    // Paper start - cancellable passengers
-+    protected boolean removePassenger(final Entity passenger, final boolean suppressCancellation) {
-+        if (!super.removePassenger(passenger, suppressCancellation)) {
-+            return false;
++    protected void removePassenger(final Entity passenger) { // Youer - vanilla signature
+         super.removePassenger(passenger);
++        // Paper start - cancellable passengers
++        if (!this.youer$removePassengerResult()) {
++            return;
 +        }
 +        // Paper end - cancellable passengers
          if (!this.level().isClientSide()) {
@@ -77,7 +77,5 @@
 -            this.level().playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.HARNESS_GOGGLES_UP, this.getSoundSource(), 1.0F, 1.0F);
 +            this.playSound(SoundEvents.HARNESS_GOGGLES_UP, 1.0F, 1.0F); // Paper - don't play sound if silenced (Fixes MC-297169)
          }
-+        return true; // Paper - cancellable passengers
      }
  
-     @Override

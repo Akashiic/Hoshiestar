@@ -888,7 +888,7 @@
      }
  
      @Override
-@@ -1015,22 +_,88 @@
+@@ -1015,22 +_,121 @@
          return this.level().isPvpAllowed();
      }
  
@@ -896,6 +896,11 @@
 +    // Paper start
 +    public record RespawnResult(TeleportTransition transition, boolean isBedSpawn, boolean isAnchorSpawn) {
 +    }
++
++    // Youer start - keep the body in the vanilla signature so mod mixins targeting findRespawnPositionAndUseSpawnBlock(boolean, PostTeleportTransition)
++    // still apply; the respawn reason goes in through a one-shot field and the bed/anchor flags come back through another.
++    private org.bukkit.event.player.PlayerRespawnEvent.@Nullable RespawnReason findRespawn$reason;
++    private @Nullable RespawnResult findRespawn$result;
 +
 +    public @Nullable TeleportTransition findRespawnPositionAndUseSpawnBlock(
 +            final boolean consumeSpawnBlock, final TeleportTransition.PostTeleportTransition postTeleportTransition,
@@ -909,6 +914,30 @@
 +            final boolean consumeSpawnBlock, final TeleportTransition.PostTeleportTransition postTeleportTransition,
 +            final org.bukkit.event.player.PlayerRespawnEvent.RespawnReason respawnReason
 +    ) {
++        this.findRespawn$reason = respawnReason;
++        this.findRespawn$result = null;
++        final TeleportTransition transition;
++        final RespawnResult result;
++        try {
++            transition = this.findRespawnPositionAndUseSpawnBlock(consumeSpawnBlock, postTeleportTransition);
++            result = this.findRespawn$result;
++        } finally {
++            this.findRespawn$reason = null;
++            this.findRespawn$result = null;
++        }
++        if (transition == null) {
++            return null;
++        }
++        // a mod may have replaced the returned transition; keep the flags computed by the body
++        return result != null && result.transition() == transition ? result
++            : new RespawnResult(transition, result != null && result.isBedSpawn(), result != null && result.isAnchorSpawn());
++    }
++
++    public @Nullable TeleportTransition findRespawnPositionAndUseSpawnBlock(final boolean consumeSpawnBlock, final TeleportTransition.PostTeleportTransition postTeleportTransition) {
++        // plugins switch on the reason; a mod calling the vanilla signature directly is reported as PLUGIN
++        final org.bukkit.event.player.PlayerRespawnEvent.RespawnReason respawnReason = this.findRespawn$reason != null ? this.findRespawn$reason : org.bukkit.event.player.PlayerRespawnEvent.RespawnReason.PLUGIN;
++        this.findRespawn$reason = null;
++        // Youer end
 +        TeleportTransition teleportTransition;
 +        boolean isBedSpawn = false;
 +        boolean isAnchorSpawn = false;
@@ -974,11 +1003,15 @@
 +
 +        location = respawnEvent.getRespawnLocation();
 +
-+        return new RespawnResult(
++        // Youer start - flags go back through findRespawn$result (see findRespawnPositionAndUseSpawnBlock0)
++        RespawnResult respawnResult = new RespawnResult(
 +                teleportTransition.withChangedLocation(location),
 +                isBedSpawn,
 +                isAnchorSpawn
 +        );
++        this.findRespawn$result = respawnResult;
++        return respawnResult.transition();
++        // Youer end
 +        // CraftBukkit end
      }
  
@@ -1774,24 +1807,65 @@
      }
  
      @Override
-@@ -1691,7 +_,7 @@
+@@ -1690,8 +_,19 @@
+         this.connection.teleport(new PositionMoveRotation(new Vec3(dx, dy, dz), Vec3.ZERO, 0.0F, 0.0F), Relative.ALL);
      }
  
++    // Youer start - keep the body in the vanilla signature so mod mixins targeting ServerPlayer#teleportTo(ServerLevel, ..., boolean) apply;
++    // the Bukkit cause is a one-shot field. teleportTo$inSuper short-circuits re-entry from Entity's overloads (whichever of them holds the body).
++    private PlayerTeleportEvent.@Nullable TeleportCause teleportTo$cause;
++    private boolean teleportTo$inSuper;
++
      @Override
--    public boolean teleportTo(ServerLevel level, double x, double y, double z, Set<Relative> relatives, float newYRot, float newXRot, boolean resetCamera) {
-+    public boolean teleportTo(ServerLevel level, double x, double y, double z, Set<Relative> relatives, float newYRot, float newXRot, boolean resetCamera, PlayerTeleportEvent.TeleportCause cause) { // CraftBukkit
+     public boolean teleportTo(ServerLevel level, double x, double y, double z, Set<Relative> relatives, float newYRot, float newXRot, boolean resetCamera) {
++        if (this.teleportTo$inSuper) {
++            return super.teleportTo(level, x, y, z, relatives, newYRot, newXRot, resetCamera);
++        }
++        final PlayerTeleportEvent.TeleportCause cause = this.teleportTo$cause != null ? this.teleportTo$cause : PlayerTeleportEvent.TeleportCause.UNKNOWN;
++        this.teleportTo$cause = null;
++        // Youer end
          if (this.isSleeping()) {
              this.stopSleepInBed(true, true);
          }
-@@ -1700,7 +_,7 @@
+@@ -1700,7 +_,15 @@
              this.setCamera(this);
          }
  
 -        boolean success = super.teleportTo(level, x, y, z, relatives, newYRot, newXRot, resetCamera);
-+        boolean success = super.teleportTo(level, x, y, z, relatives, newYRot, newXRot, resetCamera, cause); // CraftBukkit
++        // Youer start
++        boolean success;
++        this.teleportTo$inSuper = true;
++        try {
++            success = super.teleportTo(level, x, y, z, relatives, newYRot, newXRot, resetCamera, cause); // CraftBukkit
++        } finally {
++            this.teleportTo$inSuper = false;
++        }
++        // Youer end
          if (success) {
              this.setYHeadRot(relatives.contains(Relative.Y_ROT) ? this.getYHeadRot() + newYRot : newYRot);
              this.connection.resetFlyingTicks();
+@@ -1710,6 +_,21 @@
+     }
+ 
+     @Override
++    public boolean teleportTo(ServerLevel level, double x, double y, double z, Set<Relative> relatives, float newYRot, float newXRot, boolean resetCamera, PlayerTeleportEvent.TeleportCause cause) { // CraftBukkit
++        // Youer start - see above
++        if (this.teleportTo$inSuper) {
++            return super.teleportTo(level, x, y, z, relatives, newYRot, newXRot, resetCamera, cause);
++        }
++        this.teleportTo$cause = cause;
++        try {
++            return this.teleportTo(level, x, y, z, relatives, newYRot, newXRot, resetCamera);
++        } finally {
++            this.teleportTo$cause = null;
++        }
++        // Youer end
++    }
++
++    @Override
+     public void snapTo(double x, double y, double z) {
+         super.snapTo(x, y, z);
+         this.connection.resetPosition();
 @@ -1738,27 +_,34 @@
      }
  
@@ -2207,15 +2281,24 @@
          GameType forcedGameType = this.server.getForcedGameType();
          if (forcedGameType != null) {
              return forcedGameType;
-@@ -2067,8 +_,10 @@
+@@ -2067,8 +_,20 @@
          super.updateUsingItem(useItem);
      }
  
--    public void drop(boolean all) {
-+    public boolean drop(boolean all) { // Paper - add back success return
++    // Youer start - vanilla drop(boolean) returns void (mod mixins/callers); Paper's success flag is read back through youer$drop
++    private boolean drop$success;
++
++    public boolean youer$drop(boolean all) {
++        this.drop$success = false;
++        this.drop(all);
++        return this.drop$success;
++    }
++
+     public void drop(boolean all) {
++        // Youer end
          Inventory inventory = this.getInventory();
 +        ItemStack selected = inventory.getSelectedItem();
-+        if (selected.isEmpty() || !selected.onDroppedByPlayer(this)) return false;
++        if (selected.isEmpty() || !selected.onDroppedByPlayer(this)) return;
          ItemStack removed = inventory.removeFromSelected(all);
          this.containerMenu
              .findSlot(inventory, inventory.getSelectedSlot())
@@ -2224,23 +2307,56 @@
          }
  
 -        this.drop(removed, false, true);
-+        return net.neoforged.neoforge.common.CommonHooks.onPlayerTossEvent(this, removed, false, true) != null; // Paper - add back success return
++        this.drop$success = net.neoforged.neoforge.common.CommonHooks.onPlayerTossEvent(this, removed, false, true) != null; // Paper - add back success return // Youer - via field
      }
  
      @Override
-@@ -2140,9 +_,9 @@
+@@ -2139,10 +_,43 @@
+         }
      }
  
-     @Override
--    public void removeVehicle() {
++    // Youer start - keep the body in the vanilla removeVehicle() so mod mixins targeting it apply; Paper's flag is a one-shot field.
++    // removeVehicle$inSuper short-circuits re-entry from Entity/Player's overloads (whichever of them holds the body).
++    private boolean removeVehicle$suppressCancellation;
++    private boolean removeVehicle$inSuper;
++
++    @Override
 +    public void removeVehicle(final boolean suppressCancellation) { // Paper - Force entity dismount during teleportation
++        if (this.removeVehicle$inSuper) {
++            super.removeVehicle(suppressCancellation);
++            return;
++        }
++        this.removeVehicle$suppressCancellation = suppressCancellation;
++        try {
++            this.removeVehicle();
++        } finally {
++            this.removeVehicle$suppressCancellation = false;
++        }
++    }
++
+     @Override
+     public void removeVehicle() {
++        if (this.removeVehicle$inSuper) {
++            super.removeVehicle();
++            return;
++        }
++        final boolean suppressCancellation = this.removeVehicle$suppressCancellation;
++        this.removeVehicle$suppressCancellation = false;
++        // Youer end
          Entity oldVehicle = this.getVehicle();
 -        super.removeVehicle();
-+        super.removeVehicle(suppressCancellation); // Paper - Force entity dismount during teleportation
++        // Youer start
++        this.removeVehicle$inSuper = true;
++        try {
++            super.removeVehicle(suppressCancellation); // Paper - Force entity dismount during teleportation
++        } finally {
++            this.removeVehicle$inSuper = false;
++        }
++        // Youer end
          if (oldVehicle instanceof LivingEntity livingEntity) {
              for (MobEffectInstance effect : livingEntity.getActiveEffects()) {
                  this.connection.send(new ClientboundRemoveMobEffectPacket(oldVehicle.getId(), effect.getEffect()));
-@@ -2294,9 +_,11 @@
+@@ -2294,9 +_,21 @@
          }
      }
  
@@ -2249,6 +2365,16 @@
 -            return new ServerPlayer.RespawnPosAngle(position, calculateLookAtYaw(position, lookAtBlockPos), pitch);
 +    // CraftBukkit start
 +    public record RespawnPosAngle(Vec3 position, float yaw, float pitch, boolean isBedSpawn, boolean isAnchorSpawn, @Nullable Runnable consumeAnchorCharge) {
++        // Youer start - vanilla constructor / factory (binary compatibility with mods)
++        public RespawnPosAngle(final Vec3 position, final float yaw, final float pitch) {
++            this(position, yaw, pitch, false, false, null);
++        }
++
++        public static ServerPlayer.RespawnPosAngle of(final Vec3 position, final BlockPos lookAtBlockPos, final float pitch) {
++            return of(position, lookAtBlockPos, pitch, false, false, null);
++        }
++        // Youer end
++
 +        public static ServerPlayer.RespawnPosAngle of(final Vec3 position, final BlockPos lookAtBlockPos, final float pitch, final boolean isBedSpawn, final boolean isAnchorSpawn, final @Nullable Runnable consumeAnchorCharge) {
 +            return new ServerPlayer.RespawnPosAngle(position, calculateLookAtYaw(position, lookAtBlockPos), pitch, isBedSpawn, isAnchorSpawn, consumeAnchorCharge);
 +            // CraftBukkit end

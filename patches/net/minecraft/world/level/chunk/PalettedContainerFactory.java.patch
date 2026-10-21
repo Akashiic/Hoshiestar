@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/level/chunk/PalettedContainerFactory.java
 +++ b/net/minecraft/world/level/chunk/PalettedContainerFactory.java
-@@ -17,7 +_,8 @@
+@@ -17,8 +_,30 @@
      Codec<PalettedContainer<BlockState>> blockStatesContainerCodec,
      Strategy<Holder<Biome>> biomeStrategy,
      Holder<Biome> defaultBiome,
@@ -8,8 +8,30 @@
 +    Codec<PalettedContainerRO<Holder<Biome>>> biomeContainerCodec,
 +    Codec<PalettedContainer<Holder<Biome>>> biomeContainerRWCodec // Paper
  ) {
++    // Youer start - keep the vanilla constructor for mods; derive Paper's read/write biome codec from the read-only one
++    public PalettedContainerFactory(
++        Strategy<BlockState> blockStatesStrategy,
++        BlockState defaultBlockState,
++        Codec<PalettedContainer<BlockState>> blockStatesContainerCodec,
++        Strategy<Holder<Biome>> biomeStrategy,
++        Holder<Biome> defaultBiome,
++        Codec<PalettedContainerRO<Holder<Biome>>> biomeContainerCodec
++    ) {
++        this(
++            blockStatesStrategy,
++            defaultBlockState,
++            blockStatesContainerCodec,
++            biomeStrategy,
++            defaultBiome,
++            biomeContainerCodec,
++            biomeContainerCodec.<PalettedContainer<Holder<Biome>>>xmap(ro -> ro instanceof PalettedContainer<Holder<Biome>> rw ? rw : ro.copy(), rw -> rw)
++        );
++    }
++    // Youer end
++
      public static PalettedContainerFactory create(RegistryAccess registries) {
          Strategy<BlockState> blockStateStrategy = Strategy.createForBlockStates(Block.BLOCK_STATE_REGISTRY);
+         BlockState defaultBlockState = Blocks.AIR.defaultBlockState();
 @@ -28,18 +_,31 @@
          return new PalettedContainerFactory(
              blockStateStrategy,

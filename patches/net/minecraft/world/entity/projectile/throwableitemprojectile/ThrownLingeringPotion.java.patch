@@ -5,7 +5,7 @@
  
      @Override
 -    public void onHitAsPotion(ServerLevel level, ItemStack potionItem, HitResult hitResult) {
-+    public boolean onHitAsPotion(ServerLevel level, ItemStack potionItem, @org.jspecify.annotations.Nullable HitResult hitResult) { // Paper - More projectile API
++    public void onHitAsPotion(ServerLevel level, ItemStack potionItem, @org.jspecify.annotations.Nullable HitResult hitResult) { // Paper - More projectile API // Youer - vanilla void
          AreaEffectCloud cloud = new AreaEffectCloud(this.level(), this.getX(), this.getY(), this.getZ());
          if (this.getOwner() instanceof LivingEntity owner) {
              cloud.setOwner(owner);
@@ -23,6 +23,6 @@
 +            cloud.discard(null);
 +        }
 +        // CraftBukkit end
-+        return !event.isCancelled(); // Paper - Fix potions splash events
++        this.youer$setPotionSplashCancelled(event.isCancelled()); // Paper - Fix potions splash events // Youer
      }
  }

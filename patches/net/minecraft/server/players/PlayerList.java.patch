@@ -323,7 +323,7 @@
              @Override
              public void onSetSize(WorldBorder border, double newSize) {
                  PlayerList.this.broadcastAll(new ClientboundSetBorderSizePacket(border), level.dimension());
-@@ -292,84 +_,178 @@
+@@ -292,79 +_,173 @@
      }
  
      protected void save(ServerPlayer player) {
@@ -517,31 +517,51 @@
          }
      }
  
--    public boolean disconnectAllPlayersWithProfile(UUID playerId) {
-+    public boolean disconnectAllPlayersWithProfile(GameProfile profile) { // Paper - validate usernames
-+        UUID playerId = profile.id(); // Paper - validate usernames
++    // Youer start - vanilla signature (binary compatibility with mods): match by UUID only
+     public boolean disconnectAllPlayersWithProfile(UUID playerId) {
          Set<ServerPlayer> dupes = Sets.newIdentityHashSet();
  
-         for (ServerPlayer player : this.players) {
--            if (player.getUUID().equals(playerId)) {
-+            if (player.getUUID().equals(playerId) || (io.papermc.paper.configuration.GlobalConfiguration.get().proxies.isProxyOnlineMode() && player.getGameProfile().name().equalsIgnoreCase(profile.name()))) { // Paper - validate usernames
-                 dupes.add(player);
-             }
-         }
-@@ -379,24 +_,33 @@
+@@ -379,24 +_,56 @@
              dupes.add(serverPlayer);
          }
  
 -        for (ServerPlayer playerx : dupes) {
 -            playerx.connection.disconnect(DUPLICATE_LOGIN_DISCONNECT_MESSAGE);
+-        }
+-
+-        return !dupes.isEmpty();
+-    }
++        for (ServerPlayer player : dupes) {
++            player.connection.disconnect(DUPLICATE_LOGIN_DISCONNECT_MESSAGE, io.papermc.paper.connection.DisconnectionReason.DUPLICATE_LOGIN_MESSAGE);
++        }
++
++        return !dupes.isEmpty();
++    }
++    // Youer end
++
++    public boolean disconnectAllPlayersWithProfile(GameProfile profile) { // Paper - validate usernames
++        UUID playerId = profile.id(); // Paper - validate usernames
++        Set<ServerPlayer> dupes = Sets.newIdentityHashSet();
++
++        for (ServerPlayer player : this.players) {
++            if (player.getUUID().equals(playerId) || (io.papermc.paper.configuration.GlobalConfiguration.get().proxies.isProxyOnlineMode() && player.getGameProfile().name().equalsIgnoreCase(profile.name()))) { // Paper - validate usernames
++                dupes.add(player);
++            }
++        }
++
++        ServerPlayer serverPlayer = this.playersByUUID.get(playerId);
++        if (serverPlayer != null) {
++            dupes.add(serverPlayer);
++        }
++
 +        for (ServerPlayer player : dupes) {
 +            player.connection.disconnect(DUPLICATE_LOGIN_DISCONNECT_MESSAGE, io.papermc.paper.connection.DisconnectionReason.DUPLICATE_LOGIN_MESSAGE); // Paper - disconnect API
-         }
- 
-         return !dupes.isEmpty();
-     }
- 
++        }
 +
++        return !dupes.isEmpty();
++    }
++
+ 
      public ServerPlayer respawn(ServerPlayer serverPlayer, boolean keepAllPlayerData, Entity.RemovalReason removalReason) {
 -        TeleportTransition respawnInfo = serverPlayer.findRespawnPositionAndUseSpawnBlock(!keepAllPlayerData, TeleportTransition.DO_NOTHING);
 +        TeleportTransition respawnInfo = serverPlayer.findRespawnPositionAndUseSpawnBlock(!keepAllPlayerData, TeleportTransition.DO_NOTHING, PlayerRespawnEvent.RespawnReason.DEATH); // CraftBukkit
@@ -1078,11 +1098,17 @@
              wasFullyFiltered |= filtered && message.isFullyFiltered();
          }
  
-@@ -750,53 +_,63 @@
+@@ -750,53 +_,69 @@
          return message.hasSignature() && !message.hasExpiredServer(Instant.now());
      }
  
 -    public ServerStatsCounter getPlayerStats(Player player) {
++    // Youer start - vanilla signature (binary compatibility with mods)
++    public ServerStatsCounter getPlayerStats(final Player player) {
++        return player instanceof ServerPlayer serverPlayer ? this.getPlayerStats(serverPlayer) : this.getPlayerStats(player.getGameProfile());
++    }
++    // Youer end
++
 +    // CraftBukkit start
 +    public ServerStatsCounter getPlayerStats(final ServerPlayer player) {
          GameProfile gameProfile = player.getGameProfile();

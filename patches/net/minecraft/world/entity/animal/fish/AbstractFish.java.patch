@@ -26,7 +26,7 @@
          this.move(MoverType.SELF, this.getDeltaMovement());
          this.setDeltaMovement(this.getDeltaMovement().scale(0.9));
          if (this.getTarget() == null) {
-@@ -160,22 +_,30 @@
+@@ -160,22 +_,37 @@
      protected void playStepSound(BlockPos pos, BlockState blockState) {
      }
  
@@ -41,9 +41,14 @@
              this.fish = fish;
          }
  
--        @Override
--        public void tick() {
++        // Youer start - re-declare the vanilla tick() as a mod mixin target; Purpur's rider/vanilla dispatch stays in super
+         @Override
+         public void tick() {
 -            if (this.fish.isEyeInFluid(FluidTags.WATER)) {
++            super.tick();
++        }
++        // Youer end
++
 +        // Purpur start - Ridables
 +        @Override
 +        public void purpurTick(Player rider) {

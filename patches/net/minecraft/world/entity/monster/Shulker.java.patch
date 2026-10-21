@@ -79,19 +79,15 @@
          this.targetSelector.addGoal(1, new HurtByTargetGoal(this, this.getClass()).setAlertOthers());
          this.targetSelector.addGoal(2, new Shulker.ShulkerNearestAttackGoal(this));
          this.targetSelector.addGoal(3, new Shulker.ShulkerDefenseAttackGoal(this));
-@@ -277,8 +_,10 @@
+@@ -277,7 +_,7 @@
      }
  
      @Override
 -    public void stopRiding() {
--        super.stopRiding();
-+    // Paper start - Force entity dismount during teleportation
-+    public void stopRiding(boolean suppressCancellation) {
-+        super.stopRiding(suppressCancellation);
-+        // Paper end - Force entity dismount during teleportation
++    public void stopRiding() { // Youer - vanilla signature, Paper's suppressCancellation travels in Entity#stopRiding$suppressCancellation
+         super.stopRiding();
          if (this.level().isClientSide()) {
              this.clientOldAttachPosition = this.blockPosition();
-         }
 @@ -390,6 +_,20 @@
                      && this.level().noCollision(this, new AABB(target).deflate(1.0E-6))) {
                      Direction attachmentDirection = this.findAttachableSurface(target);

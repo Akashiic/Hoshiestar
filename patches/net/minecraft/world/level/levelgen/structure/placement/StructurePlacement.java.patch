@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/level/levelgen/structure/placement/StructurePlacement.java
 +++ b/net/minecraft/world/level/levelgen/structure/placement/StructurePlacement.java
-@@ -79,14 +_,31 @@
+@@ -79,14 +_,37 @@
          return this.exclusionZone;
      }
  
@@ -12,7 +12,7 @@
 +
 +    public boolean isStructureChunk(final ChunkGeneratorStructureState state, final int sourceX, final int sourceZ, final net.minecraft.resources.@org.jspecify.annotations.Nullable ResourceKey<StructureSet> structureSetKey) {
 +        Integer saltOverride = null;
-+        if (structureSetKey != null) {
++        if (structureSetKey != null && state.conf != null) { // Youer - no Spigot config for vanilla/mod-created states
 +            if (structureSetKey == net.minecraft.world.level.levelgen.structure.BuiltinStructureSets.MINESHAFTS) {
 +                saltOverride = state.conf.mineshaftSeed;
 +            } else if (structureSetKey == net.minecraft.world.level.levelgen.structure.BuiltinStructureSets.BURIED_TREASURES) {
@@ -26,8 +26,13 @@
              && this.applyInteractionsWithOtherStructures(state, sourceX, sourceZ);
      }
  
--    public boolean applyAdditionalChunkRestrictions(int sourceX, int sourceZ, long levelSeed) {
++    // Youer start - keep the vanilla overload for mods
+     public boolean applyAdditionalChunkRestrictions(int sourceX, int sourceZ, long levelSeed) {
 -        return !(this.frequency < 1.0F) || this.frequencyReductionMethod.shouldGenerate(levelSeed, this.salt, sourceX, sourceZ, this.frequency);
++        return this.applyAdditionalChunkRestrictions(sourceX, sourceZ, levelSeed, null);
++    }
++    // Youer end
++
 +    // Paper start - Add missing structure set seed configs
 +    public boolean applyAdditionalChunkRestrictions(final int sourceX, final int sourceZ, final long levelSeed, final @org.jspecify.annotations.Nullable Integer saltOverride) {
 +        return !(this.frequency < 1.0F) || this.frequencyReductionMethod.shouldGenerate(levelSeed, this.salt, sourceX, sourceZ, this.frequency, saltOverride);
@@ -72,21 +77,32 @@
          int cx = sourceX >> 4;
          int cz = sourceZ >> 4;
          WorldgenRandom random = new WorldgenRandom(new LegacyRandomSource(0L));
-@@ -147,7 +_,7 @@
+@@ -147,7 +_,13 @@
  
      @FunctionalInterface
      public interface FrequencyReducer {
 -        boolean shouldGenerate(long seed, final int salt, final int sourceX, final int sourceZ, float probability);
 +        boolean shouldGenerate(long seed, final int salt, final int sourceX, final int sourceZ, float probability, final @org.jspecify.annotations.Nullable Integer saltOverride); // Paper - Add missing structure set seed configs
++
++        // Youer start - keep the vanilla overload for mods
++        default boolean shouldGenerate(long seed, int salt, int sourceX, int sourceZ, float probability) {
++            return this.shouldGenerate(seed, salt, sourceX, sourceZ, probability, null);
++        }
++        // Youer end
      }
  
      public static enum FrequencyReductionMethod implements StringRepresentable {
-@@ -167,8 +_,8 @@
+@@ -167,8 +_,14 @@
              this.reducer = reducer;
          }
  
--        public boolean shouldGenerate(long seed, int salt, int sourceX, int sourceZ, float probability) {
++        // Youer start - keep the vanilla overload for mods
+         public boolean shouldGenerate(long seed, int salt, int sourceX, int sourceZ, float probability) {
 -            return this.reducer.shouldGenerate(seed, salt, sourceX, sourceZ, probability);
++            return this.shouldGenerate(seed, salt, sourceX, sourceZ, probability, null);
++        }
++        // Youer end
++
 +        public boolean shouldGenerate(long seed, int salt, int sourceX, int sourceZ, float probability, final @org.jspecify.annotations.Nullable Integer saltOverride) { // Paper - Add missing structure set seed configs
 +            return this.reducer.shouldGenerate(seed, salt, sourceX, sourceZ, probability, saltOverride); // Paper - Add missing structure set seed configs
          }

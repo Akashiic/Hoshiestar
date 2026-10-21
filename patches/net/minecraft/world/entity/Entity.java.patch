@@ -558,21 +558,34 @@
      @Override
      public boolean equals(Object obj) {
          return obj instanceof Entity ? ((Entity)obj).id == this.id : false;
-@@ -422,7 +_,13 @@
+@@ -421,9 +_,25 @@
+         return this.id;
      }
  
++    // Youer start - keep the body in the vanilla remove(RemovalReason): discard()/kill()/death go through the Bukkit
++    // overload and must still reach mod overrides and mixins of the vanilla method. The cause is a one-shot field.
++    private org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause remove$cause;
++
      public void remove(Entity.RemovalReason reason) {
 -        this.setRemoved(reason);
-+        // CraftBukkit start - add Bukkit remove cause
-+        this.remove(reason, null);
+-    }
++        org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause eventCause = this.remove$cause;
++        this.remove$cause = null;
++        this.setRemoved(reason, eventCause); // CraftBukkit - add Bukkit remove cause
 +    }
 +
-+    public void remove(final Entity.RemovalReason reason, org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause eventCause) {
-+        this.setRemoved(reason, eventCause);
-+        // CraftBukkit end
-     }
++    public final void remove(final Entity.RemovalReason reason, org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause eventCause) {
++        this.remove$cause = eventCause;
++        try {
++            this.remove(reason);
++        } finally {
++            this.remove$cause = null;
++        }
++    }
++    // Youer end
  
      public void onClientRemoval() {
+     }
 @@ -432,6 +_,15 @@
      }
  
@@ -1298,16 +1311,18 @@
                  double xa = entity.getX() - this.getX();
                  double za = entity.getZ() - this.getZ();
                  double dd = Mth.absMax(xa, za);
-@@ -1810,8 +_,24 @@
+@@ -1809,12 +_,40 @@
+         }
      }
  
-     public void push(double xa, double ya, double za) {
-+        // Paper start - Add EntityKnockbackByEntityEvent and EntityPushedByEntityAttackEvent
-+        this.push(xa, ya, za, null);
-+    }
++    // Youer start - keep the body in the vanilla push(double, double, double) so mod overrides and mixins apply; Paper's
++    // pushing entity is a one-shot field read on entry.
++    private @Nullable Entity push$pushingEntity;
 +
-+    public void push(double xa, double ya, double za, @Nullable Entity pushingEntity) {
-+        // Paper end - Add EntityKnockbackByEntityEvent and EntityPushedByEntityAttackEvent
+     public void push(double xa, double ya, double za) {
++        final @Nullable Entity pushingEntity = this.push$pushingEntity;
++        this.push$pushingEntity = null;
++        // Youer end
          if (Double.isFinite(xa) && Double.isFinite(ya) && Double.isFinite(za)) {
 -            this.setDeltaMovement(this.getDeltaMovement().add(xa, ya, za));
 +            // Paper start - Add EntityKnockbackByEntityEvent and EntityPushedByEntityAttackEvent
@@ -1324,6 +1339,20 @@
              this.needsSync = true;
          }
      }
++
++    // Paper start - Add EntityKnockbackByEntityEvent and EntityPushedByEntityAttackEvent
++    public final void push(double xa, double ya, double za, @Nullable Entity pushingEntity) { // Youer - delegates to the vanilla signature
++        this.push$pushingEntity = pushingEntity;
++        try {
++            this.push(xa, ya, za);
++        } finally {
++            this.push$pushingEntity = null;
++        }
++    }
++    // Paper end - Add EntityKnockbackByEntityEvent and EntityPushedByEntityAttackEvent
+ 
+     protected void markHurt() {
+         this.hurtMarked = true;
 @@ -1918,8 +_,20 @@
      }
  
@@ -2064,16 +2093,19 @@
          }
      }
  
-@@ -2388,10 +_,17 @@
+@@ -2387,11 +_,20 @@
+         }
      }
  
-     public void removeVehicle() {
-+        // Paper start - Force entity dismount during teleportation
-+        this.removeVehicle(false);
-+    }
++    // Youer start - keep the bodies in the vanilla removeVehicle()/stopRiding() so mod overrides and mixins apply;
++    // Paper's suppressCancellation flag is a one-shot field read and reset on entry.
++    private boolean removeVehicle$suppressCancellation;
++    private boolean stopRiding$suppressCancellation;
 +
-+    public void removeVehicle(boolean suppressCancellation) {
-+        // Paper end - Force entity dismount during teleportation
+     public void removeVehicle() {
++        final boolean suppressCancellation = this.removeVehicle$suppressCancellation;
++        this.removeVehicle$suppressCancellation = false;
++        // Youer end
          if (this.vehicle != null) {
              Entity oldVehicle = this.vehicle;
 +            if (!net.neoforged.neoforge.event.EventHooks.canMountEntity(this, oldVehicle, false)) return;
@@ -2083,22 +2115,49 @@
              Entity.RemovalReason removalReason = this.getRemovalReason();
              if (removalReason == null || removalReason.shouldDestroy()) {
                  this.level().gameEvent(this, GameEvent.ENTITY_DISMOUNT, oldVehicle.position);
-@@ -2400,7 +_,13 @@
+@@ -2399,9 +_,39 @@
+         }
      }
  
++    // Paper start - Force entity dismount during teleportation
++    public void removeVehicle(boolean suppressCancellation) { // Youer - delegates to the vanilla signature (not final: ServerPlayer overrides it)
++        this.removeVehicle$suppressCancellation = suppressCancellation;
++        try {
++            this.removeVehicle();
++        } finally {
++            this.removeVehicle$suppressCancellation = false;
++        }
++    }
++    // Paper end - Force entity dismount during teleportation
++
      public void stopRiding() {
 -        this.removeVehicle();
-+        // Paper start - Force entity dismount during teleportation
-+        this.stopRiding(false);
+-    }
++        // Youer start
++        final boolean suppressCancellation = this.stopRiding$suppressCancellation;
++        this.stopRiding$suppressCancellation = false;
++        if (suppressCancellation) {
++            this.removeVehicle(true); // Paper - Force entity dismount during teleportation
++        } else {
++            this.removeVehicle();
++        }
++        // Youer end
 +    }
 +
-+    public void stopRiding(boolean suppressCancellation) {
-+        this.removeVehicle(suppressCancellation);
-+        // Paper end - Force entity dismount during teleportation
-     }
++    // Paper start - Force entity dismount during teleportation
++    public final void stopRiding(boolean suppressCancellation) { // Youer - delegates to the vanilla signature
++        this.stopRiding$suppressCancellation = suppressCancellation;
++        try {
++            this.stopRiding();
++        } finally {
++            this.stopRiding$suppressCancellation = false;
++        }
++    }
++    // Paper end - Force entity dismount during teleportation
  
      protected void addPassenger(Entity passenger) {
-@@ -2420,26 +_,77 @@
+         if (passenger.getVehicle() != this) {
+@@ -2420,26 +_,96 @@
                  this.passengers = ImmutableList.copyOf(newPassengers);
              }
          }
@@ -2114,13 +2173,19 @@
 +        // Purpur end - Ridables
 +    }
 +
-+    // Paper start - Force entity dismount during teleportation
-+    protected boolean removePassenger(final Entity passenger) {
-+        return this.removePassenger(passenger, false);
++    // Youer start - keep the body in the vanilla void removePassenger(Entity) so mod overrides and mixins apply;
++    // Paper's suppressCancellation flag goes in and the "not cancelled" result comes out through one-shot fields.
++    private boolean removePassenger$suppressCancellation;
++    private boolean removePassenger$result = true;
++
++    protected final boolean youer$removePassengerResult() {
++        return this.removePassenger$result;
 +    }
 +
-+    protected boolean removePassenger(final Entity passenger, final boolean suppressCancellation) { // CraftBukkit
-+        // Paper end - Force entity dismount during teleportation
++    protected void removePassenger(final Entity passenger) {
++        final boolean suppressCancellation = this.removePassenger$suppressCancellation;
++        this.removePassenger$suppressCancellation = false;
++        // Youer end
          if (passenger.getVehicle() == this) {
              throw new IllegalStateException("Use x.stopRiding(y), not y.removePassenger(x)");
 +        }
@@ -2139,7 +2204,8 @@
 +            org.bukkit.craftbukkit.entity.CraftEntity craftn = (org.bukkit.craftbukkit.entity.CraftEntity) passenger.getBukkitEntity().getVehicle();
 +            Entity n = craftn == null ? null : craftn.getHandle();
 +            if (event.isCancelled() || n != orig) {
-+                return false;
++                this.removePassenger$result = false; // Youer
++                return;
 +            }
 +        }
 +
@@ -2149,7 +2215,8 @@
 +            org.bukkit.Bukkit.getPluginManager().callEvent(event);
 +        }
 +        if (event.isCancelled()) {
-+            return false;
++            this.removePassenger$result = false; // Youer
++            return;
 +        }
 +        // CraftBukkit end
 +
@@ -2172,10 +2239,22 @@
 -            passenger.boardingCooldown = 60;
 +            this.passengers = this.passengers.stream().filter(p -> p != passenger).collect(ImmutableList.toImmutableList());
          }
+-    }
 +
 +        passenger.boardingCooldown = 60;
-+        return true; // CraftBukkit
-     }
++        this.removePassenger$result = true; // Youer
++    }
++
++    // Paper start - Force entity dismount during teleportation
++    protected final boolean removePassenger(final Entity passenger, final boolean suppressCancellation) { // CraftBukkit
++        // Youer start - delegate to the vanilla signature; true when the dismount was not cancelled
++        this.removePassenger$suppressCancellation = suppressCancellation;
++        this.removePassenger$result = true; // an override that skips super counts as success
++        this.removePassenger(passenger);
++        return this.removePassenger$result;
++        // Youer end
++    }
++    // Paper end - Force entity dismount during teleportation
  
      protected boolean canAddPassenger(Entity passenger) {
          return this.passengers.isEmpty();
@@ -2873,12 +2952,19 @@
      }
  
      public void onExplosionHit(@Nullable Entity explosionCausedBy) {
-@@ -3829,23 +_,70 @@
+@@ -3828,24 +_,84 @@
+         return this.removalReason;
      }
  
++    // Youer start - keep the body in the vanilla setRemoved(RemovalReason) so mod mixins apply; the Bukkit
++    // remove cause is handed over through a one-shot field read and reset on entry.
++    private org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause setRemoved$cause;
++
      @Override
--    public final void setRemoved(Entity.RemovalReason reason) {
-+    public final void setRemoved(Entity.RemovalReason reason, org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause cause) { // CraftBukkit - add Bukkit remove cause
+     public final void setRemoved(Entity.RemovalReason reason) {
++        org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause cause = this.setRemoved$cause;
++        this.setRemoved$cause = null;
++        // Youer end
 +        // Paper start - rewrite chunk system
 +        if (!((ca.spottedleaf.moonrise.patches.chunk_system.level.ChunkSystemLevel)this.level).moonrise$getEntityLookup().canRemoveEntity((Entity)(Object)this)) {
 +            LOGGER.warn("Entity " + this + " is currently prevented from being removed from the world since it is processing section status updates", new Throwable());
@@ -2919,6 +3005,12 @@
 +            this.retireScheduler();
 +        }
 +        // Paper end - Folia schedulers
++    }
++
++    @Override
++    public final void setRemoved(Entity.RemovalReason reason, org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause cause) { // Youer - delegates to the vanilla signature // CraftBukkit - add Bukkit remove cause
++        this.setRemoved$cause = cause;
++        this.setRemoved(reason);
      }
  
      public void unsetRemoved() {

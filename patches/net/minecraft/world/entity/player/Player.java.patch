@@ -388,21 +388,23 @@
      }
  
      @Override
-@@ -740,19 +_,39 @@
+@@ -740,19 +_,41 @@
      }
  
      @Override
 -    protected void actuallyHurt(ServerLevel level, DamageSource source, float dmg) {
-+    protected boolean actuallyHurt(ServerLevel level, DamageSource source, float dmg, EntityDamageEvent event) { // void -> boolean
++    protected void actuallyHurt(ServerLevel level, DamageSource source, float dmg) { // Youer - vanilla signature, result via youer$setActuallyHurtResult
          if (!this.isInvulnerableTo(level, source)) {
 -            dmg = this.getDamageAfterArmorAbsorb(source, dmg);
 -            dmg = this.getDamageAfterMagicAbsorb(source, dmg);
 -            float var8 = Math.max(dmg - this.getAbsorptionAmount(), 0.0F);
 -            this.setAbsorptionAmount(this.getAbsorptionAmount() - (dmg - var8));
 -            float absorbedDamage = dmg - var8;
++            final EntityDamageEvent event = this.youer$takeDamageEvent(source, dmg); // Youer
 +            // Youer - cancelled event, attack cooldown, helmet/armor durability and shield blocking (previously skipped for players)
 +            if (!this.youer$bukkitDamageSideEffects(level, source, dmg, event)) {
-+                return false;
++                this.youer$setActuallyHurtResult(false);
++                return;
 +            }
 +            // Neo (ImplNote): Keep this in-sync with the equivalent patches in LivingEntity#actuallyHurt.
 +            // Neo: Primary damage pipeline hooks. Compute the armor and enchantment reductions against the "original" damage, and then fire LivingDamageEvent.Pre
@@ -435,14 +437,15 @@
                  this.getCombatTracker().recordDamage(source, var8);
                  this.setHealth(this.getHealth() - var8);
                  if (var8 < 3.4028235E37F) {
-@@ -761,7 +_,10 @@
+@@ -761,7 +_,11 @@
  
                  this.gameEvent(GameEvent.ENTITY_DAMAGE);
              }
-+            return true; // Youer TODO
++            this.youer$setActuallyHurtResult(true); // Youer
 +            // Neo: Now we go back to hurtServer, where we'll update various metadata fields, process the side effects of damage (i.e. killing the entity), and firing LivingDamageEvent.Post
++            return;
          }
-+        return false; // CraftBukkit
++        this.youer$setActuallyHurtResult(false); // CraftBukkit // Youer
      }
  
      public boolean isTextFilteringEnabled() {
@@ -474,19 +477,15 @@
                              this.setItemInHand(hand, ItemStack.EMPTY);
                          }
  
-@@ -848,8 +_,10 @@
+@@ -848,7 +_,7 @@
      }
  
      @Override
 -    public void removeVehicle() {
--        super.removeVehicle();
-+    // Paper start - Force entity dismount during teleportation
-+    public void removeVehicle(boolean suppressCancellation) {
-+        super.removeVehicle(suppressCancellation);
-+        // Paper end - Force entity dismount during teleportation
++    public void removeVehicle() { // Youer - vanilla signature, Paper's suppressCancellation travels in Entity#removeVehicle$suppressCancellation
+         super.removeVehicle();
          this.boardingCooldown = 0;
      }
- 
 @@ -864,6 +_,7 @@
      }
  
@@ -842,8 +841,8 @@
      @Override
 -    public void remove(Entity.RemovalReason reason) {
 -        super.remove(reason);
-+    public void remove(Entity.RemovalReason entity_removalreason, EntityRemoveEvent.Cause cause) {
-+        super.remove(entity_removalreason, cause);
++    public void remove(Entity.RemovalReason entity_removalreason) { // Youer - vanilla signature, cause travels in Entity#remove$cause
++        super.remove(entity_removalreason);
 +        // CraftBukkit end
          this.inventoryMenu.removed(this);
          if (this.hasContainerOpen()) {
@@ -1052,16 +1051,15 @@
          return this.decorateDisplayNameComponent(result);
      }
  
-@@ -1802,10 +_,39 @@
+@@ -1802,11 +_,41 @@
      }
  
      @Override
 -    public void onAttack() {
 -        this.resetOnlyAttackStrengthTicker();
--        super.onAttack();
--    }
-+    // Paper start
-+    public void onAttack(@Nullable Entity entity) {
++    public void onAttack() { // Youer - vanilla signature, Paper's attacked entity via youer$attackTarget()
++        // Paper start
++        final Entity entity = this.youer$attackTarget();
 +        if (entity != null) {
 +            if (new com.destroystokyo.paper.event.player.PlayerAttackEntityCooldownResetEvent((org.bukkit.entity.Player) this.getBukkitEntity(), entity.getBukkitEntity(), this.getAttackStrengthScale(0F)).callEvent()) {
 +                this.resetOnlyAttackStrengthTicker();
@@ -1069,10 +1067,10 @@
 +        } else {
 +            this.resetOnlyAttackStrengthTicker();
 +        }
-+        super.onAttack(entity);
 +        // Paper end
-+    }
-+
+         super.onAttack();
+     }
+ 
 +    // Paper start - Force update attributes.
 +    @Override
 +    public void detectEquipmentUpdates() {
@@ -1093,9 +1091,10 @@
 +        }
 +    }
 +    // Paper end - Force update attributes.
- 
++
      public void resetOnlyAttackStrengthTicker() {
          this.attackStrengthTicker = 0;
+     }
 @@ -1838,26 +_,42 @@
          return ImmutableList.of(Pose.STANDING, Pose.CROUCHING, Pose.SWIMMING);
      }

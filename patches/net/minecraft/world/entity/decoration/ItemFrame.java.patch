@@ -30,18 +30,15 @@
          float shiftToBlockWall = 0.46875F;
          Vec3 position = Vec3.atCenterOf(blockPos).relative(direction, -0.46875);
          float width = hasFramedMap ? 1.0F : 0.75F;
-@@ -142,9 +_,9 @@
+@@ -142,7 +_,7 @@
      }
  
      @Override
 -    public void push(double xa, double ya, double za) {
-+    public void push(double xa, double ya, double za, @Nullable Entity pushingEntity) { // Paper - add push source entity param
++    public void push(double xa, double ya, double za) { // Youer - vanilla signature, Paper's pushing entity travels in Entity#push$pushingEntity
          if (!this.fixed) {
--            super.push(xa, ya, za);
-+            super.push(xa, ya, za, pushingEntity); // Paper - add push source entity param
+             super.push(xa, ya, za);
          }
-     }
- 
 @@ -173,6 +_,18 @@
              if (this.isInvulnerableToBase(source)) {
                  return false;

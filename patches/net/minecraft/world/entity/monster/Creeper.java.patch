@@ -116,21 +116,17 @@
          }
      }
  
-@@ -151,11 +_,47 @@
+@@ -151,12 +_,47 @@
      }
  
      @Override
 -    public void setTarget(@Nullable LivingEntity target) {
-+    public boolean setTarget(final @Nullable LivingEntity target, org.bukkit.event.entity.EntityTargetEvent.@Nullable TargetReason reason) { // CraftBukkit
++    public void setTarget(final @Nullable LivingEntity target) { // Youer - vanilla signature, reason/result handled by Mob
          if (!(target instanceof Goat)) {
--            super.setTarget(target);
--        }
--    }
-+            return super.setTarget(target, reason); // CraftBukkit
-+        }
-+        return false; // CraftBukkit
-+    }
-+
+             super.setTarget(target);
+         }
+     }
+ 
 +    // Purpur start - Special mobs naturally spawn
 +    @Override
 +    public net.minecraft.world.entity.SpawnGroupData finalizeSpawn(net.minecraft.world.level.ServerLevelAccessor world, net.minecraft.world.DifficultyInstance difficulty, net.minecraft.world.entity.EntitySpawnReason spawnReason, net.minecraft.world.entity.@Nullable SpawnGroupData entityData) {
@@ -165,10 +161,11 @@
 +        return this.level().purpurConfig.creeperAlwaysDropExp;
 +    }
 +    // Purpur end - Mobs always drop experience
- 
++
      @Override
      public SoundEvent getHurtSound(DamageSource source) {
-@@ -168,15 +_,15 @@
+         return SoundEvents.CREEPER_HURT;
+@@ -168,16 +_,24 @@
      }
  
      @Override
@@ -182,11 +179,19 @@
              });
          }
  
--        return super.killedEntity(level, entity, source);
 +        return super.killedEntityPreEvent(level, entity, source); // Paper
++    }
++
++    // Youer start - re-declare the vanilla killedEntity override as a mod mixin target; Paper drops the charged-creeper
++    // skulls in killedEntityPreEvent (before the death event), so this only delegates
++    @Override
++    public boolean killedEntity(final ServerLevel level, final LivingEntity entity, final DamageSource source) {
+         return super.killedEntity(level, entity, source);
      }
++    // Youer end
  
      @Override
+     public boolean doHurtTarget(ServerLevel level, Entity target) {
 @@ -203,9 +_,20 @@
      @Override
      public void thunderHit(ServerLevel level, LightningBolt lightningBolt) {

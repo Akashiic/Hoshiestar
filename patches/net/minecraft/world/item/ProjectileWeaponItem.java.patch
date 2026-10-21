@@ -43,14 +43,27 @@
      public static ItemStack getHeldProjectile(LivingEntity entity, Predicate<ItemStack> valid) {
          if (valid.test(entity.getItemInHand(InteractionHand.OFF_HAND))) {
              return entity.getItemInHand(InteractionHand.OFF_HAND);
-@@ -50,6 +_,7 @@
-         float uncertainty,
+@@ -40,6 +_,10 @@
+ 
+     public abstract int getDefaultProjectileRange();
+ 
++    // Youer start - keep the body in the vanilla signature (declared first) so mods overriding/mixing into
++    // shoot(..., LivingEntity) still run; Paper's draw strength travels via a one-shot thread-local
++    private static final ThreadLocal<Float> shoot$drawStrength = new ThreadLocal<>();
++
+     protected void shoot(
+         ServerLevel level,
+         LivingEntity shooter,
+@@ -51,6 +_,9 @@
          boolean isCrit,
          @Nullable LivingEntity targetOverride
-+        , final float drawStrength // Paper - Pass draw strength
      ) {
++        final Float pendingDrawStrength = shoot$drawStrength.get();
++        shoot$drawStrength.remove();
++        final float drawStrength = pendingDrawStrength != null ? pendingDrawStrength : 1.0F; // Paper - Pass draw strength
          float maxAngle = EnchantmentHelper.processProjectileSpread(level, weapon, shooter, 0.0F);
          float angleStep = projectiles.size() == 1 ? 0.0F : 2.0F * maxAngle / (projectiles.size() - 1);
+         float angleOffset = (projectiles.size() - 1) % 2 * angleStep / 2.0F;
 @@ -62,12 +_,26 @@
                  float angle = angleOffset + direction * ((i + 1) / 2) * angleStep;
                  direction = -direction;
@@ -84,6 +97,34 @@
                  weapon.hurtAndBreak(this.getDurabilityUse(projectile), shooter, hand.asEquipmentSlot());
                  if (weapon.isEmpty()) {
                      break;
+@@ -76,6 +_,27 @@
+         }
+     }
+ 
++    protected void shoot(
++        ServerLevel level,
++        LivingEntity shooter,
++        InteractionHand hand,
++        ItemStack weapon,
++        List<ItemStack> projectiles,
++        float power,
++        float uncertainty,
++        boolean isCrit,
++        @Nullable LivingEntity targetOverride
++        , final float drawStrength // Paper - Pass draw strength
++    ) {
++        shoot$drawStrength.set(drawStrength);
++        try {
++            this.shoot(level, shooter, hand, weapon, projectiles, power, uncertainty, isCrit, targetOverride);
++        } finally {
++            shoot$drawStrength.remove();
++        }
++    }
++    // Youer end
++
+     protected int getDurabilityUse(ItemStack projectile) {
+         return 1;
+     }
 @@ -92,37 +_,59 @@
  
      protected Projectile createProjectile(Level level, LivingEntity shooter, ItemStack weapon, ItemStack projectile, boolean isCrit) {

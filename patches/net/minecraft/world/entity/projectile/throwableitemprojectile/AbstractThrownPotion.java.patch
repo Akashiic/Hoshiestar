@@ -16,7 +16,7 @@
  
  public abstract class AbstractThrownPotion extends ThrowableItemProjectile {
      public static final double SPLASH_RANGE = 4.0;
-@@ -67,54 +_,103 @@
+@@ -67,54 +_,115 @@
      @Override
      protected void onHit(HitResult hitResult) {
          super.onHit(hitResult);
@@ -36,7 +36,11 @@
 -                this.onHitAsPotion(level, potionItemStack, hitResult);
 +                showParticles = this.onHitAsWater(level, hitResult); // Paper - Fix potions splash events
 +            } else if (true || potion.hasEffects()) { // CraftBukkit - Call event even if no effects to apply
-+                showParticles = this.onHitAsPotion(level, potionItemStack, hitResult); // Paper - pass HitResult
++                // Youer start - vanilla void onHitAsPotion; implementations report a cancelled splash event through a field
++                this.onHitAsPotion$showParticles = true;
++                this.onHitAsPotion(level, potionItemStack, hitResult); // Paper - pass HitResult
++                showParticles = this.onHitAsPotion$showParticles;
++                // Youer end
              }
  
 -            int type = potion.potion().isPresent() && potion.potion().get().value().hasInstantEffects() ? 2007 : 2002;
@@ -77,13 +81,21 @@
  
                  if (entity.isOnFire() && entity.isAlive()) {
 -                    entity.extinguishFire();
-+                    extinguish.add(entity.getBukkitLivingEntity()); // Paper - Fix potions splash events
-                 }
-             }
-         }
- 
+-                }
+-            }
+-        }
+-
 -        for (Axolotl axolotl : this.level().getEntitiesOfClass(Axolotl.class, aabb)) {
 -            axolotl.rehydrate();
+-        }
+-    }
+-
+-    protected abstract void onHitAsPotion(ServerLevel level, ItemStack potionItem, HitResult hitResult);
++                    extinguish.add(entity.getBukkitLivingEntity()); // Paper - Fix potions splash events
++                }
++            }
++        }
++
 +        // Paper start - Fix potions splash events
 +        io.papermc.paper.event.entity.WaterBottleSplashEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callWaterBottleSplashEvent(
 +                this, hitResult, affected, rehydrate, extinguish
@@ -101,12 +113,19 @@
 +                }
 +            }
 +            // Paper end - Fix potions splash events
-         }
++        }
 +        return !event.isCancelled(); // Paper - Fix potions splash events
-     }
- 
--    protected abstract void onHitAsPotion(ServerLevel level, ItemStack potionItem, HitResult hitResult);
-+    protected abstract boolean onHitAsPotion(ServerLevel level, ItemStack potionItem, @org.jspecify.annotations.Nullable HitResult hitResult); // Paper - Fix potions splash events & More Projectile API
++    }
++
++    // Youer start - keep the vanilla void signature: mod subclasses implement it and mixins target it
++    private boolean onHitAsPotion$showParticles = true;
++
++    protected final void youer$setPotionSplashCancelled(final boolean cancelled) {
++        this.onHitAsPotion$showParticles = !cancelled;
++    }
++    // Youer end
++
++    protected abstract void onHitAsPotion(ServerLevel level, ItemStack potionItem, @org.jspecify.annotations.Nullable HitResult hitResult); // Paper - Fix potions splash events & More Projectile API // Youer - boolean -> void
  
      private void dowseFire(BlockPos pos) {
          BlockState blockState = this.level().getBlockState(pos);

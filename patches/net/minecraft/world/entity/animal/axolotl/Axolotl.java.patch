@@ -90,11 +90,18 @@
      }
  
      @Override
-@@ -594,23 +_,31 @@
+@@ -593,24 +_,39 @@
+             super(axolotl, maxYRotFromCenter);
          }
  
++        // Youer start - re-declare the vanilla tick() as a mod mixin target; Purpur's rider/vanilla dispatch stays in super
          @Override
--        public void tick() {
+         public void tick() {
++            super.tick();
++        }
++        // Youer end
++
++        @Override
 +        public void vanillaTick() { // Purpur - Ridables
              if (!Axolotl.this.isPlayingDead()) {
 -                super.tick();

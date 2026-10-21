@@ -111,20 +111,19 @@
  
      @Override
 -    public void setTarget(@Nullable LivingEntity target) {
-+    public boolean setTarget(final @Nullable LivingEntity target, org.bukkit.event.entity.EntityTargetEvent.@Nullable TargetReason reason) { // CraftBukkit - signature
++    public void setTarget(final @Nullable LivingEntity target) { // Youer - vanilla signature, reason/result handled by Mob
          if (this.getTarget() == null && target != null) {
              this.playFirstAngerSoundIn = FIRST_ANGER_SOUND_DELAY.sample(this.random);
              this.ticksUntilNextAlert = ALERT_INTERVAL.sample(this.random);
          }
  
--        super.setTarget(target);
 +        // Purpur start - Toggle for Zombified Piglin death always counting as player kill when angry
 +        if (target instanceof Player player && this.level().purpurConfig.zombifiedPiglinCountAsPlayerKillWhenAngry) {
 +            this.setLastHurtByPlayer(player, this.tickCount);
 +        }
 +        // Purpur end - Toggle for Zombified Piglin death always counting as player kill when angry
 +
-+        return super.setTarget(target, reason); // CraftBukkit
+         super.setTarget(target);
      }
  
      @Override

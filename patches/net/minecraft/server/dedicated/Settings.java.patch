@@ -8,15 +8,22 @@
  import net.minecraft.core.RegistryAccess;
  import org.jspecify.annotations.Nullable;
  import org.slf4j.Logger;
-@@ -26,12 +_,26 @@
+@@ -26,12 +_,32 @@
  public abstract class Settings<T extends Settings<T>> {
      private static final Logger LOGGER = LogUtils.getLogger();
      public final Properties properties;
+-
+-    public Settings(Properties properties) {
 +    private static final boolean skipComments = Boolean.getBoolean("Paper.skipServerPropertiesComments"); // Paper - allow skipping server.properties comments
 +    // CraftBukkit start
 +    private joptsimple.OptionSet options = null;
- 
--    public Settings(Properties properties) {
++
++    // Youer start - vanilla constructor (binary compatibility with mods); no command-line overrides
++    public Settings(final Properties properties) {
++        this(properties, null);
++    }
++    // Youer end
++
 +    public Settings(final Properties properties, final joptsimple.OptionSet options) {
          this.properties = properties;
 +        this.options = options;
@@ -121,12 +128,18 @@
          String value = this.getStringRaw(key);
          V result = MoreObjects.firstNonNull(value != null ? deserializer.apply(value) : null, defaultValue);
          this.properties.put(key, serializer.apply(result));
-@@ -183,7 +_,7 @@
+@@ -183,7 +_,13 @@
          return result;
      }
  
 -    protected abstract T reload(final RegistryAccess registryAccess, final Properties properties);
 +    protected abstract T reload(final RegistryAccess registryAccess, final Properties properties, OptionSet optionset); // CraftBukkit
++
++    // Youer start - vanilla signature (binary compatibility with mods); keeps this instance's command-line overrides
++    protected T reload(final RegistryAccess registryAccess, final Properties properties) {
++        return this.reload(registryAccess, properties, this.options);
++    }
++    // Youer end
  
      public class MutableValue<V> implements Supplier<V> {
          private final String key;

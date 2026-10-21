@@ -53,7 +53,7 @@
          this.targetSelector.addGoal(4, new ResetUniversalAngerTargetGoal<>(this, false));
      }
  
-@@ -119,9 +_,20 @@
+@@ -119,9 +_,21 @@
              .add(Attributes.STEP_HEIGHT, 1.0);
      }
  
@@ -65,25 +65,17 @@
 +
      @Override
 -    public void setTarget(@Nullable LivingEntity target) {
--        super.setTarget(target);
-+    // CraftBukkit start - fire event
-+    public boolean setTarget(@Nullable LivingEntity target, org.bukkit.event.entity.EntityTargetEvent.@Nullable TargetReason reason) {
-+        if (!super.setTarget(target, reason)) {
-+            return false;
++    public void setTarget(@Nullable LivingEntity target) { // Youer - vanilla signature, reason/result handled by Mob
++        // CraftBukkit start - fire event
+         super.setTarget(target);
++        if (!this.youer$setTargetResult()) {
++            return;
 +        }
 +        target = this.getTarget();
 +        // CraftBukkit end
          AttributeInstance movementSpeed = this.getAttribute(Attributes.MOVEMENT_SPEED);
          if (target == null) {
              this.targetChangeTime = 0;
-@@ -135,6 +_,7 @@
-                 movementSpeed.addTransientModifier(SPEED_MODIFIER_ATTACKING);
-             }
-         }
-+        return true;
-     }
- 
-     @Override
 @@ -206,8 +_,17 @@
          this.readPersistentAngerSaveData(this.level(), input);
      }

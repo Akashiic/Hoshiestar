@@ -76,8 +76,8 @@
      @Override
 -    public void playerDestroy(Level level, Player player, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity, ItemStack destroyedWith) {
 -        super.playerDestroy(level, player, pos, state, blockEntity, destroyedWith);
-+    public void playerDestroy(Level level, Player player, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity, ItemStack destroyedWith, boolean includeDrops, boolean dropExp) { // Paper - fix drops not preventing stats/food exhaustion
-+        super.playerDestroy(level, player, pos, state, blockEntity, destroyedWith, includeDrops, dropExp); // Paper - fix drops not preventing stats/food exhaustion
++    public void playerDestroy(Level level, Player player, BlockPos pos, BlockState state, @Nullable BlockEntity blockEntity, ItemStack destroyedWith) { // Youer - vanilla signature (Paper drop flags via Block one-shot)
++        super.playerDestroy(level, player, pos, state, blockEntity, destroyedWith); // Paper - fix drops not preventing stats/food exhaustion
          this.decreaseEggs(level, pos, state);
      }
  

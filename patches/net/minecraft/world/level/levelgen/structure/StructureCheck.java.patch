@@ -8,12 +8,14 @@
  import net.minecraft.world.level.levelgen.RandomState;
  import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement;
  import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
-@@ -50,10 +_,20 @@
+@@ -50,10 +_,40 @@
      private final BiomeSource biomeSource;
      private final long seed;
      private final DataFixer fixerUpper;
 -    private final Long2ObjectMap<Object2IntMap<Structure>> loadedChunks = new Long2ObjectOpenHashMap<>();
 -    private final Map<Structure, Long2BooleanMap> featureChecks = new HashMap<>();
+-
+-    public StructureCheck(
 +    // Paper start - rewrite chunk system
 +    // make sure to purge entries from the maps to prevent memory leaks
 +    private static final int CHUNK_TOTAL_LIMIT = 50 * (2 * 100 + 1) * (2 * 100 + 1); // cache 50 structure lookups
@@ -24,8 +26,28 @@
 +
 +    // Paper start - also store level stem
 +    private final ResourceKey<net.minecraft.world.level.dimension.LevelStem> levelStem;
- 
-     public StructureCheck(
++
++    // Youer start - keep the vanilla constructor for mods: the stem shares the dimension's identifier, as for vanilla levels
++    public StructureCheck(
++        ChunkScanAccess storageAccess,
++        RegistryAccess registryAccess,
++        StructureTemplateManager structureTemplateManager,
++        ResourceKey<Level> dimension,
++        ChunkGenerator chunkGenerator,
++        RandomState randomState,
++        LevelHeightAccessor heightAccessor,
++        BiomeSource biomeSource,
++        long seed,
++        DataFixer fixerUpper
++    ) {
++        this(
++            ResourceKey.create(net.minecraft.core.registries.Registries.LEVEL_STEM, dimension.identifier()),
++            storageAccess, registryAccess, structureTemplateManager, dimension, chunkGenerator, randomState, heightAccessor, biomeSource, seed, fixerUpper
++        );
++    }
++    // Youer end
++
++    public StructureCheck(
 +        final ResourceKey<net.minecraft.world.level.dimension.LevelStem> levelStem,
 +        // Paper end - also store level stem
          ChunkScanAccess storageAccess,

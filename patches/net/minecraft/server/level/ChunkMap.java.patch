@@ -896,7 +896,7 @@
              return "cancelled";
          }
      }
-@@ -912,39 +_,83 @@
+@@ -912,39 +_,89 @@
          return this.read(pos).thenApplyAsync(chunkTag -> chunkTag.map(this::upgradeChunkTag), Util.backgroundExecutor().forName("upgradeChunk"));
      }
  
@@ -911,7 +911,12 @@
          );
      }
  
--    public static CompoundTag getChunkDataFixContextTag(ResourceKey<Level> dimension, Optional<Identifier> generatorIdentifier) {
++    // Youer start - vanilla signature (binary compatibility with mods): the stem shares the dimension's identifier, as for vanilla levels
+     public static CompoundTag getChunkDataFixContextTag(ResourceKey<Level> dimension, Optional<Identifier> generatorIdentifier) {
++        return getChunkDataFixContextTag(dimension, generatorIdentifier, ResourceKey.create(net.minecraft.core.registries.Registries.LEVEL_STEM, dimension.identifier()));
++    }
++    // Youer end
++
 +    public static CompoundTag getChunkDataFixContextTag(ResourceKey<Level> dimension, Optional<Identifier> generatorIdentifier, final ResourceKey<net.minecraft.world.level.dimension.LevelStem> stemKey) { // Paper - pass level stem
          CompoundTag contextTag = new CompoundTag();
 -        contextTag.putString("dimension", dimension.identifier().toString());

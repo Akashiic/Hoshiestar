@@ -1,13 +1,30 @@
 --- a/net/minecraft/world/level/levelgen/carver/CarvingContext.java
 +++ b/net/minecraft/world/level/levelgen/carver/CarvingContext.java
-@@ -27,9 +_,9 @@
-         LevelHeightAccessor heightAccessor,
-         NoiseChunk noiseChunk,
+@@ -21,6 +_,7 @@
+     private final RandomState randomState;
+     private final SurfaceRules.RuleSource surfaceRule;
+ 
++    // Youer start - keep the vanilla constructor for mods (no level: vanilla bedrock settings)
+     public CarvingContext(
+         NoiseBasedChunkGenerator generator,
+         RegistryAccess registryAccess,
+@@ -29,7 +_,19 @@
          RandomState randomState,
--        SurfaceRules.RuleSource surfaceRule
-+        SurfaceRules.RuleSource surfaceRule, net.minecraft.world.level.@org.jspecify.annotations.Nullable Level serverLevel // Paper - Flat bedrock generator settings
+         SurfaceRules.RuleSource surfaceRule
      ) {
 -        super(generator, heightAccessor);
++        this(generator, registryAccess, heightAccessor, noiseChunk, randomState, surfaceRule, null);
++    }
++    // Youer end
++
++    public CarvingContext(
++        NoiseBasedChunkGenerator generator,
++        RegistryAccess registryAccess,
++        LevelHeightAccessor heightAccessor,
++        NoiseChunk noiseChunk,
++        RandomState randomState,
++        SurfaceRules.RuleSource surfaceRule, net.minecraft.world.level.@org.jspecify.annotations.Nullable Level serverLevel // Paper - Flat bedrock generator settings
++    ) {
 +        super(generator, heightAccessor, serverLevel); // Paper - Flat bedrock generator settings
          this.registryAccess = registryAccess;
          this.noiseChunk = noiseChunk;

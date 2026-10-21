@@ -28,8 +28,7 @@
 +
      public static void bootStrap() {
          addDefaultInteractions(EMPTY);
--        EMPTY.put(Items.POTION, (var0, level, pos, player, hand, itemInHand) -> {
-+        EMPTY.put(Items.POTION, (var0, level, pos, player, hand, itemInHand, hitDirection) -> { // Paper - add hitDirection
+         EMPTY.put(Items.POTION, (var0, level, pos, player, hand, itemInHand) -> {
              PotionContents potion = itemInHand.get(DataComponents.POTION_CONTENTS);
              if (potion != null && potion.is(Potions.WATER)) {
                  if (!level.isClientSide()) {
@@ -47,25 +46,15 @@
                      level.playSound(null, pos, SoundEvents.BOTTLE_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
                      level.gameEvent(null, GameEvent.FLUID_PLACE, pos);
                  }
-@@ -67,7 +_,7 @@
-         addDefaultInteractions(WATER);
-         WATER.put(
-             Items.BUCKET,
--            (state, level, pos, player, hand, itemInHand) -> fillBucket(
-+            (state, level, pos, player, hand, itemInHand, hitDirection) -> fillBucket( // Paper - add hitDirection
-                 state,
-                 level,
-                 pos,
-@@ -76,33 +_,43 @@
+@@ -76,16 +_,21 @@
                  itemInHand,
                  new ItemStack(Items.WATER_BUCKET),
                  s -> s.getValue(LayeredCauldronBlock.LEVEL) == 3,
 -                SoundEvents.BUCKET_FILL
-+                SoundEvents.BUCKET_FILL, hitDirection // Paper - add hitDirection
++                SoundEvents.BUCKET_FILL, CauldronInteraction.youer$hitDirection() // Paper - add hitDirection
              )
          );
--        WATER.put(Items.GLASS_BOTTLE, (state, level, pos, player, hand, itemInHand) -> {
-+        WATER.put(Items.GLASS_BOTTLE, (state, level, pos, player, hand, itemInHand, hitDirection) -> { // Paper - add hitDirection
+         WATER.put(Items.GLASS_BOTTLE, (state, level, pos, player, hand, itemInHand) -> {
              if (!level.isClientSide()) {
 +                // CraftBukkit start
 +                if (!LayeredCauldronBlock.lowerFillLevel(state, level, pos, player, CauldronLevelChangeEvent.ChangeReason.BOTTLE_FILL)) {
@@ -81,14 +70,7 @@
                  level.playSound(null, pos, SoundEvents.BOTTLE_FILL, SoundSource.BLOCKS, 1.0F, 1.0F);
                  level.gameEvent(null, GameEvent.FLUID_PICKUP, pos);
              }
- 
-             return InteractionResult.SUCCESS;
-         });
--        WATER.put(Items.POTION, (state, level, pos, player, hand, itemInHand) -> {
-+        WATER.put(Items.POTION, (state, level, pos, player, hand, itemInHand, hitDirection) -> { // Paper - add hitDirection
-             if (state.getValue(LayeredCauldronBlock.LEVEL) == 3) {
-                 return InteractionResult.TRY_WITH_EMPTY_HAND;
-             } else {
+@@ -99,10 +_,15 @@
                  PotionContents potion = itemInHand.get(DataComponents.POTION_CONTENTS);
                  if (potion != null && potion.is(Potions.WATER)) {
                      if (!level.isClientSide()) {
@@ -110,34 +92,25 @@
              }
          });
 -        WATER.put(ItemTags.CAULDRON_CAN_REMOVE_DYE, CauldronInteractions::dyedItemIteration);
-+        WATER.put(ItemTags.CAULDRON_CAN_REMOVE_DYE, (state1, level1, pos1, player1, hand1, itemInHand1, itemInHand2) -> dyedItemIteration(state1, level1, pos1, player1, hand1, itemInHand1));
++        WATER.put(ItemTags.CAULDRON_CAN_REMOVE_DYE, (state1, level1, pos1, player1, hand1, itemInHand1) -> dyedItemIteration(state1, level1, pos1, player1, hand1, itemInHand1));
          WATER.put(Items.WHITE_BANNER, CauldronInteractions::bannerInteraction);
          WATER.put(Items.GRAY_BANNER, CauldronInteractions::bannerInteraction);
          WATER.put(Items.BLACK_BANNER, CauldronInteractions::bannerInteraction);
-@@ -148,14 +_,14 @@
-         WATER.put(Items.YELLOW_SHULKER_BOX, CauldronInteractions::shulkerBoxInteraction);
+@@ -149,7 +_,7 @@
          LAVA.put(
              Items.BUCKET,
--            (state, level, pos, player, hand, itemInHand) -> fillBucket(
+             (state, level, pos, player, hand, itemInHand) -> fillBucket(
 -                state, level, pos, player, hand, itemInHand, new ItemStack(Items.LAVA_BUCKET), var0x -> true, SoundEvents.BUCKET_FILL_LAVA
-+            (state, level, pos, player, hand, itemInHand, hitDirection) -> fillBucket(
-+                state, level, pos, player, hand, itemInHand, new ItemStack(Items.LAVA_BUCKET), var0x -> true, SoundEvents.BUCKET_FILL_LAVA, hitDirection // Paper - add hitDirection
++                state, level, pos, player, hand, itemInHand, new ItemStack(Items.LAVA_BUCKET), var0x -> true, SoundEvents.BUCKET_FILL_LAVA, CauldronInteraction.youer$hitDirection() // Paper - add hitDirection
              )
          );
          addDefaultInteractions(LAVA);
-         POWDER_SNOW.put(
-             Items.BUCKET,
--            (state, level, pos, player, hand, itemInHand) -> fillBucket(
-+            (state, level, pos, player, hand, itemInHand, hitDirection) -> fillBucket(
-                 state,
-                 level,
-                 pos,
 @@ -164,7 +_,7 @@
                  itemInHand,
                  new ItemStack(Items.POWDER_SNOW_BUCKET),
                  s -> s.getValue(LayeredCauldronBlock.LEVEL) == 3,
 -                SoundEvents.BUCKET_FILL_POWDER_SNOW
-+                SoundEvents.BUCKET_FILL_POWDER_SNOW, hitDirection // Paper - add hitDirection
++                SoundEvents.BUCKET_FILL_POWDER_SNOW, CauldronInteraction.youer$hitDirection() // Paper - add hitDirection
              )
          );
          addDefaultInteractions(POWDER_SNOW);
@@ -235,42 +208,36 @@
              level.playSound(null, pos, soundEvent, SoundSource.BLOCKS, 1.0F, 1.0F);
              level.gameEvent(null, GameEvent.FLUID_PLACE, pos);
          }
-@@ -221,21 +_,23 @@
-     }
- 
-     public static InteractionResult fillWaterInteraction(
--        BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand
-+        BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand, final net.minecraft.core.Direction hitDirection // Paper - add hitDirection
+@@ -224,14 +_,16 @@
+         BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand
      ) {
          return emptyBucket(
-             level, pos, player, hand, itemInHand, Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3), SoundEvents.BUCKET_EMPTY
+-            level, pos, player, hand, itemInHand, Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3), SoundEvents.BUCKET_EMPTY
++            level, pos, player, hand, itemInHand, Blocks.WATER_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3), SoundEvents.BUCKET_EMPTY, CauldronInteraction.youer$hitDirection() // Paper - add hitDirection
          );
      }
  
 -    public static InteractionResult fillLavaInteraction(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand) {
 +    public static InteractionResult fillLavaInteraction(
-+            BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand, final net.minecraft.core.Direction hitDirection // Paper - add hitDirection
++            BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand
 +    ) {
          return (InteractionResult)(isUnderWater(level, pos)
              ? InteractionResult.CONSUME
-             : emptyBucket(level, pos, player, hand, itemInHand, Blocks.LAVA_CAULDRON.defaultBlockState(), SoundEvents.BUCKET_EMPTY_LAVA));
+-            : emptyBucket(level, pos, player, hand, itemInHand, Blocks.LAVA_CAULDRON.defaultBlockState(), SoundEvents.BUCKET_EMPTY_LAVA));
++            : emptyBucket(level, pos, player, hand, itemInHand, Blocks.LAVA_CAULDRON.defaultBlockState(), SoundEvents.BUCKET_EMPTY_LAVA, CauldronInteraction.youer$hitDirection())); // Paper - add hitDirection
      }
  
      public static InteractionResult fillPowderSnowInteraction(
--        BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand
-+        BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand, final net.minecraft.core.Direction hitDirection // Paper - add hitDirection
-     ) {
-         return (InteractionResult)(isUnderWater(level, pos)
-             ? InteractionResult.CONSUME
-@@ -251,48 +_,66 @@
+@@ -246,7 +_,7 @@
+                 hand,
+                 itemInHand,
+                 Blocks.POWDER_SNOW_CAULDRON.defaultBlockState().setValue(LayeredCauldronBlock.LEVEL, 3),
+-                SoundEvents.BUCKET_EMPTY_POWDER_SNOW
++                SoundEvents.BUCKET_EMPTY_POWDER_SNOW, CauldronInteraction.youer$hitDirection() // Paper - add hitDirection
+             ));
      }
  
-     public static InteractionResult shulkerBoxInteraction(
--        BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand
-+        BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand, final net.minecraft.core.Direction hitDirection // Paper - add hitDirection
-     ) {
-         Block block = Block.byItem(itemInHand.getItem());
-         if (!(block instanceof ShulkerBoxBlock)) {
+@@ -258,41 +_,59 @@
              return InteractionResult.TRY_WITH_EMPTY_HAND;
          } else {
              if (!level.isClientSide()) {
@@ -292,7 +259,7 @@
  
 -    public static InteractionResult bannerInteraction(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand) {
 +    public static InteractionResult bannerInteraction(
-+            BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand, final net.minecraft.core.Direction hitDirection // Paper - add hitDirection
++            BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, ItemStack itemInHand
 +    ) {
          BannerPatternLayers patterns = itemInHand.getOrDefault(DataComponents.BANNER_PATTERNS, BannerPatternLayers.EMPTY);
          if (patterns.layers().isEmpty()) {

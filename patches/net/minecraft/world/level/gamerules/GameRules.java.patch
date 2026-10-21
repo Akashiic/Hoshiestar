@@ -22,7 +22,7 @@
      public <T> T get(GameRule<T> gameRule) {
          T value = this.rules.get(gameRule);
          if (value == null) {
-@@ -130,31 +_,43 @@
+@@ -130,31 +_,53 @@
          }
      }
  
@@ -50,16 +50,6 @@
          return new GameRules(enabledFeatures, GameRuleMap.copyOf(this.rules));
      }
  
--    public void setAll(GameRules other, @Nullable MinecraftServer server) {
--        this.setAll(other.rules, server);
--    }
--
--    public void setAll(GameRuleMap gameRulesMap, @Nullable MinecraftServer server) {
--        gameRulesMap.keySet().forEach(gameRule -> this.setFromOther(gameRulesMap, (GameRule<?>)gameRule, server));
--    }
--
--    private <T> void setFromOther(GameRuleMap gameRulesMap, GameRule<T> gameRule, @Nullable MinecraftServer server) {
--        this.set(gameRule, Objects.requireNonNull(gameRulesMap.get(gameRule)), server);
 +    // Paper start - per-world game rules
 +    public void setAll(final GameRules other, final net.minecraft.server.level.@Nullable ServerLevel level) {
 +        this.setAll(other.rules, level);
@@ -72,6 +62,20 @@
 +        // Paper end - per-world game rules
 +    }
 +
++    // Youer start - keep the vanilla/NeoForge server overloads for mods
+     public void setAll(GameRules other, @Nullable MinecraftServer server) {
+-        this.setAll(other.rules, server);
++        this.setAll(other, server == null ? null : server.overworld());
+     }
+ 
+     public void setAll(GameRuleMap gameRulesMap, @Nullable MinecraftServer server) {
+-        gameRulesMap.keySet().forEach(gameRule -> this.setFromOther(gameRulesMap, (GameRule<?>)gameRule, server));
++        this.setAll(gameRulesMap, server == null ? null : server.overworld());
+     }
++    // Youer end
+ 
+-    private <T> void setFromOther(GameRuleMap gameRulesMap, GameRule<T> gameRule, @Nullable MinecraftServer server) {
+-        this.set(gameRule, Objects.requireNonNull(gameRulesMap.get(gameRule)), server);
 +    // Paper start - per-world game rules
 +    private <T> void setFromOther(final GameRuleMap gameRulesMap, final GameRule<T> gameRule, final net.minecraft.server.level.@Nullable ServerLevel level) {
 +        this.set(gameRule, Objects.requireNonNull(gameRulesMap.get(gameRule)), level);

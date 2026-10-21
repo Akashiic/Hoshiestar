@@ -26,7 +26,7 @@
      protected final boolean isRandomlyTicking;
      protected final SoundType soundType;
      protected final float friction;
-@@ -165,32 +_,40 @@
+@@ -165,32 +_,59 @@
      }
  
      protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
@@ -35,9 +35,28 @@
 +    }
 +
 +    // CraftBukkit start
-+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston, net.minecraft.world.item.context.@Nullable UseOnContext context) {
-+        this.onPlace(state, level, pos, oldState, movedByPiston);
++    // Youer start - overrides keep using the vanilla 5-arg onPlace (mods override/mixin it); the CraftBukkit
++    // placing context is exposed for the duration of the call through youer$onPlaceContext()
++    private static final ThreadLocal<net.minecraft.world.item.context.UseOnContext> onPlace$context = new ThreadLocal<>();
++
++    protected static net.minecraft.world.item.context.@Nullable UseOnContext youer$onPlaceContext() {
++        return onPlace$context.get();
 +    }
++
++    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston, net.minecraft.world.item.context.@Nullable UseOnContext context) {
++        final net.minecraft.world.item.context.UseOnContext previous = onPlace$context.get();
++        onPlace$context.set(context);
++        try {
++            this.onPlace(state, level, pos, oldState, movedByPiston);
++        } finally {
++            if (previous == null) {
++                onPlace$context.remove();
++            } else {
++                onPlace$context.set(previous);
++            }
++        }
++    }
++    // Youer end
 +    // CraftBukkit end
  
      protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos, boolean movedByPiston) {

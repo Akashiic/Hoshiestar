@@ -96,15 +96,24 @@
      @Override
      public boolean isFlapping() {
          return !this.isResting() && this.tickCount % 10.0F == 0.0F;
-@@ -83,7 +_,7 @@
+@@ -82,10 +_,17 @@
+         return SoundEvents.BAT_DEATH;
      }
  
++    // Youer start - keep the vanilla isPushable() override as a mixin target; same result as isCollidable below
      @Override
--    public boolean isPushable() {
-+    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
+     public boolean isPushable() {
          return false;
      }
++    // Youer end
++
++    @Override
++    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
++        return false;
++    }
  
+     @Override
+     protected void doPush(Entity entity) {
 @@ -96,7 +_,7 @@
      }
  

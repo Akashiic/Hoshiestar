@@ -200,7 +200,7 @@
              this.interestedAngleO = this.interestedAngle;
              if (this.isInterested()) {
                  this.interestedAngle = this.interestedAngle + (1.0F - this.interestedAngle) * 0.4F;
-@@ -395,27 +_,39 @@
+@@ -395,26 +_,39 @@
          if (this.isInvulnerableTo(level, source)) {
              return false;
          } else {
@@ -218,10 +218,9 @@
  
      @Override
 -    protected void actuallyHurt(ServerLevel level, DamageSource source, float damage) {
-+    public boolean actuallyHurt(ServerLevel level, DamageSource source, float damage, EntityDamageEvent event) { // CraftBukkit - void -> boolean
++    protected void actuallyHurt(ServerLevel level, DamageSource source, float damage) { // Youer - vanilla signature
          if (!this.canArmorAbsorb(source)) {
--            super.actuallyHurt(level, source, damage);
-+            return super.actuallyHurt(level, source, damage, event); // CraftBukkit
+             super.actuallyHurt(level, source, damage);
          } else {
 -            ItemStack armorBefore = this.getBodyArmorItem();
 -            int damageBefore = armorBefore.getDamageValue();
@@ -229,8 +228,10 @@
 -            armorBefore.hurtAndBreak(Mth.ceil(damage), this, EquipmentSlot.BODY);
 -            if (Crackiness.WOLF_ARMOR.byDamage(damageBefore, maxDamage) != Crackiness.WOLF_ARMOR.byDamage(this.getBodyArmorItem())) {
 +            // CraftBukkit start - SPIGOT-7815: if the damage was cancelled, no need to run the wolf armor behaviour
-+            if (event.isCancelled()) {
-+                return false;
++            this.youer$setActuallyHurtResult(false); // CraftBukkit - armor absorbed the hit
++            final EntityDamageEvent event = this.youer$pendingDamageEvent(); // Youer - null for a direct vanilla-signature call
++            if (event != null && event.isCancelled()) {
++                return;
 +            }
 +            // CraftBukkit end
 +            ItemStack itemstack = this.getBodyArmorItem();
@@ -247,10 +248,8 @@
              }
 +
          }
-+        return false; // CraftBukkit
      }
  
-     private boolean canArmorAbsorb(DamageSource source) {
 @@ -426,7 +_,7 @@
      protected void applyTamingSideEffects() {
          if (this.isTame()) {

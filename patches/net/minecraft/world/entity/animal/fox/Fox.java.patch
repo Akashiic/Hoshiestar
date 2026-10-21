@@ -129,21 +129,15 @@
              this.ticksSinceEaten = 0;
          }
      }
-@@ -632,12 +_,12 @@
+@@ -632,7 +_,7 @@
      }
  
      @Override
 -    public void setTarget(@Nullable LivingEntity target) {
-+    public boolean setTarget(@Nullable LivingEntity target, org.bukkit.event.entity.EntityTargetEvent.@Nullable TargetReason reason) { // CraftBukkit
++    public void setTarget(@Nullable LivingEntity target) { // Youer - vanilla signature, reason/result handled by Mob
          if (this.isDefending() && target == null) {
              this.setDefending(false);
          }
- 
--        super.setTarget(target);
-+        return super.setTarget(target, reason); // CraftBukkit
-     }
- 
-     private void wakeUp() {
 @@ -698,15 +_,57 @@
          return this.getTrustedEntities().anyMatch(trusted -> trusted.matches(entity));
      }

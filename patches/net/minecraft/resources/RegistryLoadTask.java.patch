@@ -28,13 +28,20 @@
      }
  
      protected ResourceKey<? extends Registry<T>> registryKey() {
-@@ -59,12 +_,18 @@
+@@ -59,17 +_,43 @@
          return new RegistryOps.RegistryInfo<>(this.registry, this.concurrentRegistrationGetter, this.registry.registryLifecycle());
      }
  
 -    protected void registerElements(Stream<RegistryLoadTask.PendingRegistration<T>> elements) {
-+    protected void registerElements(final Stream<RegistryLoadTask.PendingRegistration<T>> elements, final io.papermc.paper.registry.data.util.Conversions conversions) { // Paper - pass conversions
++    // Youer start - keep the body in the vanilla signature so mod mixins targeting registerElements(Stream) apply;
++    // Paper's conversions are a one-shot field, handed over under the write lock
++    private io.papermc.paper.registry.data.util.@org.jspecify.annotations.Nullable Conversions registerElements$conversions;
++
++    protected void registerElements(final Stream<RegistryLoadTask.PendingRegistration<T>> elements) {
          synchronized (this.registryWriteLock) {
++            final io.papermc.paper.registry.data.util.Conversions conversions = this.registerElements$conversions;
++            this.registerElements$conversions = null;
++            // Youer end
              elements.forEach(
                  element -> element.value
 -                    .ifLeft(value -> this.registry.register(element.key, (T)value, element.registrationInfo))
@@ -50,6 +57,24 @@
              );
              this.elementsRegistered = true;
          }
+     }
+ 
++    // Paper start - pass conversions
++    protected void registerElements(final Stream<RegistryLoadTask.PendingRegistration<T>> elements, final io.papermc.paper.registry.data.util.Conversions conversions) {
++        synchronized (this.registryWriteLock) { // Youer - see above
++            this.registerElements$conversions = conversions;
++            try {
++                this.registerElements(elements);
++            } finally {
++                this.registerElements$conversions = null;
++            }
++        }
++    }
++    // Paper end - pass conversions
++
+     protected void registerTags(Map<TagKey<T>, List<Holder<T>>> pendingTags) {
+         synchronized (this.registryWriteLock) {
+             this.registry.bindTags(pendingTags);
 @@ -105,7 +_,15 @@
                  Either var6;
                  try (Reader reader = thunk.openAsReader()) {

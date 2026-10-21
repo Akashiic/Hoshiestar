@@ -70,11 +70,17 @@
  
      private void setupInflaterInput(ByteBuf in) {
          ByteBuffer input;
-@@ -84,7 +_,13 @@
+@@ -84,7 +_,19 @@
          }
      }
  
 -    public void setThreshold(int threshold, boolean validateDecompressed) {
++    // Youer start - vanilla signature (binary compatibility with mods): keep the current compressor
++    public void setThreshold(final int threshold, final boolean validateDecompressed) {
++        this.setThreshold(null, threshold, validateDecompressed);
++    }
++    // Youer end
++
 +    // Paper start - Use Velocity cipher
 +    public void setThreshold(final com.velocitypowered.natives.compression.VelocityCompressor compressor, final int threshold, final boolean validateDecompressed) {
 +        if (this.compressor == null && compressor != null) { // Only re-configure once. Re-reconfiguring would require closing the native compressor.

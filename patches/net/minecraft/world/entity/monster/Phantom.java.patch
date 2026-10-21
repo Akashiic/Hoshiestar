@@ -246,7 +246,7 @@
                          }
                      }
                  }
-@@ -393,18 +_,142 @@
+@@ -393,18 +_,149 @@
          }
      }
  
@@ -256,11 +256,25 @@
              super(mob);
          }
  
+-        @Override
+-        public void tick() {
+-        }
+-    }
+-
+-    private class PhantomMoveControl extends MoveControl {
+-        private float speed;
 +        // Purpur start - Ridables
 +        public void purpurTick(Player rider) {
 +            setYawPitch(rider.getYRot(), -rider.xRotO * 0.75F);
 +        }
 +        // Purpur end - Ridables
++
++        // Youer start - re-declare the vanilla tick() as a mod mixin target; Purpur's rider/vanilla dispatch stays in super
++        @Override
++        public void tick() {
++            super.tick();
++        }
++        // Youer end
 +
 +        @Override
 +        public void vanillaTick() { // Purpur - Ridables
@@ -346,8 +360,8 @@
 +            updateOffset();
 +        }
 +
-         @Override
-         public void tick() {
++        @Override
++        public void tick() {
 +            if (phantom.random.nextInt(350) == 0) {
 +                this.verticalChange = -4.0F + phantom.random.nextFloat() * 9.0F;
 +            }
@@ -381,18 +395,16 @@
 +                    this.radius * Mth.cos(this.offset),
 +                    -4.0F + this.verticalChange,
 +                    this.radius * Mth.sin(this.offset));
-         }
-     }
++        }
++    }
 +    // Purpur end - Phantoms attracted to crystals and crystals shoot phantoms
- 
--    private class PhantomMoveControl extends MoveControl {
--        private float speed;
++
 +    private class PhantomMoveControl<T extends Mob> extends org.purpurmc.purpur.controller.FlyingMoveControllerWASD { // Purpur - Ridables
 +        private float speed = 0.1F;
  
          public PhantomMoveControl(Mob mob) {
              Objects.requireNonNull(Phantom.this);
-@@ -412,8 +_,19 @@
+@@ -412,8 +_,26 @@
              this.speed = 0.1F;
          }
  
@@ -407,8 +419,14 @@
 +        }
 +        // Purpur end - Ridables
 +
++        // Youer start - re-declare the vanilla tick() as a mod mixin target; Purpur's rider/vanilla dispatch stays in super
          @Override
--        public void tick() {
+         public void tick() {
++            super.tick();
++        }
++        // Youer end
++
++        @Override
 +        public void vanillaTick() { // Purpur - Ridables
              if (Phantom.this.horizontalCollision) {
                  Phantom.this.setYRot(Phantom.this.getYRot() + 180.0F);

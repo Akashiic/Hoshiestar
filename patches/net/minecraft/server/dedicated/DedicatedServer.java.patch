@@ -458,10 +458,10 @@
  
      @Override
 -    public boolean saveAllChunks(boolean silent, boolean flush, boolean force) {
-+    public boolean saveAllChunks(boolean silent, boolean flush, boolean force, final boolean close) { // Paper - add close param
++    public boolean saveAllChunks(boolean silent, boolean flush, boolean force) { // Youer - vanilla signature; MinecraftServer hands the close flag over
          this.notificationManager().serverSaveStarted();
 -        boolean savedChunks = super.saveAllChunks(silent, flush, force);
-+        boolean savedChunks = super.saveAllChunks(silent, flush, force, close); // Paper - add close param
++        boolean savedChunks = super.saveAllChunks(silent, flush, force); // Youer
          this.notificationManager().serverSaveCompleted();
          return savedChunks;
      }

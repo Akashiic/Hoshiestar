@@ -7,7 +7,7 @@
  import net.minecraft.commands.CommandSource;
  import net.minecraft.commands.CommandSourceStack;
  import net.minecraft.network.chat.Component;
-@@ -8,14 +_,20 @@
+@@ -8,14 +_,26 @@
  import net.minecraft.server.permissions.LevelBasedPermissionSet;
  import net.minecraft.world.phys.Vec2;
  import net.minecraft.world.phys.Vec3;
@@ -22,7 +22,12 @@
 +    public final SocketAddress socketAddress;
 +    private final CraftRemoteConsoleCommandSender remoteConsole = new CraftRemoteConsoleCommandSender(this);
  
--    public RconConsoleSource(MinecraftServer server) {
++    // Youer start - vanilla constructor (binary compatibility with mods); no remote address is known
+     public RconConsoleSource(MinecraftServer server) {
++        this(server, new java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), 0));
++    }
++    // Youer end
++
 +    public RconConsoleSource(MinecraftServer server, SocketAddress socketAddress) {
 +        this.socketAddress = socketAddress;
 +        // CraftBukkit end

@@ -158,29 +158,50 @@
          }
  
          return 21;
-@@ -172,10 +_,23 @@
+@@ -172,11 +_,44 @@
          return this.width >= 2 && this.width <= 21 && this.height >= 3 && this.height <= 21;
      }
  
--    public void createPortalBlocks(LevelAccessor level) {
 +    // CraftBukkit start - return boolean, add entity
-+    public boolean createPortalBlocks(final LevelAccessor level, final Entity entity) {
++    // Youer start - keep the body in the vanilla void signature (mods mixin/call it); the igniting entity and the
++    // CraftBukkit result travel through one-shot fields
++    private @org.jspecify.annotations.Nullable Entity createPortalBlocks$entity;
++    private boolean createPortalBlocks$result;
++
+     public void createPortalBlocks(LevelAccessor level) {
++        final Entity entity = this.createPortalBlocks$entity;
++        this.createPortalBlocks$entity = null;
++        this.createPortalBlocks$result = false;
 +        org.bukkit.World bworld = level.getMinecraftWorld().getWorld();
 +        // Copy below for loop
          BlockState portalState = Blocks.NETHER_PORTAL.defaultBlockState().setValue(NetherPortalBlock.AXIS, this.axis);
          BlockPos.betweenClosed(this.bottomLeft, this.bottomLeft.relative(Direction.UP, this.height - 1).relative(this.rightDir, this.width - 1))
 -            .forEach(pos -> level.setBlock(pos, portalState, 18));
+-    }
 +                .forEach(pos -> this.blocks.setBlock(pos, portalState, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE));
 +        org.bukkit.event.world.PortalCreateEvent event = new org.bukkit.event.world.PortalCreateEvent((java.util.List<org.bukkit.block.BlockState>) (java.util.List) this.blocks.getSnapshotBlocks(), bworld, (entity == null) ? null : entity.getBukkitEntity(), org.bukkit.event.world.PortalCreateEvent.CreateReason.FIRE);
 +        level.getMinecraftWorld().getServer().server.getPluginManager().callEvent(event); // todo the list is not really mutable here unlike other call and the portal frame is included
 +
 +        if (event.isCancelled()) {
-+            return false;
++            return;
 +        }
 +        // CraftBukkit end
 +        BlockPos.betweenClosed(this.bottomLeft, this.bottomLeft.relative(Direction.UP, this.height - 1).relative(this.rightDir, this.width - 1))
 +                .forEach(pos -> level.setBlock(pos, portalState, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE));
-+        return true; // CraftBukkit
-     }
++        this.createPortalBlocks$result = true; // CraftBukkit
++    }
++
++    public boolean createPortalBlocks(final LevelAccessor level, final @org.jspecify.annotations.Nullable Entity entity) { // CraftBukkit
++        this.createPortalBlocks$entity = entity;
++        try {
++            this.createPortalBlocks(level);
++            return this.createPortalBlocks$result;
++        } finally {
++            this.createPortalBlocks$entity = null;
++            this.createPortalBlocks$result = false;
++        }
++    }
++    // Youer end
  
      public boolean isComplete() {
+         return this.isValid() && this.numPortalBlocks == this.width * this.height;

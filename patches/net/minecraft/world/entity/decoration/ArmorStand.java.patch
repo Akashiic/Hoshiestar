@@ -71,7 +71,7 @@
      }
  
      @Override
-@@ -162,10 +_,16 @@
+@@ -162,12 +_,25 @@
          this.setMarker(input.getBooleanOr("Marker", false));
          this.noPhysics = !this.hasPhysics();
          input.read("Pose", ArmorStand.ArmorStandPose.CODEC).ifPresent(this::setArmorStandPose);
@@ -83,12 +83,20 @@
 +        // Paper end - Allow ArmorStands not to tick
      }
  
++    // Youer start - keep the vanilla isPushable() override as a mixin target; same result as isCollidable below
      @Override
--    public boolean isPushable() {
-+    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
+     public boolean isPushable() {
          return false;
      }
++    // Youer end
++
++    @Override
++    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
++        return false;
++    }
  
+     @Override
+     protected void doPush(Entity entity) {
 @@ -175,7 +_,8 @@
  
      @Override

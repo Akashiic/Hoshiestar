@@ -736,21 +736,24 @@
      }
  
      protected GlobalPos selectLevelLoadFocusPos() {
-@@ -593,7 +_,12 @@
+@@ -592,8 +_,15 @@
+ 
      public abstract boolean shouldRconBroadcast();
  
++    // Youer start - keep the body in the vanilla signature so mod mixins targeting saveAllChunks(boolean, boolean, boolean) also run on
++    // Paper's shutdown save; the close flag is a one-shot field
++    private boolean saveAllChunks$close;
++
      public boolean saveAllChunks(boolean silent, boolean flush, boolean force) {
 -        this.scoreboard.storeToSaveDataIfDirty(this.getDataStorage().computeIfAbsent(ScoreboardSaveData.TYPE));
-+        // Paper start - add close param
-+        return this.saveAllChunks(silent, flush, force, false);
-+    }
-+    public boolean saveAllChunks(final boolean silent, final boolean flush, final boolean force, final boolean close) {
-+        // Paper end - add close param
++        final boolean close = this.saveAllChunks$close;
++        this.saveAllChunks$close = false;
++        // Youer end
 +        this.saveGlobalData(flush); // Paper - move to saveGlobalData()
          boolean result = false;
  
          for (ServerLevel level : this.getAllLevels()) {
-@@ -601,10 +_,28 @@
+@@ -601,10 +_,39 @@
                  LOGGER.info("Saving chunks for level '{}'/{}", level, level.dimension().identifier());
              }
  
@@ -772,6 +775,17 @@
 +
 +        return result;
 +    }
++
++    // Paper start - add close param
++    public boolean saveAllChunks(final boolean silent, final boolean flush, final boolean force, final boolean close) {
++        this.saveAllChunks$close = close;
++        try {
++            return this.saveAllChunks(silent, flush, force);
++        } finally {
++            this.saveAllChunks$close = false;
++        }
++    }
++    // Paper end - add close param
 +
 +    // Paper start - split out global level data
 +    public void saveGlobalData(final boolean flush) {
@@ -1719,15 +1733,24 @@
      }
  
      public KeyPair getKeyPair() {
-@@ -1299,11 +_,17 @@
+@@ -1299,11 +_,28 @@
          }
      }
  
 -    public void setDifficulty(Difficulty difficulty, boolean ignoreLock) {
--        if (ignoreLock || !this.worldData.isDifficultyLocked()) {
--            this.worldData.setDifficulty(this.worldData.isHardcore() ? Difficulty.HARD : difficulty);
++    // Youer start - vanilla signature (binary compatibility with mods): vanilla difficulty is server-wide, so apply it to every level
++    public void setDifficulty(final Difficulty difficulty, final boolean ignoreLock) {
+         if (ignoreLock || !this.worldData.isDifficultyLocked()) {
+             this.worldData.setDifficulty(this.worldData.isHardcore() ? Difficulty.HARD : difficulty);
 -            this.updateMobSpawningFlags();
 -            this.getPlayerList().getPlayers().forEach(this::sendDifficultyUpdate);
++        }
++        for (final ServerLevel level : this.getAllLevels()) {
++            this.setDifficulty(level, difficulty, null, ignoreLock);
++        }
++    }
++    // Youer end
++
 +    // Paper start - per level difficulty, WorldDifficultyChangeEvent
 +    public void setDifficulty(final ServerLevel level, final Difficulty difficulty, final @Nullable CommandSourceStack source, final boolean ignoreLock) {
 +        io.papermc.paper.world.saveddata.PaperLevelOverrides worldData = level.serverLevelData;
@@ -1970,12 +1993,18 @@
      public void setRespawnData(LevelData.RespawnData respawnData) {
          ServerLevelData levelData = this.worldData.overworldData();
          LevelData.RespawnData oldRespawnData = levelData.getRespawnData();
-@@ -1781,17 +_,20 @@
+@@ -1781,17 +_,26 @@
          return this.randomSequences;
      }
  
 -    public void setWeatherParameters(int clearTime, int rainTime, boolean raining, boolean thundering) {
 -        WeatherData weatherData = this.getWeatherData();
++    // Youer start - vanilla signature (binary compatibility with mods): the server-wide weather is the overworld's
++    public void setWeatherParameters(final int clearTime, final int rainTime, final boolean raining, final boolean thundering) {
++        this.setWeatherParameters(this.overworld(), clearTime, rainTime, raining, thundering);
++    }
++    // Youer end
++
 +    // Paper start - per-level WeatherData
 +    public void setWeatherParameters(final ServerLevel level, final int clearTime, final int rainTime, final boolean raining, final boolean thundering) {
 +        WeatherData weatherData = level.getWeatherData();
@@ -1992,7 +2021,7 @@
 +    @Deprecated(forRemoval = true) @io.papermc.paper.annotation.DoNotUse // Paper
      public WeatherData getWeatherData() {
 -        return this.weatherData;
-+        throw new UnsupportedOperationException("Use ServerLevel.getWeatherData() instead"); // Paper
++        return this.overworld().getWeatherData(); // Paper // Youer - mods still call the vanilla getter: the server-wide weather is the overworld's
      }
  
      public boolean isEnforceWhitelist() {
@@ -2120,12 +2149,18 @@
      }
  
      public boolean setAutoSave(boolean enable) {
-@@ -2111,12 +_,14 @@
+@@ -2111,12 +_,20 @@
          return false;
      }
  
 -    public <T> void onGameRuleChanged(GameRule<T> rule, T value) {
 -        this.notificationManager().onGameRuleChanged(rule, value);
++    // Youer start - vanilla signature (binary compatibility with mods): the server-wide rules are the overworld's
++    public <T> void onGameRuleChanged(final GameRule<T> rule, final T value) {
++        this.onGameRuleChanged(this.overworld(), rule, value);
++    }
++    // Youer end
++
 +    // Paper start - per-world game rules
 +    public <T> void onGameRuleChanged(final ServerLevel serverlevel, final GameRule<T> rule, final T value) {
 +        this.notificationManager().onGameRuleChanged(serverlevel, rule, value);

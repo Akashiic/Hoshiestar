@@ -121,18 +121,19 @@
              }
          }
      }
-@@ -516,7 +_,13 @@
+@@ -516,7 +_,15 @@
          return this.hasPreviouslyKilledDragon;
      }
  
--    public void tryRespawn() {
-+    public boolean tryRespawn() { // CraftBukkit - return boolean
-+        // Paper start - Perf: Do crystal-portal proximity check before entity lookup
-+        return this.tryRespawn(null);
-+    }
++    // Youer start - keep the body in the vanilla void signature (mods mixin it); Paper's placed-crystal position and
++    // CraftBukkit's result travel through one-shot fields (server thread only)
++    private @Nullable BlockPos tryRespawn$placedEndCrystalPos;
++    private boolean tryRespawn$result;
 +
-+    public boolean tryRespawn(@Nullable final BlockPos placedEndCrystalPos) { // placedEndCrystalPos is null if the tryRespawn() call was not caused by a placed end crystal
-+        // Paper end - Perf: Do crystal-portal proximity check before entity lookup
+     public void tryRespawn() {
++        final BlockPos placedEndCrystalPos = this.tryRespawn$placedEndCrystalPos; // placedEndCrystalPos is null if the tryRespawn() call was not caused by a placed end crystal
++        this.tryRespawn$placedEndCrystalPos = null;
++        this.tryRespawn$result = false;
          if (this.dragonKilled && this.respawnStage == null) {
              BlockPos location = this.exitPortalLocation;
              if (location == null) {
@@ -144,38 +145,44 @@
 +            if (placedEndCrystalPos != null && !this.level.paperConfig().misc.allowRemoteEnderDragonRespawning) {
 +                int dy = placedEndCrystalPos.getY() - location.getY();
 +                if (dy != 0 && dy != 1) {
-+                    return false;
++                    return;
 +                }
 +
 +                int dx = placedEndCrystalPos.getX() - location.getX();
 +                int dz = placedEndCrystalPos.getZ() - location.getZ();
 +                if (!((dx >= -1 && dx <= 1 && dz >= -4 && dz <= 4) || (dx >= -4 && dx <= 4 && dz >= -1 && dz <= 1))) {
-+                    return false;
++                    return;
 +                }
 +            }
 +            // Paper end - Perf: Do crystal-portal proximity check before entity lookup
  
              List<EndCrystal> crystals = Lists.newArrayList();
              BlockPos center = location.above(1);
-@@ -538,18 +_,19 @@
-             for (Direction direction : Direction.Plane.HORIZONTAL) {
-                 List<EndCrystal> found = this.level.getEntitiesOfClass(EndCrystal.class, new AABB(center.relative(direction, 3)));
-                 if (found.isEmpty()) {
--                    return;
-+                    return false; // CraftBukkit - return value
-                 }
- 
-                 crystals.addAll(found);
+@@ -545,11 +_,23 @@
              }
  
              LOGGER.debug("Found all crystals, respawning dragon.");
 -            this.respawnDragon(crystals);
-+            return this.respawnDragon(crystals); // CraftBukkit - return value
-         }
-+        return false; // CraftBukkit - return value
-     }
- 
+-        }
+-    }
+-
 -    public void respawnDragon(List<EndCrystal> crystals) {
++            this.tryRespawn$result = this.respawnDragon(crystals); // CraftBukkit - return value
++        }
++    }
++
++    public boolean tryRespawn(@Nullable final BlockPos placedEndCrystalPos) { // Paper - Perf: Do crystal-portal proximity check before entity lookup // CraftBukkit - return boolean
++        this.tryRespawn$placedEndCrystalPos = placedEndCrystalPos;
++        try {
++            this.tryRespawn();
++            return this.tryRespawn$result;
++        } finally {
++            this.tryRespawn$placedEndCrystalPos = null;
++            this.tryRespawn$result = false;
++        }
++    }
++    // Youer end
++
 +    public boolean respawnDragon(List<EndCrystal> crystals) { // CraftBukkit - return boolean
          if (this.dragonKilled && this.respawnStage == null) {
              for (BlockPattern.BlockPatternMatch portal = this.findExitPortal(); portal != null; portal = this.findExitPortal()) {

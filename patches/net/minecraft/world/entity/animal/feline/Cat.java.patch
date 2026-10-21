@@ -146,7 +146,7 @@
  
      private static class CatTemptGoal extends TemptGoal {
 -        private @Nullable Player selectedPlayer;
-+        private @Nullable LivingEntity selectedPlayer;
++        private @Nullable Player selectedPlayer; // Youer - vanilla type, TemptGoal#player is a Player again
          private final Cat cat;
  
          public CatTemptGoal(Cat mob, double speedModifier, Predicate<ItemStack> items, boolean canScare) {

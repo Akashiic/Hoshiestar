@@ -87,13 +87,18 @@
      }
  
      public boolean addPack(String packId) {
-@@ -79,12 +_,13 @@
+@@ -79,24 +_,42 @@
          }
      }
  
--    public List<Pack> rebuildSelected(Collection<String> selectedNames) {
++    // Youer start - keep the body in the vanilla signature so mod mixins targeting rebuildSelected(Collection) apply; Paper's flag is a one-shot field
++    private boolean rebuildSelected$skipRequired;
++
+     public List<Pack> rebuildSelected(Collection<String> selectedNames) {
 -        List<Pack> selectedAndPresent = this.getAvailablePacks(selectedNames).collect(Util.toMutableList());
-+    public List<Pack> rebuildSelected(Collection<String> selectedNames, final boolean pendingReload) { // Paper - add pendingReload flag to determine required pack loading
++        final boolean pendingReload = !this.rebuildSelected$skipRequired; // vanilla always adds the required packs
++        this.rebuildSelected$skipRequired = false;
++        // Youer end
 +        List<Pack> selectedAndPresent = net.neoforged.neoforge.resource.ResourcePackLoader.expandAndRemoveRootChildren(this.getAvailablePacks(selectedNames), this.available.values());
  
          for (Pack pack : this.available.values()) {
@@ -105,7 +110,22 @@
              }
          }
  
-@@ -96,7 +_,7 @@
+         return ImmutableList.copyOf(selectedAndPresent);
+     }
+ 
++    // Paper start - add pendingReload flag to determine required pack loading
++    public List<Pack> rebuildSelected(Collection<String> selectedNames, final boolean pendingReload) {
++        this.rebuildSelected$skipRequired = !pendingReload; // Youer - see above
++        try {
++            return this.rebuildSelected(selectedNames);
++        } finally {
++            this.rebuildSelected$skipRequired = false;
++        }
++    }
++    // Paper end - add pendingReload flag to determine required pack loading
++
+     private Stream<Pack> getAvailablePacks(Collection<String> ids) {
+         return ids.stream().map(this.available::get).filter(Objects::nonNull);
      }
  
      public Collection<String> getAvailableIds() {

@@ -510,12 +510,12 @@ public class CommonHooks {
     }
 
     public static ChatDecorator getServerChatSubmittedDecorator() {
-        return (sender, message) -> CompletableFuture.supplyAsync(() -> {
+        return (sender, message) -> { // Youer - vanilla ChatDecorator is synchronous again; the caller makes it async
             if (sender == null)
                 return message; // Vanilla should never get here with the patches we use, but let's be safe with dumb mods
 
             return onServerChatSubmittedEvent(sender, getRawText(message), message);
-        });
+        };
     }
 
     static final Pattern URL_PATTERN = Pattern.compile(

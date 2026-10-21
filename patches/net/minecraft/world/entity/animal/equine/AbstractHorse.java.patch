@@ -78,15 +78,24 @@
          this.goalSelector.addGoal(2, new BreedGoal(this, 1.0, AbstractHorse.class));
          this.goalSelector.addGoal(4, new FollowParentGoal(this, 1.0));
          this.goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 0.7));
-@@ -252,7 +_,7 @@
+@@ -251,10 +_,17 @@
+         return temper;
      }
  
++    // Youer start - keep the vanilla isPushable() override as a mixin target; same result as isCollidable below
      @Override
--    public boolean isPushable() {
-+    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
+     public boolean isPushable() {
          return !this.isVehicle();
      }
++    // Youer end
++
++    @Override
++    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
++        return !this.isVehicle();
++    }
  
+     private void eating() {
+         this.openMouth();
 @@ -299,7 +_,7 @@
  
      public void createInventory() {

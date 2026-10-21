@@ -8,12 +8,19 @@
  
  public record ApplyStatusEffectsConsumeEffect(List<MobEffectInstance> effects, float probability) implements ConsumeEffect {
      public static final MapCodec<ApplyStatusEffectsConsumeEffect> CODEC = RecordCodecBuilder.mapCodec(
-@@ -46,19 +_,19 @@
+@@ -45,20 +_,38 @@
+         return ConsumeEffect.Type.APPLY_EFFECTS;
      }
  
++    // Youer start - keep the body in the vanilla signature so mods/mixins targeting apply(Level, ItemStack, LivingEntity)
++    // still hit it; the Bukkit cause travels via a one-shot thread-local
++    private static final ThreadLocal<EntityPotionEffectEvent.Cause> apply$cause = new ThreadLocal<>();
++
      @Override
--    public boolean apply(Level level, ItemStack stack, LivingEntity user) {
-+    public boolean apply(Level level, ItemStack stack, LivingEntity user, EntityPotionEffectEvent.Cause cause) { // CraftBukkit
+     public boolean apply(Level level, ItemStack stack, LivingEntity user) {
++        final EntityPotionEffectEvent.Cause pendingCause = apply$cause.get();
++        apply$cause.remove();
++        final EntityPotionEffectEvent.Cause cause = pendingCause != null ? pendingCause : EntityPotionEffectEvent.Cause.UNKNOWN;
          if (user.getRandom().nextFloat() >= this.probability) {
              return false;
 -        } else {
@@ -33,8 +40,21 @@
              }
 -
 -            return anyApplied;
-         }
+-        }
+-    }
++        }
 +
 +        return anyApplied;
-     }
++    }
++
++    @Override
++    public boolean apply(Level level, ItemStack stack, LivingEntity user, EntityPotionEffectEvent.Cause cause) { // CraftBukkit
++        apply$cause.set(cause);
++        try {
++            return this.apply(level, stack, user);
++        } finally {
++            apply$cause.remove();
++        }
++    }
++    // Youer end
  }

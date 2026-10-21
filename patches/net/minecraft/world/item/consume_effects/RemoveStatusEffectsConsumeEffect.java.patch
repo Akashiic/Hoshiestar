@@ -8,16 +8,39 @@
  
  public record RemoveStatusEffectsConsumeEffect(HolderSet<MobEffect> effects) implements ConsumeEffect {
      public static final MapCodec<RemoveStatusEffectsConsumeEffect> CODEC = RecordCodecBuilder.mapCodec(
-@@ -33,10 +_,11 @@
+@@ -32,16 +_,34 @@
+         return ConsumeEffect.Type.REMOVE_EFFECTS;
      }
  
++    // Youer start - keep the body in the vanilla signature so mods/mixins targeting apply(Level, ItemStack, LivingEntity)
++    // still hit it; the Bukkit cause travels via a one-shot thread-local
++    private static final ThreadLocal<EntityPotionEffectEvent.Cause> apply$cause = new ThreadLocal<>();
++
      @Override
--    public boolean apply(Level level, ItemStack stack, LivingEntity user) {
-+    public boolean apply(Level level, ItemStack stack, LivingEntity user, EntityPotionEffectEvent.Cause cause) { // CraftBukkit
+     public boolean apply(Level level, ItemStack stack, LivingEntity user) {
++        final EntityPotionEffectEvent.Cause pendingCause = apply$cause.get();
++        apply$cause.remove();
++        final EntityPotionEffectEvent.Cause cause = pendingCause != null ? pendingCause : EntityPotionEffectEvent.Cause.UNKNOWN;
          boolean hasRemovedAny = false;
  
          for (Holder<MobEffect> effect : this.effects) {
-+            user.removeAllEffects$cause(cause);
-             if (user.removeEffect(effect)) {
+-            if (user.removeEffect(effect)) {
++            if (user.removeEffect(effect, cause)) { // Youer - pass the cause to removeEffect (was leaked into removeAllEffects$cause)
                  hasRemovedAny = true;
              }
+         }
+ 
+         return hasRemovedAny;
+     }
++
++    @Override
++    public boolean apply(Level level, ItemStack stack, LivingEntity user, EntityPotionEffectEvent.Cause cause) { // CraftBukkit
++        apply$cause.set(cause);
++        try {
++            return this.apply(level, stack, user);
++        } finally {
++            apply$cause.remove();
++        }
++    }
++    // Youer end
+ }

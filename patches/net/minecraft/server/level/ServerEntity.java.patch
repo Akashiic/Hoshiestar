@@ -1,6 +1,6 @@
 --- a/net/minecraft/server/level/ServerEntity.java
 +++ b/net/minecraft/server/level/ServerEntity.java
-@@ -65,12 +_,14 @@
+@@ -65,12 +_,20 @@
      private Vec3 lastSentMovement;
      private int tickCount;
      private int teleportDelay;
@@ -11,7 +11,12 @@
      private @Nullable List<SynchedEntityData.DataValue<?>> trackedDataValues;
 +    private final Set<net.minecraft.server.network.ServerPlayerConnection> trackedPlayers; // Paper
  
--    public ServerEntity(ServerLevel level, Entity entity, int updateInterval, boolean trackDelta, ServerEntity.Synchronizer synchronizer) {
++    // Youer start - vanilla constructor (binary compatibility with mods); without a tracker there are no tracked players
+     public ServerEntity(ServerLevel level, Entity entity, int updateInterval, boolean trackDelta, ServerEntity.Synchronizer synchronizer) {
++        this(level, entity, updateInterval, trackDelta, synchronizer, new java.util.HashSet<>());
++    }
++    // Youer end
++
 +    public ServerEntity(ServerLevel level, Entity entity, int updateInterval, boolean trackDelta, ServerEntity.Synchronizer synchronizer, Set<net.minecraft.server.network.ServerPlayerConnection> trackedPlayers) {
 +        this.trackedPlayers = trackedPlayers; // Paper
          this.level = level;

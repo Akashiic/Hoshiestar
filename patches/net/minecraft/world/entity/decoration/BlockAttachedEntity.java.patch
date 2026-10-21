@@ -121,7 +121,7 @@
      @Override
 -    public void push(double xa, double ya, double za) {
 -        if (this.level() instanceof ServerLevel level && !this.isRemoved() && xa * xa + ya * ya + za * za > 0.0) {
-+    public void push(final double xa, final double ya, final double za, @Nullable final Entity pushingEntity) { // Paper - override correct overload
++    public void push(final double xa, final double ya, final double za) { // Youer - vanilla signature, Paper's pushing entity travels in Entity#push$pushingEntity
 +        if (false && this.level() instanceof ServerLevel level && !this.isRemoved() && xa * xa + ya * ya + za * za > 0.0) { // CraftBukkit - not needed
              this.kill(level);
              this.dropItem(level, null);

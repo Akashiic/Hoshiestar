@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/level/block/MultifaceSpreader.java
 +++ b/net/minecraft/world/level/block/MultifaceSpreader.java
-@@ -157,14 +_,14 @@
+@@ -157,14 +_,19 @@
                      level.getChunk(spreadPos.pos()).markPosForPostprocessing(spreadPos.pos());
                  }
  
@@ -14,6 +14,11 @@
  
 -    public record SpreadPos(BlockPos pos, Direction face) {
 +    public record SpreadPos(BlockPos pos, Direction face, BlockPos source) { // CraftBukkit
++        // Youer start - keep the vanilla constructor for mods (source unknown: use the target position)
++        public SpreadPos(BlockPos pos, Direction face) {
++            this(pos, face, pos);
++        }
++        // Youer end
      }
  
      @FunctionalInterface

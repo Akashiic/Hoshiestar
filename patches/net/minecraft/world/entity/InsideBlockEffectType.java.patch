@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/entity/InsideBlockEffectType.java
 +++ b/net/minecraft/world/entity/InsideBlockEffectType.java
-@@ -6,22 +_,35 @@
+@@ -6,22 +_,41 @@
  public enum InsideBlockEffectType {
      FREEZE(entity -> {
          entity.setIsInPowderSnow(true);
@@ -10,13 +10,15 @@
          }
      }),
      CLEAR_FREEZE(Entity::clearFreeze),
-     FIRE_IGNITE(BaseFireBlock::fireIgnite),
+-    FIRE_IGNITE(BaseFireBlock::fireIgnite),
 -    LAVA_IGNITE(Entity::lavaIgnite),
++    FIRE_IGNITE((entity, pos) -> BaseFireBlock.fireIgnite(entity, pos)), // Youer - explicit: fireIgnite is overloaded (vanilla + Paper)
 +    LAVA_IGNITE((entity, pos) -> entity.lavaIgnite(pos)), // Paper - track lava contact
      EXTINGUISH(Entity::clearFire);
  
 -    private final Consumer<Entity> effect;
 +    private final Applier effect; // Paper - track position inside effect was triggered on
++    private final Consumer<Entity> vanillaEffect; // Youer - vanilla effect() view, position = the entity's block position
  
 -    private InsideBlockEffectType(Consumer<Entity> effect) {
 +    InsideBlockEffectType(final Consumer<Entity> effect) {
@@ -26,10 +28,17 @@
 +    InsideBlockEffectType(final Applier effect) {
 +        // Paper end - track position inside effect was triggered on
          this.effect = effect;
-     }
- 
+-    }
+-
 -    public Consumer<Entity> effect() {
-+    public Applier effect() { // Paper - track position inside effect was triggered on
++        this.vanillaEffect = entity -> effect.affect(entity, entity.blockPosition()); // Youer
++    }
++
++    public Consumer<Entity> effect() { // Youer - keep the vanilla return type (mods call it)
++        return this.vanillaEffect;
++    }
++
++    public Applier youer$applier() { // Paper - track position inside effect was triggered on // Youer - renamed from effect()
          return this.effect;
      }
 +

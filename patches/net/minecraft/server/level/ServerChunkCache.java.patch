@@ -37,10 +37,23 @@
      private static final int CACHE_SIZE = 4;
      private final long[] lastChunkPos = new long[4];
      private final @Nullable ChunkStatus[] lastChunkStatus = new ChunkStatus[4];
-@@ -74,6 +_,112 @@
+@@ -74,19 +_,145 @@
      private final Set<ChunkHolder> chunkHoldersToBroadcast = new ReferenceOpenHashSet<>();
      @VisibleForDebug
      private NaturalSpawner.@Nullable SpawnState lastSpawnState;
+-
+-    public ServerChunkCache(
+-        ServerLevel level,
+-        LevelStorageSource.LevelStorageAccess levelStorage,
+-        DataFixer fixerUpper,
+-        StructureTemplateManager structureTemplateManager,
+-        Executor executor,
+-        ChunkGenerator generator,
+-        int viewDistance,
+-        int simulationDistance,
+-        boolean syncWrites,
+-        ChunkStatusUpdateListener chunkStatusListener,
+-        Supplier<SavedDataStorage> overworldDataStorage
 +    // Paper start
 +    public final ca.spottedleaf.concurrentutil.map.concurrent.longs.ConcurrentChainedLong2ReferenceHashTable<net.minecraft.world.level.chunk.LevelChunk> fullChunks = new ca.spottedleaf.concurrentutil.map.concurrent.longs.ConcurrentChainedLong2ReferenceHashTable<>();
 +    public int getFullChunksCount() {
@@ -147,13 +160,38 @@
 +        }
 +    }
 +    // Paper end - chunk tick iteration optimisations
- 
-     public ServerChunkCache(
-         ServerLevel level,
-@@ -87,6 +_,7 @@
-         boolean syncWrites,
-         ChunkStatusUpdateListener chunkStatusListener,
-         Supplier<SavedDataStorage> overworldDataStorage
++
++    // Youer start - vanilla constructor (binary compatibility with mods): the chunk cache creates the level's data storage itself
++    public ServerChunkCache(
++        ServerLevel level,
++        LevelStorageSource.LevelStorageAccess levelStorage,
++        DataFixer fixerUpper,
++        StructureTemplateManager structureTemplateManager,
++        Executor executor,
++        ChunkGenerator generator,
++        int viewDistance,
++        int simulationDistance,
++        boolean syncWrites,
++        ChunkStatusUpdateListener chunkStatusListener,
++        Supplier<SavedDataStorage> overworldDataStorage
++    ) {
++        this(level, levelStorage, fixerUpper, structureTemplateManager, executor, generator, viewDistance, simulationDistance, syncWrites, chunkStatusListener, overworldDataStorage,
++            new SavedDataStorage(level, levelStorage.getDimensionPath(level.dimension()).resolve("data"), fixerUpper, level.registryAccess()));
++    }
++    // Youer end
++
++    public ServerChunkCache(
++        ServerLevel level,
++        LevelStorageSource.LevelStorageAccess levelStorage,
++        DataFixer fixerUpper,
++        StructureTemplateManager structureTemplateManager,
++        Executor executor,
++        ChunkGenerator generator,
++        int viewDistance,
++        int simulationDistance,
++        boolean syncWrites,
++        ChunkStatusUpdateListener chunkStatusListener,
++        Supplier<SavedDataStorage> overworldDataStorage
 +        , final SavedDataStorage savedDataStorage // Paper - initialize SavedDataStorage earlier
      ) {
          this.level = level;

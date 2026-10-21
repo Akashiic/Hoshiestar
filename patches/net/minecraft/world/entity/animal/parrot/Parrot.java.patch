@@ -137,12 +137,19 @@
      }
  
      @Override
-@@ -380,8 +_,8 @@
+@@ -379,9 +_,16 @@
+         return SoundSource.NEUTRAL;
      }
  
++    // Youer start - keep the vanilla isPushable() override as a mixin target
      @Override
--    public boolean isPushable() {
+     public boolean isPushable() {
 -        return true;
++        return super.isPushable();
++    }
++    // Youer end
++
++    @Override
 +    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
 +        return super.isCollidable(ignoreClimbing); // CraftBukkit - collidable API // Paper - Climbing should not bypass cramming gamerule
      }

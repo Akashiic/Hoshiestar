@@ -47,7 +47,7 @@
          }
      }
  
-@@ -154,11 +_,19 @@
+@@ -154,13 +_,28 @@
  
      @Override
      public boolean canCollideWith(Entity entity) {
@@ -63,12 +63,20 @@
 +        // Paper end - fix VehicleEntityCollisionEvent not called when colliding with player
      }
  
++    // Youer start - keep the vanilla isPushable() override as a mixin target; same result as isCollidable below
      @Override
--    public boolean isPushable() {
-+    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
+     public boolean isPushable() {
          return true;
      }
++    // Youer end
++
++    @Override
++    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
++        return true;
++    }
  
+     @Override
+     public Vec3 getRelativePortalPosition(Direction.Axis axis, BlockUtil.FoundRectangle portalArea) {
 @@ -263,6 +_,21 @@
  
      @Override

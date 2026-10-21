@@ -1810,7 +1810,7 @@
 -                this.chatMessageChain.append(filteredFuture, filtered -> {
 -                    PlayerChatMessage filteredMessage = signedMessage.withUnsignedContent(decorated).filter(filtered.mask());
 +                CompletableFuture<FilteredText> filteredFuture = this.filterTextPacket(signedMessage.signedContent()).thenApplyAsync(Function.identity(), this.server.chatExecutor); // CraftBukkit - async chat
-+                CompletableFuture<Component> decorated = net.neoforged.neoforge.common.CommonHooks.getServerChatSubmittedDecorator().decorate(this.player, signedMessage.decoratedContent()); // Paper - Adventure
++                CompletableFuture<Component> decorated = CompletableFuture.supplyAsync(() -> net.neoforged.neoforge.common.CommonHooks.getServerChatSubmittedDecorator().decorate(this.player, signedMessage.decoratedContent())); // Paper - Adventure // Youer - ChatDecorator is synchronous again
 +                this.chatMessageChain.append(CompletableFuture.allOf(filteredFuture, decorated), filtered -> {
 +                    if (decorated.join() == null) return; // Forge: ServerChatEvent was canceled if this is null.
 +                    PlayerChatMessage filteredMessage = signedMessage.withUnsignedContent(decorated.join()).filter(filteredFuture.join().mask());

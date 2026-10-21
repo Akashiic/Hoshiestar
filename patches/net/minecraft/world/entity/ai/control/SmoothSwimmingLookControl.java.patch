@@ -9,11 +9,18 @@
      private final int maxYRotFromCenter;
      private static final int HEAD_TILT_X = 10;
      private static final int HEAD_TILT_Y = 20;
-@@ -14,7 +_,7 @@
+@@ -13,8 +_,15 @@
+         this.maxYRotFromCenter = maxYRotFromCenter;
      }
  
++    // Youer start - re-declare the vanilla tick() as a mod mixin target; Purpur's rider/vanilla dispatch stays in super
      @Override
--    public void tick() {
+     public void tick() {
++        super.tick();
++    }
++    // Youer end
++
++    @Override
 +    public void vanillaTick() { // Purpur - Ridables
          if (this.lookAtCooldown > 0) {
              this.lookAtCooldown--;

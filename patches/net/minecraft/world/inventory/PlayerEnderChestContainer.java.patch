@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/inventory/PlayerEnderChestContainer.java
 +++ b/net/minecraft/world/inventory/PlayerEnderChestContainer.java
-@@ -8,14 +_,37 @@
+@@ -8,14 +_,43 @@
  import net.minecraft.world.level.block.entity.EnderChestBlockEntity;
  import net.minecraft.world.level.storage.ValueInput;
  import net.minecraft.world.level.storage.ValueOutput;
@@ -12,14 +12,11 @@
  public class PlayerEnderChestContainer extends SimpleContainer {
      private @Nullable EnderChestBlockEntity activeChest;
 -
--    public PlayerEnderChestContainer() {
--        super(27);
--    }
 +    // CraftBukkit start
 +    private Player owner;
 +
 +    public InventoryHolder getOwner() {
-+        return owner.getBukkitEntity();
++        return owner == null ? null : owner.getBukkitEntity(); // Youer - ownerless (vanilla ctor) containers
 +    }
 +
 +    @Override
@@ -27,7 +24,15 @@
 +        return this.activeChest != null ? CraftLocation.toBukkit(this.activeChest.getBlockPos(), this.activeChest.getLevel().getWorld()) : null;
 +    }
 +
-+    public PlayerEnderChestContainer(Player owner) {
++    // Youer start - keep the vanilla no-arg constructor for mods (no Bukkit owner)
+     public PlayerEnderChestContainer() {
+-        super(27);
+-    }
++        this(null);
++    }
++    // Youer end
++
++    public PlayerEnderChestContainer(@Nullable Player owner) {
 +        super(org.purpurmc.purpur.PurpurConfig.enderChestSixRows ? 54 : 27); // Purpur - Barrels and enderchests 6 rows
 +        this.owner = owner;
 +        // CraftBukkit end

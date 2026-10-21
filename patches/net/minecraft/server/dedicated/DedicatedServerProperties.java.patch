@@ -33,7 +33,7 @@
      public final String regionFileComression = this.get("region-file-compression", "deflate");
      public final boolean enableJmxMonitoring = this.get("enable-jmx-monitoring", false);
      public final Settings<DedicatedServerProperties>.MutableValue<Boolean> enableStatus = this.getMutable("enable-status", true);
-@@ -123,13 +_,16 @@
+@@ -123,13 +_,22 @@
      public final Settings<DedicatedServerProperties>.MutableValue<Boolean> whiteList = this.getMutable("white-list", false);
      public final boolean enforceSecureProfile = this.get("enforce-secure-profile", true);
      public final boolean logIPs = this.get("log-ips", true);
@@ -44,8 +44,13 @@
      public final Settings<DedicatedServerProperties>.MutableValue<Boolean> acceptsTransfers = this.getMutable("accepts-transfers", false);
 +    public final String rconIp; // Paper - Configurable rcon ip
  
--    public DedicatedServerProperties(Properties settings) {
++    // Youer start - vanilla constructor (binary compatibility with mods); no command-line overrides
+     public DedicatedServerProperties(Properties settings) {
 -        super(settings);
++        this(settings, null);
++    }
++    // Youer end
++
 +    // CraftBukkit start
 +    public DedicatedServerProperties(Properties settings, OptionSet optionset) {
 +        super(settings, optionset);
@@ -53,7 +58,7 @@
          String levelSeed = this.get("level-seed", "");
          boolean generateStructures = this.get("generate-structures", true);
          long seed = WorldOptions.parseSeed(levelSeed).orElse(WorldOptions.randomSeed());
-@@ -150,14 +_,21 @@
+@@ -150,14 +_,32 @@
              this.get("initial-enabled-packs", String.join(",", WorldDataConfiguration.DEFAULT.dataPacks().getEnabled())),
              this.get("initial-disabled-packs", String.join(",", WorldDataConfiguration.DEFAULT.dataPacks().getDisabled()))
          );
@@ -63,13 +68,23 @@
 -        return new DedicatedServerProperties(loadFromFile(file));
 -    }
 -
--    protected DedicatedServerProperties reload(RegistryAccess registryAccess, Properties properties) {
--        return new DedicatedServerProperties(properties);
 +        // Paper start - Configurable rcon ip
 +        final String rconIp = this.getStringRaw("rcon.ip");
 +        this.rconIp = rconIp == null ? this.serverIp : rconIp;
 +        // Paper end - Configurable rcon ip
 +    }
++
++    // Youer start - vanilla signatures (binary compatibility with mods)
++    public static DedicatedServerProperties fromFile(Path path) {
++        return fromFile(path, null);
++    }
++
++    @Override
+     protected DedicatedServerProperties reload(RegistryAccess registryAccess, Properties properties) {
+-        return new DedicatedServerProperties(properties);
++        return super.reload(registryAccess, properties);
++    }
++    // Youer end
 +
 +    // CraftBukkit start
 +    public static DedicatedServerProperties fromFile(Path path, OptionSet optionset) {

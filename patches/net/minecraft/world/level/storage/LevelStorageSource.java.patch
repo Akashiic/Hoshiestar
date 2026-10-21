@@ -1,9 +1,39 @@
 --- a/net/minecraft/world/level/storage/LevelStorageSource.java
 +++ b/net/minecraft/world/level/storage/LevelStorageSource.java
-@@ -149,34 +_,35 @@
-         WorldDataConfiguration dataConfiguration,
-         Registry<LevelStem> datapackDimensions,
-         HolderLookup.Provider registryAccess
+@@ -143,40 +_,59 @@
+         return new WorldLoader.PackConfig(packRepository, readDataConfig(levelDataTag), safeMode, false);
+     }
+ 
+-    public static LevelDataAndDimensions getLevelDataAndDimensions(
+-        LevelStorageSource.LevelStorageAccess worldAccess,
+-        Dynamic<?> levelDataTag,
+-        WorldDataConfiguration dataConfiguration,
+-        Registry<LevelStem> datapackDimensions,
+-        HolderLookup.Provider registryAccess
++    // Youer start - keep the vanilla overloads for mods: Paper keeps the main world's data under the overworld dimension
++    public static LevelDataAndDimensions getLevelDataAndDimensions(
++        LevelStorageSource.LevelStorageAccess worldAccess,
++        Dynamic<?> levelDataTag,
++        WorldDataConfiguration dataConfiguration,
++        Registry<LevelStem> datapackDimensions,
++        HolderLookup.Provider registryAccess
++    ) {
++        return getLevelDataAndDimensions(worldAccess, levelDataTag, dataConfiguration, datapackDimensions, registryAccess, Level.OVERWORLD);
++    }
++
++    public static <T extends SavedData> DataResult<T> readExistingSavedData(
++        LevelStorageSource.LevelStorageAccess access, HolderLookup.Provider registryAccess, SavedDataType<T> savedDataType
++    ) {
++        return readExistingSavedData(access, Level.OVERWORLD, registryAccess, savedDataType);
++    }
++    // Youer end
++
++    public static LevelDataAndDimensions getLevelDataAndDimensions(
++        LevelStorageSource.LevelStorageAccess worldAccess,
++        Dynamic<?> levelDataTag,
++        WorldDataConfiguration dataConfiguration,
++        Registry<LevelStem> datapackDimensions,
++        HolderLookup.Provider registryAccess
 +        , final ResourceKey<Level> dimension // Paper - pass dimension
      ) {
          if (DataFixers.getFileFixer().requiresFileFixing(NbtUtils.getDataVersion(levelDataTag))) {

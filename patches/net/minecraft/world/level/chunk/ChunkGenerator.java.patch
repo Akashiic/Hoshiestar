@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/level/chunk/ChunkGenerator.java
 +++ b/net/minecraft/world/level/chunk/ChunkGenerator.java
-@@ -94,19 +_,24 @@
+@@ -94,20 +_,45 @@
      public ChunkGenerator(BiomeSource biomeSource, Function<Holder<Biome>, BiomeGenerationSettings> generationSettingsGetter) {
          this.biomeSource = biomeSource;
          this.generationSettingsGetter = generationSettingsGetter;
@@ -21,13 +21,34 @@
  
      protected abstract MapCodec<? extends ChunkGenerator> codec();
  
--    public ChunkGeneratorStructureState createState(HolderLookup<StructureSet> structureSets, RandomState randomState, long legacyLevelSeed) {
++    // Youer start - keep the vanilla createState (mod generators override it, mods call it); Spigot's world config
++    // travels via a one-shot thread-local, read with youer$createStateConfig()
++    private static final ThreadLocal<org.spigotmc.SpigotWorldConfig> createState$conf = new ThreadLocal<>();
++
++    protected static org.spigotmc.@org.jspecify.annotations.Nullable SpigotWorldConfig youer$createStateConfig() {
++        final org.spigotmc.SpigotWorldConfig conf = createState$conf.get();
++        createState$conf.remove();
++        return conf;
++    }
++
+     public ChunkGeneratorStructureState createState(HolderLookup<StructureSet> structureSets, RandomState randomState, long legacyLevelSeed) {
 -        return ChunkGeneratorStructureState.createForNormal(randomState, legacyLevelSeed, this.biomeSource, structureSets);
+-    }
++        return ChunkGeneratorStructureState.createForNormal(randomState, legacyLevelSeed, this.biomeSource, structureSets, youer$createStateConfig()); // Spigot
++    }
++
 +    public ChunkGeneratorStructureState createState(HolderLookup<StructureSet> structureSets, RandomState randomState, long legacyLevelSeed, org.spigotmc.SpigotWorldConfig conf) { // Spigot
-+        return ChunkGeneratorStructureState.createForNormal(randomState, legacyLevelSeed, this.biomeSource, structureSets, conf); // Spigot
-     }
++        createState$conf.set(conf);
++        try {
++            return this.createState(structureSets, randomState, legacyLevelSeed);
++        } finally {
++            createState$conf.remove();
++        }
++    }
++    // Youer end
  
      public Optional<Identifier> getTypeNameForDataFixer() {
+         return BuiltInRegistries.CHUNK_GENERATOR.getResourceKey(this.codec()).map(ResourceKey::identifier);
 @@ -117,7 +_,7 @@
          return CompletableFuture.supplyAsync(() -> {
              protoChunk.fillBiomesFromNoise(this.biomeSource, randomState.sampler());

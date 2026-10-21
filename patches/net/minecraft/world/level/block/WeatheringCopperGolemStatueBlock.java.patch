@@ -6,7 +6,7 @@
  
 -                this.updatePose(level, state, pos, player);
 -                return InteractionResult.SUCCESS;
-+                return this.updatePose(level, state, pos, player); // Paper - call EntityChangeBlockEvent
++                return this.youer$updatePose(level, state, pos, player); // Paper - call EntityChangeBlockEvent
              }
  
              if (this.getAge().equals(WeatheringCopper.WeatherState.UNAFFECTED)) {

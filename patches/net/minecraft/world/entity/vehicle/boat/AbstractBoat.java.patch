@@ -16,15 +16,24 @@
      public AbstractBoat(EntityType<? extends AbstractBoat> type, Level level, Supplier<Item> dropItem) {
          super(type, level);
          this.dropItem = dropItem;
-@@ -120,7 +_,7 @@
-     }
- 
-     @Override
--    public boolean isPushable() {
-+    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
+@@ -119,10 +_,17 @@
          return true;
      }
  
++    // Youer start - keep the vanilla isPushable() override as a mixin target; same result as isCollidable below
+     @Override
+     public boolean isPushable() {
+         return true;
+     }
++    // Youer end
++
++    @Override
++    public boolean isCollidable(boolean ignoreClimbing) { // Paper - Climbing should not bypass cramming gamerule
++        return true;
++    }
+ 
+     @Override
+     public Vec3 getRelativePortalPosition(Direction.Axis axis, BlockUtil.FoundRectangle portalArea) {
 @@ -175,11 +_,30 @@
  
      @Override
@@ -128,12 +137,12 @@
                  this.setDeltaMovement(this.getDeltaMovement().multiply(1.0, 0.0, 1.0));
                  this.lastYd = 0.0;
              }
-@@ -708,12 +_,20 @@
+@@ -708,9 +_,17 @@
      }
  
      @Override
 -    public void remove(Entity.RemovalReason reason) {
-+    public void remove(final Entity.RemovalReason reason, org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause eventCause) { // CraftBukkit - add Bukkit remove cause
++    public void remove(final Entity.RemovalReason reason) { // Youer - vanilla signature, cause travels in Entity#remove$cause
          if (!this.level().isClientSide() && reason.shouldDestroy() && this.isLeashed()) {
 -            this.dropLeash();
 +            // Paper start - Fire EntityUnleashEvent on boat destruction
@@ -147,11 +156,7 @@
 +            // Paper end - Fire EntityUnleashEvent on boat destruction
          }
  
--        super.remove(reason);
-+        super.remove(reason, eventCause); // CraftBukkit - add Bukkit remove cause
-     }
- 
-     @Override
+         super.remove(reason);
 @@ -722,7 +_,7 @@
          if (!this.isPassenger()) {
              if (onGround) {

@@ -1,10 +1,15 @@
 --- a/net/minecraft/server/players/ProfileResolver.java
 +++ b/net/minecraft/server/players/ProfileResolver.java
-@@ -26,7 +_,7 @@
+@@ -26,7 +_,13 @@
          private final LoadingCache<String, Optional<GameProfile>> profileCacheByName;
          private final LoadingCache<UUID, Optional<GameProfile>> profileCacheById;
  
--        public Cached(MinecraftSessionService sessionService, UserNameToIdResolver nameToIdCache) {
++        // Youer start - vanilla constructor (binary compatibility with mods), with a private filled-profile cache
+         public Cached(MinecraftSessionService sessionService, UserNameToIdResolver nameToIdCache) {
++            this(sessionService, nameToIdCache, new io.papermc.paper.profile.PaperFilledProfileCache());
++        }
++        // Youer end
++
 +        public Cached(MinecraftSessionService sessionService, UserNameToIdResolver nameToIdCache, final io.papermc.paper.profile.PaperFilledProfileCache paperCache) { // Paper - add paperCache
              this.profileCacheById = CacheBuilder.newBuilder()
                  .expireAfterAccess(Duration.ofMinutes(10L))

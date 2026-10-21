@@ -101,7 +101,7 @@
      public MoveControl getMoveControl() {
          return this.getControlledVehicle() instanceof Mob riding ? riding.getMoveControl() : this.moveControl;
      }
-@@ -243,8 +_,62 @@
+@@ -243,8 +_,79 @@
          return this.asValidTarget(this.getBrain().getMemory(MemoryModuleType.ATTACK_TARGET).orElse(null));
      }
  
@@ -125,12 +125,18 @@
 +        return this.reason;
 +    }
 +
-     public void setTarget(@Nullable LivingEntity target) {
--        this.target = this.asValidTarget(target);
-+        this.setTarget(target, this.reason);
++    // Youer start - keep the body in the vanilla setTarget(LivingEntity) so mod overrides and mixins apply even when the
++    // CraftBukkit AI code calls the boolean overload; the reason is this.reason, the result a one-shot field.
++    private boolean setTarget$result;
++
++    protected final boolean youer$setTargetResult() {
++        return this.setTarget$result;
 +    }
 +
-+    public boolean setTarget(@Nullable LivingEntity target, org.bukkit.event.entity.EntityTargetEvent.@Nullable TargetReason reason) {
+     public void setTarget(@Nullable LivingEntity target) {
+-        this.target = this.asValidTarget(target);
++        final EntityTargetEvent.@Nullable TargetReason reason = this.reason;
++        // Youer end
 +        LivingEntity currentTarget = this.getTargetUnchecked();
 +        boolean unchanged = java.util.Objects.equals(currentTarget, target);
 +        LivingEntity originalTarget = target;
@@ -160,8 +166,19 @@
 +            this.reason = EntityTargetEvent.TargetReason.UNKNOWN;
 +        }
 +        boolean allowed = canSetTarget.getAndSet(true);
-+        return changed && !unchanged && allowed;
++        this.setTarget$result = changed && !unchanged && allowed; // Youer
 +        // CraftBukkit end
++    }
++
++    public final boolean setTarget(@Nullable LivingEntity target, org.bukkit.event.entity.EntityTargetEvent.@Nullable TargetReason reason) { // CraftBukkit // Youer - delegates to the vanilla signature
++        this.reason = reason;
++        this.setTarget$result = false; // an override that skips super did not change the target
++        try {
++            this.setTarget(target);
++        } finally {
++            this.reason = EntityTargetEvent.TargetReason.UNKNOWN;
++        }
++        return this.setTarget$result;
      }
  
      @Override

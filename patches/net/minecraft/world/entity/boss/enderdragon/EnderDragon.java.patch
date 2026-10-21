@@ -273,17 +273,16 @@
          if (destroyedBlock) {
              BlockPos randomPos = new BlockPos(
                  x0 + this.random.nextInt(x1 - x0 + 1), y0 + this.random.nextInt(y1 - y0 + 1), z0 + this.random.nextInt(z1 - z0 + 1)
-@@ -498,15 +_,20 @@
+@@ -498,7 +_,7 @@
      }
  
      @Override
 -    public void knockback(double power, double xd, double zd) {
-+    public void knockback(final double power, final double xd, final double zd, final DamageSource source, final float damage, final boolean comesFromEffect, @Nullable final Entity attacker, final io.papermc.paper.event.entity.EntityKnockbackEvent.Cause eventCause) { // Paper - knockback events
++    public void knockback(final double power, final double xd, final double zd) { // Youer - vanilla signature, Paper's attacker/cause travel in LivingEntity fields
          if (!this.phaseManager.getCurrentPhase().isSitting()) {
--            super.knockback(power, xd, zd);
-+            super.knockback(power, xd, zd, source, damage, comesFromEffect, attacker, eventCause); // Paper - knockback events
+             super.knockback(power, xd, zd);
          }
-     }
+@@ -506,7 +_,12 @@
  
      @Override
      public void kill(ServerLevel level) {

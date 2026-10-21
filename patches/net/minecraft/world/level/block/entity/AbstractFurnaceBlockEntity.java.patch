@@ -370,20 +370,41 @@
          }
      }
  
-@@ -332,8 +_,8 @@
+@@ -332,8 +_,17 @@
      public void awardUsedRecipes(Player player, List<ItemStack> itemStacks) {
      }
  
--    public void awardUsedRecipesAndPopExperience(ServerPlayer player) {
++    // Youer start - keep the body in the vanilla signature (declared first); the CraftBukkit extract info
++    // travels via one-shot fields (absent = plain BlockExpEvent)
++    private @org.jspecify.annotations.Nullable ItemStack awardUsedRecipesAndPopExperience$itemstack;
++    private int awardUsedRecipesAndPopExperience$amount;
++
+     public void awardUsedRecipesAndPopExperience(ServerPlayer player) {
 -        List<RecipeHolder<?>> recipesToAward = this.getRecipesToAwardAndPopExperience(player.level(), player.position());
-+    public void awardUsedRecipesAndPopExperience(ServerPlayer player, ItemStack itemstack, int amount) { // CraftBukkit
++        final ItemStack itemstack = this.awardUsedRecipesAndPopExperience$itemstack;
++        final int amount = this.awardUsedRecipesAndPopExperience$amount;
++        this.awardUsedRecipesAndPopExperience$itemstack = null;
++        this.awardUsedRecipesAndPopExperience$amount = 0;
 +        List<RecipeHolder<?>> recipesToAward = this.getRecipesToAwardAndPopExperience(player.level(), player.position(), this.worldPosition, player, itemstack, amount); // CraftBukkit
          player.awardRecipes(recipesToAward);
  
          for (RecipeHolder<?> recipe : recipesToAward) {
-@@ -344,30 +_,60 @@
+@@ -343,31 +_,73 @@
+         this.recipesUsed.clear();
      }
  
++    public void awardUsedRecipesAndPopExperience(ServerPlayer player, ItemStack itemstack, int amount) { // CraftBukkit
++        this.awardUsedRecipesAndPopExperience$itemstack = itemstack;
++        this.awardUsedRecipesAndPopExperience$amount = amount;
++        try {
++            this.awardUsedRecipesAndPopExperience(player);
++        } finally {
++            this.awardUsedRecipesAndPopExperience$itemstack = null;
++            this.awardUsedRecipesAndPopExperience$amount = 0;
++        }
++    }
++    // Youer end
++
      public List<RecipeHolder<?>> getRecipesToAwardAndPopExperience(ServerLevel level, Vec3 position) {
 +        // CraftBukkit start
 +        return this.getRecipesToAwardAndPopExperience(level, position, this.worldPosition, null, null, 0);

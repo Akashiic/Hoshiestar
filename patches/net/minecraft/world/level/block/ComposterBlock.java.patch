@@ -177,7 +177,7 @@
              level.setBlock(pos, newState, 3);
              level.gameEvent(GameEvent.BLOCK_CHANGE, pos, GameEvent.Context.of(sourceEntity, newState));
              if (newLevel == 7) {
-@@ -357,13 +_,14 @@
+@@ -357,14 +_,21 @@
          if (contentLevel == 8) {
              return new ComposterBlock.OutputContainer(state, level, pos, new ItemStack(Items.BONE_MEAL));
          } else {
@@ -187,13 +187,19 @@
      }
  
      public static class EmptyContainer extends SimpleContainer implements WorldlyContainer {
--        public EmptyContainer() {
-+        public EmptyContainer(LevelAccessor levelaccessor, BlockPos blockpos) { // CraftBukkit
++        // Youer start - keep the vanilla no-arg constructor for mods (no Bukkit holder)
+         public EmptyContainer() {
              super(0);
-+            this.bukkitOwner = new CraftBlockInventoryHolder(levelaccessor, blockpos, this); // CraftBukkit
          }
++        // Youer end
++
++        public EmptyContainer(LevelAccessor levelaccessor, BlockPos blockpos) { // CraftBukkit
++            super(0);
++            this.bukkitOwner = new CraftBlockInventoryHolder(levelaccessor, blockpos, this); // CraftBukkit
++        }
  
          @Override
+         public int[] getSlotsForFace(Direction direction) {
 @@ -390,6 +_,7 @@
  
          public InputContainer(BlockState state, LevelAccessor level, BlockPos pos) {

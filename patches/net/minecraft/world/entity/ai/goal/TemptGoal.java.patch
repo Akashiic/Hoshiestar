@@ -22,11 +22,11 @@
      private double pRotX;
      private double pRotY;
 -    protected @Nullable Player player;
-+    protected @Nullable LivingEntity player; // CraftBukkit
++    protected @Nullable Player player; // Youer - keep the vanilla field type (mod subclasses access it); see canUse
      private int calmDown;
      private boolean isRunning;
      private final Predicate<ItemStack> items;
-@@ -56,12 +_,21 @@
+@@ -56,12 +_,23 @@
          } else {
              this.player = getServerLevel(this.mob)
                  .getNearestPlayer(this.targetingConditions.range(this.mob.getAttributeValue(Attributes.TEMPT_RANGE)), this.mob);
@@ -36,7 +36,9 @@
 +                if (event.isCancelled()) {
 +                    return false;
 +                }
-+                this.player = (event.getTarget() == null) ? null : ((org.bukkit.craftbukkit.entity.CraftLivingEntity) event.getTarget()).getHandle();
++                // Youer - a plugin may retarget the tempt to another player; a non-player target cannot be stored in the
++                // vanilla Player field and ends the tempt instead
++                this.player = event.getTarget() instanceof org.bukkit.craftbukkit.entity.CraftPlayer target ? target.getHandle() : null;
 +            }
 +            // CraftBukkit end
              return this.player != null;
@@ -54,7 +56,7 @@
      }
  
 -    protected void navigateTowards(Player player) {
-+    protected void navigateTowards(LivingEntity player) { // Paper
++    protected void navigateTowards(Player player) { // Youer - vanilla signature
          this.mob.getNavigation().moveTo(player, this.speedModifier);
      }
  
@@ -63,7 +65,7 @@
  
          @Override
 -        protected void navigateTowards(Player player) {
-+        protected void navigateTowards(LivingEntity player) { // Paper
++        protected void navigateTowards(Player player) { // Youer - vanilla signature
              Vec3 target = player.getEyePosition().subtract(this.mob.position()).scale(this.mob.getRandom().nextDouble()).add(this.mob.position());
              this.mob.getMoveControl().setWantedPosition(target.x, target.y, target.z, this.speedModifier);
          }

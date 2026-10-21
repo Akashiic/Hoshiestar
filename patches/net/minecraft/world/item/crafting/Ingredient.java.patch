@@ -8,7 +8,7 @@
  import java.util.Objects;
  import java.util.Optional;
  import java.util.function.Predicate;
-@@ -21,54 +_,185 @@
+@@ -21,54 +_,191 @@
  import net.minecraft.world.item.Items;
  import net.minecraft.world.item.crafting.display.SlotDisplay;
  import net.minecraft.world.level.ItemLike;
@@ -123,8 +123,14 @@
          return input.is(this.values);
      }
  
--    public boolean acceptsItem(Holder<Item> item) {
++    // Youer start - keep the vanilla/NeoForge Holder overload for mods
+     public boolean acceptsItem(Holder<Item> item) {
 -        return this.values.contains(item);
+-    }
++        return this.acceptsItem(new io.papermc.paper.inventory.recipe.ItemOrExact.Item(item));
++    }
++    // Youer end
++
 +    // Paper start - Improve exact choice recipe ingredients
 +    public boolean acceptsItem(io.papermc.paper.inventory.recipe.ItemOrExact itemOrExact) {
 +        return switch (itemOrExact) {
@@ -148,7 +154,7 @@
 +                yield net.minecraft.world.entity.player.Inventory.isUsableForCrafting(exact) && exact.is(this.values);
 +            }
 +        };
-     }
++    }
 +    // Paper end - Improve exact choice recipe ingredients
  
      @Override

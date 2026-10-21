@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/level/block/BaseFireBlock.java
 +++ b/net/minecraft/world/level/block/BaseFireBlock.java
-@@ -129,12 +_,13 @@
+@@ -129,12 +_,20 @@
  
      @Override
      protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity, InsideBlockEffectApplier effectApplier, boolean isPrecise) {
@@ -10,12 +10,18 @@
          effectApplier.runAfter(InsideBlockEffectType.FIRE_IGNITE, e -> e.hurt(e.level().damageSources().inFire(), this.fireDamage));
      }
  
--    public static void fireIgnite(Entity entity) {
-+    public static void fireIgnite(Entity entity, BlockPos pos) { // Paper - track position inside effect was triggered on
++    // Youer start - keep the body in the vanilla signature (declared first); Paper's trigger position travels
++    // via a one-shot thread-local (falls back to the entity's block position)
++    private static final ThreadLocal<BlockPos> fireIgnite$pos = new ThreadLocal<>();
++
+     public static void fireIgnite(Entity entity) {
++        final BlockPos pendingPos = fireIgnite$pos.get();
++        fireIgnite$pos.remove();
++        final BlockPos pos = pendingPos != null ? pendingPos : entity.blockPosition(); // Paper - track position inside effect was triggered on
          if (!entity.fireImmune()) {
              if (entity.getRemainingFireTicks() < 0) {
                  entity.setRemainingFireTicks(entity.getRemainingFireTicks() + 1);
-@@ -144,30 +_,42 @@
+@@ -144,30 +_,53 @@
              }
  
              if (entity.getRemainingFireTicks() >= 0) {
@@ -35,10 +41,20 @@
              }
          }
      }
++
++    public static void fireIgnite(Entity entity, BlockPos pos) { // Paper - track position inside effect was triggered on
++        fireIgnite$pos.set(pos);
++        try {
++            fireIgnite(entity);
++        } finally {
++            fireIgnite$pos.remove();
++        }
++    }
++    // Youer end
  
      @Override
--    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
-+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston, net.minecraft.world.item.context.UseOnContext context) { // CraftBukkit - context
+     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
++        final net.minecraft.world.item.context.UseOnContext context = youer$onPlaceContext(); // CraftBukkit - context // Youer - via thread-local, vanilla signature kept
          if (!oldState.is(state.getBlock())) {
              if (inPortalDimension(level)) {
                  Optional<PortalShape> optionalShape = PortalShape.findEmptyPortalShape(level, pos, Direction.Axis.X);

@@ -52,11 +52,16 @@
  
      private LevelChunkSection(LevelChunkSection source) {
          this.nonEmptyBlockCount = source.nonEmptyBlockCount;
-@@ -31,14 +_,20 @@
+@@ -31,14 +_,26 @@
          this.biomes = source.biomes.copy();
      }
  
--    public LevelChunkSection(PalettedContainer<BlockState> states, PalettedContainerRO<Holder<Biome>> biomes) {
++    // Youer start - keep the vanilla constructor (biomes as read-only view) for mods
+     public LevelChunkSection(PalettedContainer<BlockState> states, PalettedContainerRO<Holder<Biome>> biomes) {
++        this(states, biomes instanceof PalettedContainer<Holder<Biome>> container ? container : biomes.copy());
++    }
++    // Youer end
++
 +    public LevelChunkSection(PalettedContainer<BlockState> states, PalettedContainer<Holder<Biome>> biomes) {
          this.states = states;
          this.biomes = biomes;

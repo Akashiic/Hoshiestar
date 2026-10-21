@@ -777,7 +777,7 @@ public class CraftHumanEntity extends CraftLivingEntity implements HumanEntity {
     @Override
     public boolean dropItem(boolean dropAll) {
         if (!(this.getHandle() instanceof ServerPlayer player)) return false;
-        boolean success = player.drop(dropAll);
+        boolean success = player.youer$drop(dropAll); // Youer - drop(boolean) is void again
         if (!success) {
             return false;
         }

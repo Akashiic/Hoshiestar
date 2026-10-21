@@ -8,15 +8,17 @@
  import net.minecraft.world.level.block.Blocks;
  import net.minecraft.world.level.block.NetherPortalBlock;
  import net.minecraft.world.level.block.state.BlockState;
-@@ -39,17 +_,63 @@
+@@ -38,18 +_,75 @@
+         this.level = level;
      }
  
-     public Optional<BlockPos> findClosestPortalPosition(BlockPos approximateExitPos, boolean toNether, WorldBorder worldBorder) {
-+        // CraftBukkit start
-+        return findClosestPortalPosition(approximateExitPos, worldBorder, toNether ? 16 : 128); // Search Radius
-+    }
++    // Youer start - the bodies stay in the vanilla signatures (mods mixin into them / their call sites);
++    // the CraftBukkit radius / entity arrive through one-shot thread locals set by the overloads
++    public static final ThreadLocal<Integer> findClosestPortalPosition$radius = new ThreadLocal<>();
++    public static final ThreadLocal<Object[]> createPortal$args = new ThreadLocal<>(); // {Entity, Integer createRadius}
++    // Youer end
 +
-+    public Optional<BlockPos> findClosestPortalPosition(BlockPos approximateExitPos, WorldBorder worldBorder, int radius) {
+     public Optional<BlockPos> findClosestPortalPosition(BlockPos approximateExitPos, boolean toNether, WorldBorder worldBorder) {
          PoiManager poiManager = this.level.getPoiManager();
 -        int radius = toNether ? 16 : 128;
 -        poiManager.ensureLoadedAndValid(this.level, approximateExitPos, radius);
@@ -25,7 +27,11 @@
 -            .filter(worldBorder::isWithinBounds)
 -            .filter(pos -> this.level.getBlockState(pos).hasProperty(BlockStateProperties.HORIZONTAL_AXIS))
 -            .min(Comparator.<BlockPos>comparingDouble(p -> p.distSqr(approximateExitPos)).thenComparingInt(Vec3i::getY));
-+        // int radius = toNether ? 16 : 128;
+-    }
++        // CraftBukkit start
++        Integer radiusOverride = findClosestPortalPosition$radius.get(); // Youer
++        findClosestPortalPosition$radius.remove(); // Youer
++        int radius = radiusOverride != null ? radiusOverride : (toNether ? 16 : 128);
 +        // CraftBukkit end
 +        // Paper start - optimise poi lookup
 +        //poiManager.ensureLoadedAndValid(this.level, approximateExitPos, radius); // Paper - optimise poi lookup - we can let it load as it reads
@@ -67,14 +73,21 @@
 +        // now we're done
 +        return Optional.ofNullable(lowestYRecord == null ? null : lowestYRecord.getPos());
 +        // Paper end - optimise poi lookup
-     }
++    }
++
++    // Youer start
++    public Optional<BlockPos> findClosestPortalPosition(BlockPos approximateExitPos, WorldBorder worldBorder, int radius) {
++        findClosestPortalPosition$radius.set(radius);
++        return this.findClosestPortalPosition(approximateExitPos, false, worldBorder);
++    }
++    // Youer end
  
      public Optional<BlockUtil.FoundRectangle> createPortal(BlockPos origin, Direction.Axis portalAxis) {
 +        // CraftBukkit start
-+        return this.createPortal(origin, portalAxis, null, 16);
-+    }
-+
-+    public Optional<BlockUtil.FoundRectangle> createPortal(BlockPos origin, Direction.Axis portalAxis, net.minecraft.world.entity.Entity entity, int createRadius) {
++        Object[] args = createPortal$args.get(); // Youer
++        createPortal$args.remove(); // Youer
++        net.minecraft.world.entity.Entity entity = args != null ? (net.minecraft.world.entity.Entity) args[0] : null;
++        int createRadius = args != null ? (Integer) args[1] : 16;
 +        // CraftBukkit end
          Direction direction = Direction.get(Direction.AxisDirection.POSITIVE, portalAxis);
          double closestFullDistanceSqr = -1.0;
@@ -122,7 +135,7 @@
                  }
              }
          }
-@@ -148,10 +_,20 @@
+@@ -148,13 +_,30 @@
          for (int width = 0; width < 2; width++) {
              for (int heightx = 0; heightx < 3; heightx++) {
                  mutable.setWithOffset(closestFullPosition, width * direction.getStepX(), heightx, width * direction.getStepZ());
@@ -144,6 +157,16 @@
          return Optional.of(new BlockUtil.FoundRectangle(closestFullPosition.immutable(), 2, 3));
      }
  
++    // Youer start
++    public Optional<BlockUtil.FoundRectangle> createPortal(BlockPos origin, Direction.Axis portalAxis, net.minecraft.world.entity.Entity entity, int createRadius) {
++        createPortal$args.set(new Object[] { entity, createRadius });
++        return this.createPortal(origin, portalAxis);
++    }
++    // Youer end
++
+     private boolean canPortalReplaceBlock(BlockPos.MutableBlockPos pos) {
+         BlockState blockState = this.level.getBlockState(pos);
+         return blockState.canBeReplaced() && blockState.getFluidState().isEmpty();
 @@ -168,6 +_,13 @@
                  mutable.setWithOffset(
                      origin, direction.getStepX() * width + clockWise.getStepX() * offset, height, direction.getStepZ() * width + clockWise.getStepZ() * offset

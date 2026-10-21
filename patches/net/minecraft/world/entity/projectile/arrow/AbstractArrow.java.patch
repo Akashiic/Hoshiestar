@@ -161,18 +161,15 @@
          }
      }
  
-@@ -401,9 +_,9 @@
+@@ -401,7 +_,7 @@
      }
  
      @Override
 -    public void push(double xa, double ya, double za) {
-+    public void push(final double xa, final double ya, final double za, final @Nullable Entity pushingEntity) { // Paper - add push source entity param
++    public void push(final double xa, final double ya, final double za) { // Youer - vanilla signature, Paper's pushing entity travels in Entity#push$pushingEntity
          if (!this.isInGround()) {
--            super.push(xa, ya, za);
-+            super.push(xa, ya, za, pushingEntity); // Paper - add push source entity param
+             super.push(xa, ya, za);
          }
-     }
- 
 @@ -430,7 +_,7 @@
              }
  
@@ -266,7 +263,7 @@
  
          this.pickup = switch (owner) {
              case Player ignored when this.pickup == AbstractArrow.Pickup.DISALLOWED -> AbstractArrow.Pickup.ALLOWED;
-@@ -634,17 +_,32 @@
+@@ -634,19 +_,53 @@
      @Override
      public void playerTouch(Player player) {
          if (!this.level().isClientSide() && (this.isInGround() || this.isNoPhysics()) && this.shakeTime <= 0) {
@@ -295,11 +292,32 @@
      }
  
 -    protected boolean tryPickup(Player player) {
-+    protected boolean tryPickup(final Player player, final ItemStack pickupItem) { // Paper - pass custom pickup item
++    // Youer start - keep the body in the vanilla tryPickup(Player) so mod overrides and mixins apply; Paper's custom
++    // pickup item (from PlayerPickupArrowEvent) is a one-shot field, getPickupItem() when called directly.
++    private @Nullable ItemStack tryPickup$item;
++
++    protected final ItemStack youer$pickupItem() {
++        return this.tryPickup$item != null ? this.tryPickup$item : this.getPickupItem();
++    }
++
++    protected boolean tryPickup(final Player player) {
++        final ItemStack pickupItem = this.youer$pickupItem();
++        // Youer end
          return switch (this.pickup) {
              case DISALLOWED -> false;
 -            case ALLOWED -> player.getInventory().add(this.getPickupItem());
 +            case ALLOWED -> player.getInventory().add(pickupItem); // Paper - pass custom pickup item
              case CREATIVE_ONLY -> player.hasInfiniteMaterials();
          };
++    }
++
++    protected final boolean tryPickup(final Player player, final ItemStack pickupItem) { // Paper - pass custom pickup item // Youer - delegates to the vanilla signature
++        this.tryPickup$item = pickupItem;
++        try {
++            return this.tryPickup(player);
++        } finally {
++            this.tryPickup$item = null;
++        }
      }
+ 
+     public ItemStack getPickupItem() {

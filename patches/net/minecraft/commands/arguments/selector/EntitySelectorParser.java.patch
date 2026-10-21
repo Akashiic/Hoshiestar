@@ -12,19 +12,40 @@
          return source instanceof PermissionSetSupplier sender && sender.permissions().hasPermission(Permissions.COMMANDS_ENTITY_SELECTORS);
      }
  
-@@ -194,8 +_,10 @@
+@@ -194,8 +_,14 @@
          };
      }
  
--    protected void parseSelector() throws CommandSyntaxException {
++    // Youer start - keep the body in the vanilla parseSelector() so mod mixins targeting it apply; CraftBukkit's flag is a one-shot field
++    private boolean parseSelector$overridePermissions;
++
+     protected void parseSelector() throws CommandSyntaxException {
 -        this.usesSelectors = true;
-+    // CraftBukkit start
-+    protected void parseSelector(boolean overridePermissions) throws CommandSyntaxException {
-+        this.usesSelectors = !overridePermissions;
-+        // CraftBukkit end
++        final boolean overridePermissions = this.parseSelector$overridePermissions;
++        this.parseSelector$overridePermissions = false;
++        this.usesSelectors = !overridePermissions; // CraftBukkit
++        // Youer end
          this.suggestions = this::suggestSelector;
          if (!this.reader.canRead()) {
              throw ERROR_MISSING_SELECTOR_TYPE.createWithContext(this.reader);
+@@ -260,6 +_,17 @@
+         }
+     }
+ 
++    // CraftBukkit start - declared after the vanilla signature (mixin selectors without descriptor bind the first match)
++    protected void parseSelector(boolean overridePermissions) throws CommandSyntaxException {
++        this.parseSelector$overridePermissions = overridePermissions; // Youer
++        try {
++            this.parseSelector();
++        } finally {
++            this.parseSelector$overridePermissions = false;
++        }
++    }
++    // CraftBukkit end
++
+     protected void parseNameOrUUID() throws CommandSyntaxException {
+         if (this.reader.canRead()) {
+             this.suggestions = this::suggestName;
 @@ -457,6 +_,12 @@
      }
  

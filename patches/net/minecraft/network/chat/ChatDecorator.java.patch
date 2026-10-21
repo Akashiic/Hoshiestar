@@ -1,20 +1,16 @@
 --- a/net/minecraft/network/chat/ChatDecorator.java
 +++ b/net/minecraft/network/chat/ChatDecorator.java
-@@ -5,7 +_,14 @@
- 
- @FunctionalInterface
+@@ -7,5 +_,13 @@
  public interface ChatDecorator {
--    ChatDecorator PLAIN = (player, plain) -> plain;
--
--    Component decorate(@Nullable ServerPlayer player, Component plain);
-+    ChatDecorator PLAIN = (player, plain) -> java.util.concurrent.CompletableFuture.completedFuture(plain); // Paper - adventure; support async chat decoration events
-+
-+    @Deprecated @io.papermc.paper.annotation.DoNotUse // Paper - adventure; support chat decoration events (callers should use the overload with CommandSourceStack)
-+    java.util.concurrent.CompletableFuture<Component> decorate(@Nullable ServerPlayer player, Component plain); // Paper - adventure; support async chat decoration events
+     ChatDecorator PLAIN = (player, plain) -> plain;
+ 
++    // Youer - vanilla (synchronous) signature kept as the functional method: mods implement it with lambdas and call it directly
++    @Deprecated // Paper - adventure; support chat decoration events (callers should use the overload with CommandSourceStack)
+     Component decorate(@Nullable ServerPlayer player, Component plain);
 +
 +    // Paper start - adventure; support async chat decoration events
 +    default java.util.concurrent.CompletableFuture<Component> decorate(@Nullable ServerPlayer sender, net.minecraft.commands.@Nullable CommandSourceStack commandSourceStack, Component plain) {
-+        throw new UnsupportedOperationException("Must override this implementation");
++        return java.util.concurrent.CompletableFuture.completedFuture(this.decorate(sender, plain)); // Youer - plain (mod) decorators are synchronous
 +    }
 +    // Paper end - adventure; support async chat decoration events
  }

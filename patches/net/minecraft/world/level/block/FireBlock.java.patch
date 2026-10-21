@@ -234,10 +234,9 @@
  
      @Override
 -    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
--        super.onPlace(state, level, pos, oldState, movedByPiston);
++    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) { // Youer - vanilla signature (context via BlockBehaviour#youer$onPlaceContext)
+         super.onPlace(state, level, pos, oldState, movedByPiston);
 -        level.scheduleTick(pos, this, getFireTickDelay(level.getRandom()));
-+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston, final net.minecraft.world.item.context.UseOnContext context) {
-+        super.onPlace(state, level, pos, oldState, movedByPiston, context);
 +        level.scheduleTick(pos, this, getFireTickDelay(level)); // Paper - Add fire-tick-delay option
      }
  

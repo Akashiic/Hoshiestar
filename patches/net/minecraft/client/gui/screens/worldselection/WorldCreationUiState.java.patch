@@ -1,5 +1,14 @@
 --- a/net/minecraft/client/gui/screens/worldselection/WorldCreationUiState.java
 +++ b/net/minecraft/client/gui/screens/worldselection/WorldCreationUiState.java
+@@ -56,7 +_,7 @@
+         this.targetFolder = this.findResultFolder(this.name);
+         this.gameMode = settings.initialWorldCreationOptions().selectedGameMode();
+         this.gameRules = new GameRules(settings.dataConfiguration().enabledFeatures());
+-        this.gameRules.setAll(settings.initialWorldCreationOptions().gameRuleOverwrites(), null);
++        this.gameRules.setAll(settings.initialWorldCreationOptions().gameRuleOverwrites(), (net.minecraft.server.MinecraftServer) null); // Youer - disambiguate from the Paper ServerLevel overload
+         Optional.ofNullable(settings.initialWorldCreationOptions().flatLevelPreset())
+             .flatMap(key -> settings.worldgenLoadContext().lookup(Registries.FLAT_LEVEL_GENERATOR_PRESET).flatMap(registry -> registry.get(key)))
+             .map(reference -> reference.value().settings())
 @@ -227,7 +_,7 @@
  
      public @Nullable PresetEditor getPresetEditor() {

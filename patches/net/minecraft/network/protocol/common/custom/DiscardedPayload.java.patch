@@ -1,21 +1,14 @@
 --- a/net/minecraft/network/protocol/common/custom/DiscardedPayload.java
 +++ b/net/minecraft/network/protocol/common/custom/DiscardedPayload.java
-@@ -4,13 +_,31 @@
+@@ -4,13 +_,24 @@
  import net.minecraft.network.codec.StreamCodec;
  import net.minecraft.resources.Identifier;
  
 -public record DiscardedPayload(Identifier id) implements CustomPacketPayload {
-+public class DiscardedPayload implements CustomPacketPayload { // Paper - store data
-+    private final Identifier id;
-+    private byte[] data;
-+
++// Youer - a record again, as in vanilla (binary compatibility: java.lang.Record supertype, equals/hashCode/toString by id)
++public record DiscardedPayload(Identifier id, byte @org.jspecify.annotations.Nullable [] data) implements CustomPacketPayload { // Paper - store data
 +    public DiscardedPayload(Identifier id) {
-+        this.id = id;
-+    }
-+
-+    public DiscardedPayload(Identifier id, byte[] data) {
-+        this.id = id;
-+        this.data = data;
++        this(id, null);
 +    }
 +
      public static <T extends FriendlyByteBuf> StreamCodec<T, DiscardedPayload> codec(Identifier id, int maxPayloadSize) {
@@ -23,7 +16,7 @@
 +        return CustomPacketPayload.codec((payload, buf) -> {
 +            // Paper start
 +            // Always write data
-+            buf.writeBytes(payload.data);
++            if (payload.data != null) buf.writeBytes(payload.data); // Youer - vanilla constructor carries no data
 +        }, buf -> {
              int length = buf.readableBytes();
              if (length >= 0 && length <= maxPayloadSize) {
@@ -36,17 +29,25 @@
              } else {
                  throw new IllegalArgumentException("Payload may not be larger than " + maxPayloadSize + " bytes");
              }
-@@ -20,5 +_,13 @@
-     @Override
+@@ -21,4 +_,21 @@
      public CustomPacketPayload.Type<DiscardedPayload> type() {
          return new CustomPacketPayload.Type<>(this.id);
-+    }
-+
-+    public Identifier id() {
-+        return id;
-+    }
-+
-+    public byte[] data() {
-+        return data;
      }
++
++    // Youer start - vanilla record semantics: identity is the channel id (the payload bytes are Paper's addition)
++    @Override
++    public boolean equals(Object o) {
++        return this == o || o instanceof DiscardedPayload other && this.id.equals(other.id);
++    }
++
++    @Override
++    public int hashCode() {
++        return this.id.hashCode();
++    }
++
++    @Override
++    public String toString() {
++        return "DiscardedPayload[id=" + this.id + "]";
++    }
++    // Youer end
  }

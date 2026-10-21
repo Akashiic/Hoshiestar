@@ -300,23 +300,16 @@
      @Override
      public void handleEntityEvent(byte id) {
          if (id == 31 && this.level().isClientSide() && this.hookedIn instanceof Player player && player.isLocalPlayer()) {
-@@ -516,8 +_,15 @@
- 
-     @Override
-     public void remove(Entity.RemovalReason reason) {
-+        // CraftBukkit start - add Bukkit remove cause
-+        this.remove(reason, null);
-+    }
-+
-+    @Override
-+    public void remove(Entity.RemovalReason reason, EntityRemoveEvent.Cause cause) {
-+        // CraftBukkit end
-         this.updateOwnerInfo(null);
--        super.remove(reason);
-+        super.remove(reason, cause); // CraftBukkit - add Bukkit remove cause
+@@ -515,7 +_,8 @@
      }
  
      @Override
+-    public void remove(Entity.RemovalReason reason) {
++    public void remove(Entity.RemovalReason reason) { // Youer - vanilla signature, cause travels in Entity#remove$cause
++        // CraftBukkit end
+         this.updateOwnerInfo(null);
+         super.remove(reason);
+     }
 @@ -563,7 +_,7 @@
          if (this.getPlayerOwner() == null) {
              int ownerId = packet.getData();

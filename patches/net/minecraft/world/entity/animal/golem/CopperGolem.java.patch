@@ -198,21 +198,18 @@
  
      @Override
      public boolean readyForShearing() {
-@@ -441,9 +_,15 @@
+@@ -441,8 +_,13 @@
      }
  
      @Override
 -    protected void actuallyHurt(ServerLevel level, DamageSource source, float dmg) {
--        super.actuallyHurt(level, source, dmg);
-+    // CraftBukkit start - void -> boolean
-+    public boolean actuallyHurt(ServerLevel level, DamageSource source, float dmg, EntityDamageEvent event) {
-+        boolean damageResult = super.actuallyHurt(level, source, dmg, event);
-+        if (!damageResult) {
-+            return false;
++    protected void actuallyHurt(ServerLevel level, DamageSource source, float dmg) { // Youer - vanilla signature
+         super.actuallyHurt(level, source, dmg);
++        // CraftBukkit start - skip when the damage event was cancelled
++        if (!this.youer$actuallyHurtResult()) {
++            return;
 +        }
 +        // CraftBukkit end
          this.setState(CopperGolemState.IDLE);
-+        return true; // CraftBukkit
      }
  
-     @Override

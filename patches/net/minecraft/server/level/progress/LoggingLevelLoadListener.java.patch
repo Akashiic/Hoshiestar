@@ -1,12 +1,19 @@
 --- a/net/minecraft/server/level/progress/LoggingLevelLoadListener.java
 +++ b/net/minecraft/server/level/progress/LoggingLevelLoadListener.java
-@@ -17,17 +_,21 @@
+@@ -17,17 +_,28 @@
      private long startTime = Long.MAX_VALUE;
      private long nextLogTime = Long.MAX_VALUE;
  
 -    public LoggingLevelLoadListener(boolean includePlayerChunks) {
 +    // Paper start - add level
-+    private final net.minecraft.server.level.ServerLevel level;
++    private final net.minecraft.server.level.@org.jspecify.annotations.Nullable ServerLevel level;
++
++    // Youer start - vanilla constructor (binary compatibility with mods)
++    public LoggingLevelLoadListener(final boolean includePlayerChunks) {
++        this(includePlayerChunks, null);
++    }
++    // Youer end
++
 +    public LoggingLevelLoadListener(final boolean includePlayerChunks, net.minecraft.server.level.ServerLevel level) {
 +        this.level = level;
 +        // Paper end - add level

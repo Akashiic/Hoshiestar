@@ -20,7 +20,7 @@
  ) {
      private static final Codec<List<SavedTick<Block>>> BLOCK_TICKS_CODEC = SavedTick.codec(BuiltInRegistries.BLOCK.byNameCodec()).listOf();
      private static final Codec<List<SavedTick<Fluid>>> FLUID_TICKS_CODEC = SavedTick.codec(BuiltInRegistries.FLUID.byNameCodec()).listOf();
-@@ -107,106 +_,243 @@
+@@ -107,106 +_,270 @@
      public static final String BLOCK_LIGHT_TAG = "BlockLight";
      public static final String SKY_LIGHT_TAG = "SkyLight";
  
@@ -80,6 +80,33 @@
 +    ) {
 +        this(containerFactory, chunkPos, minSectionY, lastUpdateTime, inhabitedTime, chunkStatus, blendingData, belowZeroRetrogen, upgradeData, carvingMask, heightmaps, packedTicks, postProcessingSections, lightCorrect, sectionData, entities, blockEntities, structureData, null, null, null); // CraftBukkit
 +    }
++
++    // Youer start - keep NeoForge's constructor (with attachment/aux light data) for mods; no Bukkit PDC
++    public SerializableChunkData(
++            PalettedContainerFactory containerFactory,
++            ChunkPos chunkPos,
++            int minSectionY,
++            long lastUpdateTime,
++            long inhabitedTime,
++            ChunkStatus chunkStatus,
++            BlendingData.@Nullable Packed blendingData,
++            @Nullable BelowZeroRetrogen belowZeroRetrogen,
++            UpgradeData upgradeData,
++            long @Nullable [] carvingMask,
++            Map<Heightmap.Types, long[]> heightmaps,
++            ChunkAccess.PackedTicks packedTicks,
++            @Nullable ShortList[] postProcessingSections,
++            boolean lightCorrect,
++            List<SerializableChunkData.SectionData> sectionData,
++            List<CompoundTag> entities,
++            List<CompoundTag> blockEntities,
++            CompoundTag structureData,
++            @Nullable CompoundTag attachmentData,
++            @Nullable ListTag auxLightData
++    ) {
++        this(containerFactory, chunkPos, minSectionY, lastUpdateTime, inhabitedTime, chunkStatus, blendingData, belowZeroRetrogen, upgradeData, carvingMask, heightmaps, packedTicks, postProcessingSections, lightCorrect, sectionData, entities, blockEntities, structureData, attachmentData, auxLightData, null);
++    }
++    // Youer end
 +
      public static SerializableChunkData parse(LevelHeightAccessor levelHeight, PalettedContainerFactory containerFactory, CompoundTag chunkData) {
 +        net.minecraft.server.level.ServerLevel serverLevel = (net.minecraft.server.level.ServerLevel) levelHeight; // Paper - Anti-Xray This is is seemingly only called from ChunkMap, where, we have a server level. We'll fight this later if needed.

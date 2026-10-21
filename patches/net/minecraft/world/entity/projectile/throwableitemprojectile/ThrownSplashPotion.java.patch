@@ -29,7 +29,7 @@
  
      @Override
 -    public void onHitAsPotion(ServerLevel level, ItemStack potionItem, HitResult hitResult) {
-+    public boolean onHitAsPotion(ServerLevel level, ItemStack potionItem, @org.jspecify.annotations.Nullable HitResult hitResult) { // Paper - More projectile API
++    public void onHitAsPotion(ServerLevel level, ItemStack potionItem, @org.jspecify.annotations.Nullable HitResult hitResult) { // Paper - More projectile API // Youer - vanilla void
          PotionContents contents = potionItem.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
          float durationScale = potionItem.getOrDefault(DataComponents.POTION_DURATION_SCALE, 1.0F);
          Iterable<MobEffectInstance> mobEffects = contents.getAllEffects();
@@ -87,6 +87,6 @@
                  }
              }
          }
-+        return !event.isCancelled(); // Paper - Fix potions splash events
++        this.youer$setPotionSplashCancelled(event.isCancelled()); // Paper - Fix potions splash events // Youer
      }
  }

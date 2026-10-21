@@ -1,12 +1,18 @@
 --- a/net/minecraft/server/waypoints/ServerWaypointManager.java
 +++ b/net/minecraft/server/waypoints/ServerWaypointManager.java
-@@ -20,15 +_,25 @@
+@@ -20,15 +_,31 @@
      private final Set<ServerPlayer> players = new HashSet<>();
      private final Table<ServerPlayer, WaypointTransmitter, WaypointTransmitter.Connection> connections = HashBasedTable.create();
  
 +    // Paper start - optimize ServerWaypointManager with locator bar disabled
 +    public boolean locatorBarEnabled; // Avoid a gamerule lookup for each player
 +    // Paper end - optimize ServerWaypointManager with locator bar disabled
++
++    // Youer start - vanilla constructor (binary compatibility with mods); no level to read the gamerule from, so behave as vanilla (enabled)
++    public ServerWaypointManager() {
++        this.locatorBarEnabled = true;
++    }
++    // Youer end
 +
 +    public ServerWaypointManager(net.minecraft.server.level.ServerLevel level) {
 +        this.locatorBarEnabled = level.getGameRules().get(GameRules.LOCATOR_BAR);

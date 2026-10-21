@@ -1,11 +1,21 @@
 --- a/net/minecraft/server/notifications/NotificationService.java
 +++ b/net/minecraft/server/notifications/NotificationService.java
-@@ -38,7 +_,7 @@
+@@ -38,7 +_,17 @@
  
      void playerUnbanned(NameAndId player);
  
 -    <T> void onGameRuleChanged(GameRule<T> gameRule, T value);
-+    <T> void onGameRuleChanged(net.minecraft.server.level.ServerLevel level, GameRule<T> gameRule, T value); // Paper - per-world game rules (add level param)
++    // Youer start - vanilla signature kept (binary compatibility with mods); Paper's per-world variant forwards overworld changes to it,
++    // so a mod implementation of the vanilla method keeps being notified
++    default <T> void onGameRuleChanged(GameRule<T> gameRule, T value) {
++    }
++
++    default <T> void onGameRuleChanged(net.minecraft.server.level.ServerLevel level, GameRule<T> gameRule, T value) { // Paper - per-world game rules (add level param)
++        if (level == level.getServer().overworld()) {
++            this.onGameRuleChanged(gameRule, value);
++        }
++    }
++    // Youer end
  
      void statusHeartbeat();
  }

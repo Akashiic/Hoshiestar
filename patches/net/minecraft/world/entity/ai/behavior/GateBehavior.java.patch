@@ -52,7 +52,7 @@
      }
  
      @Override
-@@ -118,20 +_,36 @@
+@@ -118,20 +_,48 @@
  
      public static enum RunningPolicy {
          RUN_ONE {
@@ -92,5 +92,17 @@
 -            final Stream<BehaviorControl<? super E>> behaviors, final ServerLevel level, final E body, final long timestamp
 +            final ShufflingList<BehaviorControl<? super E>> behaviors, final ServerLevel level, final E body, final long timestamp // Paper - Perf: Remove streams from hot code
          );
++
++        // Youer start - the vanilla Stream signature for mods that call it; GateBehavior itself uses Paper's loop above
++        public <E extends LivingEntity> void apply(
++            final Stream<BehaviorControl<? super E>> behaviors, final ServerLevel level, final E body, final long timestamp
++        ) {
++            if (this == RUN_ONE) {
++                behaviors.filter(goal -> goal.getStatus() == Behavior.Status.STOPPED).filter(goal -> goal.tryStart(level, body, timestamp)).findFirst();
++            } else {
++                behaviors.filter(goal -> goal.getStatus() == Behavior.Status.STOPPED).forEach(goal -> goal.tryStart(level, body, timestamp));
++            }
++        }
++        // Youer end
      }
  }

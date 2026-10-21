@@ -22,7 +22,7 @@
  import org.jspecify.annotations.Nullable;
  
  public class LecternBlockEntity extends BlockEntity implements Clearable, MenuProvider {
-@@ -36,11 +_,53 @@
+@@ -36,11 +_,58 @@
      public static final int NUM_DATA = 1;
      public static final int SLOT_BOOK = 0;
      public static final int NUM_SLOTS = 1;
@@ -32,8 +32,12 @@
 -        }
 -
 +    // CraftBukkit start - add fields and methods
-+    public final Container bookAccess = new LecternInventory() {}; // Youer - anonymous subclass occupies LecternBlockEntity$1 (vanilla bookAccess) so dataAccess stays $2
-+    public class LecternInventory implements Container {
++    // Youer start - marker interface; the implementation stays in the anonymous LecternBlockEntity$1 like vanilla (mod mixins target it)
++    public interface LecternInventory extends Container {
++        LecternBlockEntity getLectern();
++    }
++    // Youer end
++    public final Container bookAccess = new LecternInventory() {
 +
 +        public List<HumanEntity> transaction = new ArrayList<>();
 +        private int maxStack = 1;
@@ -74,6 +78,7 @@
 +            return LecternBlockEntity.this.getOwner();
 +        }
 +
++        @Override
 +        public LecternBlockEntity getLectern() {
 +            return LecternBlockEntity.this;
 +        }

@@ -25,7 +25,7 @@
          }
      };
  
-@@ -32,24 +_,25 @@
+@@ -32,24 +_,29 @@
      public static class StepBasedCollector implements InsideBlockEffectApplier {
          private static final InsideBlockEffectType[] APPLY_ORDER = InsideBlockEffectType.values();
          private static final int NO_STEP = -1;
@@ -43,8 +43,7 @@
          private int lastStep = -1;
  
 -        public void advanceStep(int step) {
-+        public void advanceStep(final int step, net.minecraft.core.BlockPos pos) { // Paper - track position inside effect was triggered on
-+            this.currentBlockPos = pos; // Paper - track position inside effect was triggered on
++        public void advanceStep(final int step) { // Youer - vanilla signature keeps the body
              if (this.lastStep != step) {
                  this.lastStep = step;
                  this.flushStep();
@@ -52,6 +51,11 @@
          }
  
 -        public void applyAndClear(Entity entity) {
++        public void advanceStep(final int step, net.minecraft.core.BlockPos pos) { // Paper - track position inside effect was triggered on
++            this.currentBlockPos = pos; // Paper - track position inside effect was triggered on
++            this.advanceStep(step); // Youer
++        }
++
 +        public void applyAndClear(final Entity entity) {
              this.flushStep();
  
@@ -93,17 +97,17 @@
 +        private net.minecraft.core.BlockPos currentBlockPos = null;
 +
 +        private Consumer<Entity> recorded(final InsideBlockEffectType type) {
-+            return new RecordedEffect(this.currentBlockPos.immutable(), type.effect());
++            return new RecordedEffect(this.currentBlockPos == null ? null : this.currentBlockPos.immutable(), type.youer$applier()); // Youer - null when stepped through the vanilla advanceStep(int)
 +        }
 +
 +        record RecordedEffect(
-+                net.minecraft.core.BlockPos blockPos,
++                net.minecraft.core.@org.jspecify.annotations.Nullable BlockPos blockPos,
 +                InsideBlockEffectType.Applier applier
 +        ) implements Consumer<Entity> {
 +
 +            @Override
 +            public void accept(final Entity entity) {
-+                this.applier.affect(entity, blockPos);
++                this.applier.affect(entity, blockPos != null ? blockPos : entity.blockPosition()); // Youer
 +            }
 +        }
 +        // Paper end - track position inside effect was triggered on

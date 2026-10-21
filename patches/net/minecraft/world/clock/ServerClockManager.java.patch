@@ -45,11 +45,10 @@
              this.setDirty();
          }
      }
-@@ -97,7 +_,16 @@
+@@ -97,7 +_,22 @@
          return set.booleanValue();
      }
  
--    public void addTicks(Holder<WorldClock> clock, int ticks) {
 +    // Paper start - time skip event
 +    public java.util.OptionalLong getTotalTicksToTimeMarker(final Holder<WorldClock> clock, final ResourceKey<ClockTimeMarker> timeMarkerId) {
 +        final ServerClockManager.ClockInstance instance = this.getInstance(clock);
@@ -58,6 +57,12 @@
 +        return timeMarker != null ? java.util.OptionalLong.of(timeMarker.resolveTimeToMoveTo(instance.totalTicks)) : java.util.OptionalLong.empty();
 +    }
 +    // Paper end - time skip event
++
++    // Youer start - keep the vanilla int overload for mods
+     public void addTicks(Holder<WorldClock> clock, int ticks) {
++        this.addTicks(clock, (long) ticks);
++    }
++    // Youer end
 +
 +    public void addTicks(final Holder<WorldClock> clock, final long ticks) { // Paper
          this.modifyClock(clock, instance -> instance.totalTicks = Math.max(instance.totalTicks + ticks, 0L));
@@ -209,13 +214,18 @@
                  this.partialTick = this.partialTick + this.rate;
                  int fullTicks = Mth.floor(this.partialTick);
                  this.partialTick -= fullTicks;
-@@ -171,10 +_,22 @@
+@@ -171,10 +_,28 @@
              return new ClockState(this.totalTicks, this.partialTick, this.rate, this.paused);
          }
  
--        public ClockNetworkState packNetworkState(MinecraftServer server) {
++        // Youer start - keep the vanilla/NeoForge signature for mods
+         public ClockNetworkState packNetworkState(MinecraftServer server) {
 -            boolean advanceTime = server.getGlobalGameRules().get(GameRules.ADVANCE_TIME);
 -            boolean paused = this.paused || !advanceTime;
++            return this.packNetworkState(server.getGlobalGameRules().get(GameRules.ADVANCE_TIME));
++        }
++        // Youer end
++
 +        public ClockNetworkState packNetworkState(final boolean advanceTime) { // Paper - per-world time
 +             // Neo: Use the corrected pause value
 +            boolean paused = !this.ticking(advanceTime);

@@ -1,6 +1,6 @@
 --- a/net/minecraft/network/CipherEncoder.java
 +++ b/net/minecraft/network/CipherEncoder.java
-@@ -5,14 +_,31 @@
+@@ -5,14 +_,37 @@
  import io.netty.handler.codec.MessageToByteEncoder;
  import javax.crypto.Cipher;
  
@@ -16,6 +16,12 @@
 -    }
 +public class CipherEncoder extends io.netty.handler.codec.MessageToMessageEncoder<ByteBuf> { // Paper - Use Velocity cipher; change superclass
 +    private final com.velocitypowered.natives.encryption.VelocityCipher cipher; // Paper - Use Velocity cipher
++
++    // Youer start - vanilla constructor (binary compatibility with mods)
++    public CipherEncoder(final Cipher cipher) {
++        this(new Connection.JceVelocityCipher(cipher));
++    }
++    // Youer end
 +
 +    public CipherEncoder(final com.velocitypowered.natives.encryption.VelocityCipher cipher) { // Paper - Use Velocity cipher
 +        this.cipher = cipher; // Paper - Use Velocity cipher

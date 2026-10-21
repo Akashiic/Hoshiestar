@@ -1,6 +1,6 @@
 --- a/net/minecraft/network/CipherDecoder.java
 +++ b/net/minecraft/network/CipherDecoder.java
-@@ -7,13 +_,30 @@
+@@ -7,13 +_,36 @@
  import javax.crypto.Cipher;
  
  public class CipherDecoder extends MessageToMessageDecoder<ByteBuf> {
@@ -14,6 +14,12 @@
 -        out.add(this.cipher.decipher(ctx, msg));
 -    }
 +    private final com.velocitypowered.natives.encryption.VelocityCipher cipher; // Paper - Use Velocity cipher
++
++    // Youer start - vanilla constructor (binary compatibility with mods)
++    public CipherDecoder(final Cipher cipher) {
++        this(new Connection.JceVelocityCipher(cipher));
++    }
++    // Youer end
 +
 +    public CipherDecoder(final com.velocitypowered.natives.encryption.VelocityCipher cipher) { // Paper - Use Velocity cipher
 +        this.cipher = cipher; // Paper - Use Velocity cipher

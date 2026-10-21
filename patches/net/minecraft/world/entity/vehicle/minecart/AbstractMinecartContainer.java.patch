@@ -77,26 +77,16 @@
      protected AbstractMinecartContainer(EntityType<?> type, Level level) {
          super(type, level);
      }
-@@ -73,11 +_,18 @@
+@@ -72,7 +_,8 @@
+     }
  
      @Override
-     public void remove(Entity.RemovalReason reason) {
-+        // CraftBukkit start - add Bukkit remove cause
-+        this.remove(reason, null);
-+    }
-+
-+    @Override
-+    public void remove(Entity.RemovalReason reason, EntityRemoveEvent.Cause cause) {
+-    public void remove(Entity.RemovalReason reason) {
++    public void remove(Entity.RemovalReason reason) { // Youer - vanilla signature, cause travels in Entity#remove$cause
 +        // CraftBukkit end
          if (!this.level().isClientSide() && reason.shouldDestroy()) {
              Containers.dropContents(this.level(), this, this);
          }
- 
--        super.remove(reason);
-+        super.remove(reason, cause); // CraftBukkit - add Bukkit remove cause
-     }
- 
-     @Override
 @@ -94,6 +_,8 @@
  
      @Override

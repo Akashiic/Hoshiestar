@@ -1,12 +1,20 @@
 --- a/net/minecraft/server/jsonrpc/JsonRpcNotificationService.java
 +++ b/net/minecraft/server/jsonrpc/JsonRpcNotificationService.java
-@@ -101,7 +_,8 @@
+@@ -101,9 +_,17 @@
      }
  
      @Override
--    public <T> void onGameRuleChanged(GameRule<T> gameRule, T value) {
 +    public <T> void onGameRuleChanged(net.minecraft.server.level.ServerLevel level, GameRule<T> gameRule, T value) { // Paper - per-world game rules (add level param)
 +        if (level != level.getServer().overworld()) return; // Paper - per-world game rules - use overworld for vanilla protocol
++        this.onGameRuleChanged(gameRule, value); // Youer - body in the vanilla signature
++    }
++
++    // Youer start - vanilla signature (binary compatibility with mods)
++    @Override
+     public <T> void onGameRuleChanged(GameRule<T> gameRule, T value) {
          this.broadcastNotification(OutgoingRpcMethods.GAMERULE_CHANGED, GameRulesService.getTypedRule(this.minecraftApi, gameRule, value));
      }
++    // Youer end
  
+     @Override
+     public void statusHeartbeat() {
