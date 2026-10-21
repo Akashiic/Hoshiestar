@@ -86,7 +86,7 @@
          super.aiStep();
          if (!this.isPersistenceRequired() && this.isTrap() && this.trapTime++ >= 18000) {
 -            this.discard();
-+            this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
          }
      }
  

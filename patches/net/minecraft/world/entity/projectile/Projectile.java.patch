@@ -185,7 +185,7 @@
 +        }
 +
 +        public boolean attemptSpawn(final org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason reason) {
-+            if (!this.world.addFreshEntity(this.projectile, reason)) return false;
++            if (!this.world.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(this.projectile, reason))) return false;
 +            this.projectile.applyOnProjectileSpawned(this.world, this.projectileStack);
 +            return true;
 +        }

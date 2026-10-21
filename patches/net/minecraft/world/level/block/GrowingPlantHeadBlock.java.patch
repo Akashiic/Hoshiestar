@@ -38,17 +38,17 @@
              }
          }
      }
-+
-+    // Paper start - Fix Spigot growth modifiers
-+    protected BlockState getGrowIntoState(BlockState state, RandomSource random, @org.jspecify.annotations.Nullable Level level) {
-+        return this.getGrowIntoState(state, random);
-+    }
-+    // Paper end - Fix Spigot growth modifiers
  
++    // Paper start - Fix Spigot growth modifiers
      protected BlockState getGrowIntoState(BlockState growFromState, RandomSource random) {
          return growFromState.cycle(AGE);
      }
  
++    protected BlockState getGrowIntoState(BlockState state, RandomSource random, @org.jspecify.annotations.Nullable Level level) {
++        return this.getGrowIntoState(state, random);
++    }
++    // Paper end - Fix Spigot growth modifiers
++
      public BlockState getMaxAgeState(BlockState fromState) {
 -        return fromState.setValue(AGE, 25);
 +        return fromState.setValue(AGE, getMaxGrowthAge()); // Purpur - kelp, cave, weeping, and twisting configurable max growth age

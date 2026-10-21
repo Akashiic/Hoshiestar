@@ -5,7 +5,7 @@
                          witch.snapTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.0F, 0.0F);
                          witch.finalizeSpawn(level, level.getCurrentDifficultyAt(pos), EntitySpawnReason.STRUCTURE, null);
 -                        level.addFreshEntityWithPassengers(witch);
-+                        level.addFreshEntityWithPassengers(witch, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CHUNK_GEN); // CraftBukkit - add SpawnReason
++                        level.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(witch, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CHUNK_GEN)); // CraftBukkit - add SpawnReason
                      }
                  }
              }
@@ -14,7 +14,7 @@
                      cat.snapTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.0F, 0.0F);
                      cat.finalizeSpawn(level, level.getCurrentDifficultyAt(pos), EntitySpawnReason.STRUCTURE, null);
 -                    level.addFreshEntityWithPassengers(cat);
-+                    level.addFreshEntityWithPassengers(cat, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CHUNK_GEN); // CraftBukkit - add SpawnReason
++                    level.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(cat, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CHUNK_GEN)); // CraftBukkit - add SpawnReason
                  }
              }
          }

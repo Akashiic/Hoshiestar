@@ -51,7 +51,7 @@
 -
 -            return true;
 +                // CraftBukkit end
-+                this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.DEATH); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.DEATH).discard(); // CraftBukkit - add Bukkit remove cause
 +            }
 +        } else {
 +            // CraftBukkit start

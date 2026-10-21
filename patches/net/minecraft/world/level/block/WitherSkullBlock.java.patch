@@ -37,7 +37,7 @@
 +                        // Paper end
 +                        witherBoss.setSummoner(blockState.getBlock().placer == null ? null : blockState.getBlock().placer.getUUID()); // Purpur - Summoner API
 +                        // CraftBukkit start
-+                        if (!level.addFreshEntity(witherBoss, CreatureSpawnEvent.SpawnReason.BUILD_WITHER)) {
++                        if (!level.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(witherBoss, CreatureSpawnEvent.SpawnReason.BUILD_WITHER))) {
 +                            return;
 +                        }
 +                        CarvedPumpkinBlock.clearPatternBlocks(level, match); // CraftBukkit - from above

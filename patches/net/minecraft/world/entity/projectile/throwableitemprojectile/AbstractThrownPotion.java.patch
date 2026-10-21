@@ -52,7 +52,7 @@
 +                        : LevelEvent.PARTICLES_SPELL_POTION_SPLASH;
 +                level.levelEvent(type, this.blockPosition(), potion.getColor());
 +            } // Paper - Fix potions splash events
-+            this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.HIT); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.HIT).discard(); // CraftBukkit - add Bukkit remove cause
          }
      }
  

@@ -206,11 +206,15 @@
          if (this.canPlayerFitWithinBlocksAndEntitiesWhen(Pose.SWIMMING)) {
              Pose desiredPose = this.getDesiredPose();
              Pose actualPose;
-@@ -418,6 +_,18 @@
+@@ -418,10 +_,22 @@
          }
      }
  
 +    // Paper start - Inventory close reason; unused code, but to keep signatures aligned
+     public void closeContainer() {
+         this.containerMenu = this.inventoryMenu;
+     }
+ 
 +    public void closeContainer(org.bukkit.event.inventory.InventoryCloseEvent.Reason reason) {
 +        this.closeContainer();
 +        this.containerMenu = this.inventoryMenu;
@@ -222,9 +226,9 @@
 +    }
 +    // Paper end - special close for unloaded inventory
 +
-     public void closeContainer() {
-         this.containerMenu = this.inventoryMenu;
+     protected void doCloseContainer() {
      }
+ 
 @@ -429,8 +_,14 @@
      public void rideTick() {
          if (!this.level().isClientSide() && this.wantsToStopRiding() && this.isPassenger()) {

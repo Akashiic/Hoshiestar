@@ -26,7 +26,7 @@
                      }
  
 -                    serverLevel.addFreshEntityWithPassengers(vex);
-+                    serverLevel.addFreshEntityWithPassengers(vex, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPELL); // CraftBukkit - Add SpawnReason
++                    serverLevel.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(vex, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPELL)); // CraftBukkit - Add SpawnReason
                      serverLevel.gameEvent(GameEvent.ENTITY_PLACE, pos, GameEvent.Context.of(Evoker.this));
                  }
              }

@@ -25,15 +25,15 @@
          return this.add(TagEntry.optionalTag(id));
 +    }
 +
++    // FORGE: Shorthand version of replace(true)
++    public TagBuilder replace() {
++        return replace(true);
++    }
++
 +    // FORGE: Set the replace property of this tag.
 +    public TagBuilder replace(boolean value) {
 +        this.replace = value;
 +        return this;
-+    }
-+
-+    // FORGE: Shorthand version of replace(true)
-+    public TagBuilder replace() {
-+        return replace(true);
 +    }
 +
 +    // FORGE: Is this tag set to replace or not?

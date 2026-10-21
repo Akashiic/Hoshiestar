@@ -89,7 +89,7 @@
      public void notifyLeasheeRemoved(Leashable entity) {
          if (Leashable.leashableLeashedTo(this).isEmpty()) {
 -            this.discard();
-+            this.discard(EntityRemoveEvent.Cause.DROP); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DROP).discard(); // CraftBukkit - add Bukkit remove cause
          }
      }
  

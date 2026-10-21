@@ -23,7 +23,7 @@
          if (this.fuse > 0) {
 +            // Paper start - Configurable TNT height nerf
 +            if (this.level().paperConfig().fixes.tntEntityHeightNerf.test(v -> this.getY() > v)) {
-+                this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.OUT_OF_WORLD);
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.OUT_OF_WORLD).discard();
 +                return;
 +            }
 +            // Paper end - Configurable TNT height nerf
@@ -65,10 +65,10 @@
 +                }
 +                level.explode(this, damageSource, null, this.getX(), this.getY(), this.getZ(), event.getRadius(), event.getFire(), Level.ExplosionInteraction.TNT);
 +                // CraftBukkit end
-+                this.discard(EntityRemoveEvent.Cause.EXPLODE); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.EXPLODE).discard(); // CraftBukkit - add Bukkit remove cause
              } else if (this.isPrimed()) {
 -                this.discard();
-+                this.discard(EntityRemoveEvent.Cause.EXPLODE); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.EXPLODE).discard(); // CraftBukkit - add Bukkit remove cause
              }
          }
      }

@@ -11,7 +11,7 @@
  import java.util.Optional;
  import net.minecraft.core.AxisCycle;
  import net.minecraft.core.BlockPos;
-@@ -15,63 +_,547 @@
+@@ -15,63 +_,579 @@
  import net.minecraft.world.phys.AABB;
  import net.minecraft.world.phys.BlockHitResult;
  import net.minecraft.world.phys.Vec3;
@@ -401,6 +401,38 @@
 +        return this.computeFullBlock();
 +    }
 +
++    public @Nullable BlockHitResult clip(Vec3 from, Vec3 to, BlockPos pos) {
++        // Paper start - optimise collisions
++        if (this.isEmpty) {
++            return null;
++        }
++
++        final Vec3 directionOpposite = to.subtract(from);
++        if (directionOpposite.lengthSqr() < ca.spottedleaf.moonrise.patches.collisions.CollisionUtil.COLLISION_EPSILON) {
++            return null;
++        }
++
++        final Vec3 fromBehind = from.add(directionOpposite.scale(0.001));
++        final double fromBehindOffsetX = fromBehind.x - (double) pos.getX();
++        final double fromBehindOffsetY = fromBehind.y - (double) pos.getY();
++        final double fromBehindOffsetZ = fromBehind.z - (double) pos.getZ();
++
++        final AABB singleAABB = this.singleAABBRepresentation;
++        if (singleAABB != null) {
++            if (singleAABB.contains(fromBehindOffsetX, fromBehindOffsetY, fromBehindOffsetZ)) {
++                return new BlockHitResult(fromBehind, Direction.getApproximateNearest(directionOpposite.x, directionOpposite.y, directionOpposite.z).getOpposite(), pos, true);
++            }
++            return clip(singleAABB, from, to, pos);
++        }
++
++        if (ca.spottedleaf.moonrise.patches.collisions.CollisionUtil.strictlyContains((VoxelShape) (Object) this, fromBehindOffsetX, fromBehindOffsetY, fromBehindOffsetZ)) {
++            return new BlockHitResult(fromBehind, Direction.getApproximateNearest(directionOpposite.x, directionOpposite.y, directionOpposite.z).getOpposite(), pos, true);
++        }
++
++        return AABB.clip(((VoxelShape) (Object) this).toAabbs(), from, to, pos);
++        // Paper end - optimise collisions
++    }
++
 +    private static BlockHitResult clip(final AABB aabb, final Vec3 from, final Vec3 to, final BlockPos offset) {
 +        final double[] minDistanceArr = new double[] { 1.0 };
 +        final double diffX = to.x - from.x;
@@ -725,11 +757,30 @@
      }
  
      public double min(Direction.Axis aAxis, double b, double c) {
-@@ -157,46 +_,91 @@
+@@ -157,46 +_,59 @@
      }
  
      protected int findIndex(Direction.Axis axis, double coord) {
 -        return Mth.binarySearch(0, this.shape.getSize(axis) + 1, index -> coord < this.get(axis, index)) - 1;
+-    }
+-
+-    public @Nullable BlockHitResult clip(Vec3 from, Vec3 to, BlockPos pos) {
+-        if (this.isEmpty()) {
+-            return null;
+-        } else {
+-            Vec3 diff = to.subtract(from);
+-            if (diff.lengthSqr() < 1.0E-7) {
+-                return null;
+-            } else {
+-                Vec3 testPoint = from.add(diff.scale(0.001));
+-                return this.shape
+-                        .isFullWide(
+-                            this.findIndex(Direction.Axis.X, testPoint.x - pos.getX()),
+-                            this.findIndex(Direction.Axis.Y, testPoint.y - pos.getY()),
+-                            this.findIndex(Direction.Axis.Z, testPoint.z - pos.getZ())
+-                        )
+-                    ? new BlockHitResult(testPoint, Direction.getApproximateNearest(diff.x, diff.y, diff.z).getOpposite(), pos, true)
+-                    : AABB.clip(this.toAabbs(), from, to, pos);
 +        // Paper start - optimise collisions
 +        final double value = coord;
 +        switch (axis) {
@@ -753,57 +804,8 @@
 +            }
 +            default: {
 +                throw new IllegalStateException("Unknown axis: " + axis);
-+            }
-+        }
-+        // Paper end - optimise collisions
-     }
- 
-     public @Nullable BlockHitResult clip(Vec3 from, Vec3 to, BlockPos pos) {
--        if (this.isEmpty()) {
--            return null;
--        } else {
--            Vec3 diff = to.subtract(from);
--            if (diff.lengthSqr() < 1.0E-7) {
--                return null;
--            } else {
--                Vec3 testPoint = from.add(diff.scale(0.001));
--                return this.shape
--                        .isFullWide(
--                            this.findIndex(Direction.Axis.X, testPoint.x - pos.getX()),
--                            this.findIndex(Direction.Axis.Y, testPoint.y - pos.getY()),
--                            this.findIndex(Direction.Axis.Z, testPoint.z - pos.getZ())
--                        )
--                    ? new BlockHitResult(testPoint, Direction.getApproximateNearest(diff.x, diff.y, diff.z).getOpposite(), pos, true)
--                    : AABB.clip(this.toAabbs(), from, to, pos);
-+        // Paper start - optimise collisions
-+        if (this.isEmpty) {
-+            return null;
-+        }
-+
-+        final Vec3 directionOpposite = to.subtract(from);
-+        if (directionOpposite.lengthSqr() < ca.spottedleaf.moonrise.patches.collisions.CollisionUtil.COLLISION_EPSILON) {
-+            return null;
-+        }
-+
-+        final Vec3 fromBehind = from.add(directionOpposite.scale(0.001));
-+        final double fromBehindOffsetX = fromBehind.x - (double) pos.getX();
-+        final double fromBehindOffsetY = fromBehind.y - (double) pos.getY();
-+        final double fromBehindOffsetZ = fromBehind.z - (double) pos.getZ();
-+
-+        final AABB singleAABB = this.singleAABBRepresentation;
-+        if (singleAABB != null) {
-+            if (singleAABB.contains(fromBehindOffsetX, fromBehindOffsetY, fromBehindOffsetZ)) {
-+                return new BlockHitResult(fromBehind, Direction.getApproximateNearest(directionOpposite.x, directionOpposite.y, directionOpposite.z).getOpposite(), pos, true);
              }
--        }
-+            return clip(singleAABB, from, to, pos);
-+        }
-+
-+        if (ca.spottedleaf.moonrise.patches.collisions.CollisionUtil.strictlyContains((VoxelShape) (Object) this, fromBehindOffsetX, fromBehindOffsetY, fromBehindOffsetZ)) {
-+            return new BlockHitResult(fromBehind, Direction.getApproximateNearest(directionOpposite.x, directionOpposite.y, directionOpposite.z).getOpposite(), pos, true);
-+        }
-+
-+        return AABB.clip(((VoxelShape) (Object) this).toAabbs(), from, to, pos);
+         }
 +        // Paper end - optimise collisions
      }
  

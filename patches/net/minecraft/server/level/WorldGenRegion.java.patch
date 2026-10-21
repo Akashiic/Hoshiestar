@@ -144,7 +144,7 @@
      @Override
      public boolean addFreshEntity(Entity entity) {
 +        // CraftBukkit start
-+        return this.addFreshEntity(entity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.DEFAULT);
++        return this.addFreshEntity(entity, com.mohistmc.youer.util.SpawnReasonTag.take(entity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.DEFAULT)); // Youer
 +    }
 +
 +    @Override

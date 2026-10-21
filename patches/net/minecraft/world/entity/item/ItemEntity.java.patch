@@ -91,7 +91,7 @@
 +                return;
 +            }
 +            // CraftBukkit end
-+            this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
 +        }
 +    }
 +    // Paper end - EAR 2
@@ -117,7 +117,7 @@
 +        if (getItem().onEntityItemUpdate(this)) return;
          if (this.getItem().isEmpty()) {
 -            this.discard();
-+            this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
          } else {
              super.tick();
              if (this.pickupDelay > 0 && this.pickupDelay != 32767) {
@@ -163,13 +163,13 @@
 +                    if (CraftEventFactory.callItemDespawnEvent(this).isCancelled()) {
 +                        this.age = 0;
 +                    } else {
-+                        this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++                        com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
 +                    }
 +                    // CraftBukkit end
 +                }
 +            }
 +            if (item.isEmpty() && !this.isRemoved()) {
-+                this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
              }
          }
      }
@@ -226,7 +226,7 @@
          toItem.age = Math.min(toItem.age, fromItem.age);
          if (fromStack.isEmpty()) {
 -            fromItem.discard();
-+            fromItem.discard(EntityRemoveEvent.Cause.MERGE); // CraftBukkit - add Bukkit remove cause);
++            com.mohistmc.youer.util.RemoveCauseTag.tag(fromItem, EntityRemoveEvent.Cause.MERGE).discard(); // CraftBukkit - add Bukkit remove cause);
          }
      }
  
@@ -264,7 +264,7 @@
 -                this.getItem().onDestroyed(this);
 -                this.discard();
 +                this.getItem().onDestroyed(this, source);
-+                this.discard(EntityRemoveEvent.Cause.DEATH); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DEATH).discard(); // CraftBukkit - add Bukkit remove cause
              }
  
              return true;
@@ -305,7 +305,7 @@
 +        // Paper end - Friction API
          if (this.getItem().isEmpty()) {
 -            this.discard();
-+            this.discard(null); // CraftBukkit - add Bukkit remove cause
++            this.discard(); // CraftBukkit - add Bukkit remove cause
          }
      }
  
@@ -400,7 +400,7 @@
                  player.take(this, orgCount);
                  if (itemStack.isEmpty()) {
 -                    this.discard();
-+                    this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.PICKUP); // CraftBukkit - add Bukkit remove cause
++                    com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.PICKUP).discard(); // CraftBukkit - add Bukkit remove cause
                      itemStack.setCount(orgCount);
                  }
  

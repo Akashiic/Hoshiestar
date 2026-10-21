@@ -159,16 +159,21 @@
              copperGolemStatueBlockEntity.createStatue(this);
              this.dropPreservedEquipment(level);
 -            this.discard();
-+            this.discard(null); // Paper - add Bukkit remove cause
++            this.discard(); // Paper - add Bukkit remove cause
              this.playSound(SoundEvents.COPPER_GOLEM_BECOME_STATUE);
              if (this.isLeashed()) {
                  if (level.getGameRules().get(GameRules.ENTITY_DROPS)) {
-@@ -422,12 +_,30 @@
+@@ -421,13 +_,30 @@
+         return 3.0;
      }
  
++    // Paper start
      @Override
 -    public void shear(ServerLevel level, SoundSource soundSource, ItemStack tool) {
-+    // Paper start
++    public void shear(final ServerLevel level, final SoundSource soundSource, final ItemStack tool) {
++        this.shear(level, soundSource, tool, this.generateDefaultDrops(level, tool));
++    }
++
 +    public void shear(final ServerLevel level, final SoundSource soundSource, final ItemStack tool, final java.util.List<ItemStack> drops) {
          level.playSound(null, this, SoundEvents.COPPER_GOLEM_SHEAR, soundSource, 1.0F, 1.0F);
 -        ItemStack itemStack = this.getItemBySlot(EQUIPMENT_SLOT_ANTENNA);
@@ -178,11 +183,6 @@
 +        for (ItemStack drop : drops) {
 +            this.spawnAtLocation(level, drop, 1.5F);
 +        }
-+    }
-+
-+    @Override
-+    public void shear(final ServerLevel level, final SoundSource soundSource, final ItemStack tool) {
-+        this.shear(level, soundSource, tool, this.generateDefaultDrops(level, tool));
 +    }
 +
 +    @Override

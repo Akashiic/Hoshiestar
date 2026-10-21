@@ -768,6 +768,12 @@
      }
  
 +    // CraftBukkit start - add a world/entity limited version
+     public void broadcastAll(Packet<?> packet) {
+         for (ServerPlayer player : this.players) {
+             player.connection.send(packet);
+         }
+     }
+ 
 +    public void broadcastAll(Packet packet, net.minecraft.world.entity.player.Player entityhuman) {
 +        for (ServerPlayer entityplayer : this.players) { // Paper - replace for i with for each for thread safety
 +            if (entityhuman != null && !entityplayer.getBukkitEntity().canSee(entityhuman.getBukkitEntity())) {
@@ -785,12 +791,6 @@
 +    }
 +    // CraftBukkit end
 +
-     public void broadcastAll(Packet<?> packet) {
-         for (ServerPlayer player : this.players) {
-             player.connection.send(packet);
-         }
-     }
- 
 +    // Purpur start - Component related conveniences
 +    public void broadcastMiniMessage(@Nullable String message, boolean overlay) {
 +        if (message != null && !message.isEmpty()) {

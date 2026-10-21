@@ -141,7 +141,7 @@
 +                        return;
 +                    }
 +                    // Paper end - Call ShulkerDuplicateEvent
-+                    this.level().addFreshEntity(baby, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.BREEDING); // CraftBukkit - the mysteries of life
++                    this.level().addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(baby, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.BREEDING)); // CraftBukkit - the mysteries of life
                  }
              }
          }

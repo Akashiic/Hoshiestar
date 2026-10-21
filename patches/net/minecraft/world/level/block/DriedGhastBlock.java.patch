@@ -27,7 +27,7 @@
              ghastling.setYHeadRot(blockRotation);
              ghastling.snapTo(spawnAt.x(), spawnAt.y(), spawnAt.z(), blockRotation, 0.0F);
 -            level.addFreshEntity(ghastling);
-+            level.addFreshEntity(ghastling, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.REHYDRATION); // Paper - spawn reason
++            level.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(ghastling, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.REHYDRATION)); // Paper - spawn reason
              level.playSound(null, ghastling, SoundEvents.GHASTLING_SPAWN, SoundSource.BLOCKS, 1.0F, 1.0F);
          }
      }

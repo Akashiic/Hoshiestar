@@ -25,7 +25,7 @@
              mob.take(itemEntity, count - remainder.getCount());
              if (remainder.isEmpty()) {
 -                itemEntity.discard();
-+                itemEntity.discard(EntityRemoveEvent.Cause.PICKUP); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(itemEntity, EntityRemoveEvent.Cause.PICKUP).discard(); // CraftBukkit - add Bukkit remove cause
              } else {
                  itemStack.setCount(remainder.getCount());
              }

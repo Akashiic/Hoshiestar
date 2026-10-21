@@ -51,7 +51,7 @@
                  }
  
 -                this.discard();
-+                this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
              } else if (this.life < -this.random.nextInt(10)) {
                  this.flashes--;
                  this.life = 1;

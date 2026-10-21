@@ -194,7 +194,7 @@
 +            }
 +            if (!net.neoforged.neoforge.event.EventHooks.onMobSplit(this, children).isCanceled()) { // Neo
 +                for (LivingEntity living : children) {
-+                    this.level().addFreshEntity(living, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SLIME_SPLIT);
++                    this.level().addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(living, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SLIME_SPLIT));
 +                }
 +            }
 +            // CraftBukkit end

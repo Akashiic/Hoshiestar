@@ -342,7 +342,7 @@
 +        if (net.neoforged.neoforge.event.EventHooks.checkMobDespawn(this)) return;
          if (this.level().getDifficulty() == Difficulty.PEACEFUL && !this.getType().isAllowedInPeaceful()) {
 -            this.discard();
-+            this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
          } else {
              this.noActionTime = 0;
          }

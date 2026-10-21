@@ -62,7 +62,7 @@
                                                          phantom.snapTo(spawnPos, 0.0F, 0.0F);
                                                          groupData = phantom.finalizeSpawn(level, difficulty, EntitySpawnReason.NATURAL, groupData);
 -                                                        level.addFreshEntityWithPassengers(phantom);
-+                                                        level.addFreshEntityWithPassengers(phantom, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL); // CraftBukkit
++                                                        level.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(phantom, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL)); // CraftBukkit
                                                      }
                                                  }
                                              }

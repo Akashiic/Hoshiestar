@@ -265,7 +265,7 @@
                                  level, level.getCurrentDifficultyAt(reinforcement.blockPosition()), EntitySpawnReason.REINFORCEMENT, null
                              );
 -                            level.addFreshEntityWithPassengers(reinforcement);
-+                            level.addFreshEntityWithPassengers(reinforcement, CreatureSpawnEvent.SpawnReason.REINFORCEMENTS); // CraftBukkit
++                            level.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(reinforcement, CreatureSpawnEvent.SpawnReason.REINFORCEMENTS)); // CraftBukkit
                              AttributeInstance attribute = this.getAttribute(Attributes.SPAWN_REINFORCEMENTS_CHANCE);
                              AttributeModifier modifier = attribute.getModifier(REINFORCEMENT_CALLER_CHARGE_ID);
                              double existingAmount = modifier != null ? modifier.amount() : 0.0;
@@ -347,7 +347,7 @@
 +                                chicken.finalizeSpawn(level, difficulty, EntitySpawnReason.JOCKEY, null);
 +                                chicken.setChickenJockey(true);
 +                                this.startRiding(chicken, false, false);
-+                                level.addFreshEntity(chicken, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.MOUNT); // CraftBukkit
++                                level.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(chicken, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.MOUNT)); // CraftBukkit
 +                            }
 +                        } // Purpur - Configurable jockey options
                      }

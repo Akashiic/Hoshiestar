@@ -12,7 +12,7 @@
 +                        ServerPlayer newOwner = player.teleport(new TeleportTransition(
 +                            level, teleportPos, Vec3.ZERO, 0.0F, 0.0F, Relative.union(Relative.ROTATION, Relative.DELTA), TeleportTransition.DO_NOTHING).withCause(org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.ENDER_PEARL));
 +                        if (newOwner == null) {
-+                            this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.HIT);
++                            com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.HIT).discard();
 +                            return;
 +                        }
 +                        // CraftBukkit end
@@ -25,7 +25,7 @@
 -                                level.addFreshEntity(endermite);
 +                                endermite.setPlayerSpawned(true); // Purpur - Add back player spawned endermite API
 +                                endermite.snapTo(preTeleportX, preTeleportY, preTeleportZ, preTeleportYRot, preTeleportXRot); // Paper - spawn endermite at pre teleport position as teleport has been moved up
-+                                level.addFreshEntity(endermite, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.ENDER_PEARL); // Paper - add reason
++                                level.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(endermite, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.ENDER_PEARL)); // Paper - add reason
                              }
                          }
  
@@ -62,10 +62,10 @@
                  }
  
 -                this.discard();
-+                this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.HIT); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.HIT).discard(); // CraftBukkit - add Bukkit remove cause
              } else {
 -                this.discard();
-+                this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.HIT); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.HIT).discard(); // CraftBukkit - add Bukkit remove cause
              }
          }
      }
@@ -74,7 +74,7 @@
                  && !serverPlayer.wonGame
                  && serverPlayer.level().getGameRules().get(GameRules.ENDER_PEARLS_VANISH_ON_DEATH)) {
 -                this.discard();
-+                this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
              } else {
                  super.tick();
              }

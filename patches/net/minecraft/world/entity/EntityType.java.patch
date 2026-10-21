@@ -188,7 +188,7 @@
          if (entity != null) {
 -            level.addFreshEntityWithPassengers(entity);
 +            // CraftBukkit start
-+            level.addFreshEntityWithPassengers(entity, bukkitSpawnReason);
++            level.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(entity, bukkitSpawnReason));
 +            if (entity.isRemoved()) {
 +                return null; // Don't return an entity when CreatureSpawnEvent is canceled
 +            }

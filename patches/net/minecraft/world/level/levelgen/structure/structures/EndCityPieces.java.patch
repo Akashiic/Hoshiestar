@@ -1,14 +1,16 @@
 --- a/net/minecraft/world/level/levelgen/structure/structures/EndCityPieces.java
 +++ b/net/minecraft/world/level/levelgen/structure/structures/EndCityPieces.java
-@@ -398,7 +_,12 @@
+@@ -398,7 +_,13 @@
              if (markerId.startsWith("Chest")) {
                  BlockPos chestPosition = position.below();
                  if (chunkBB.isInside(chestPosition)) {
+-                    RandomizableContainer.setBlockEntityLootTable(level, random, chestPosition, BuiltInLootTables.END_CITY_TREASURE);
 +                    // CraftBukkit start - ensure block transformation
-+                    /*
-                     RandomizableContainer.setBlockEntityLootTable(level, random, chestPosition, BuiltInLootTables.END_CITY_TREASURE);
-+                    */
-+                    setCraftLootTable(level, chestPosition, random, BuiltInLootTables.END_CITY_TREASURE);
++                    if (!net.minecraft.world.level.levelgen.structure.StructurePiece.youer$transformsBlocks(level)) { // Youer - vanilla placement, mod mixins target it; the CraftBukkit path is only needed for structure transformers
++                        RandomizableContainer.setBlockEntityLootTable(level, random, chestPosition, BuiltInLootTables.END_CITY_TREASURE);
++                    } else {
++                        setCraftLootTable(level, chestPosition, random, BuiltInLootTables.END_CITY_TREASURE);
++                    }
 +                    // CraftBukkit end
                  }
              } else if (chunkBB.isInside(position) && Level.isInSpawnableBounds(position)) {

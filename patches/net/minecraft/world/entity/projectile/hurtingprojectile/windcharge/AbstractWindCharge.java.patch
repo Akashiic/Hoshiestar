@@ -22,7 +22,7 @@
              Vec3 explosionPos = hitResult.getLocation().add(scaledNormal);
              this.explode(explosionPos);
 -            this.discard();
-+            this.discard(EntityRemoveEvent.Cause.HIT); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.HIT).discard(); // CraftBukkit - add Bukkit remove cause
          }
      }
  
@@ -31,7 +31,7 @@
          super.onHit(hitResult);
          if (!this.level().isClientSide()) {
 -            this.discard();
-+            this.discard(EntityRemoveEvent.Cause.HIT); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.HIT).discard(); // CraftBukkit - add Bukkit remove cause
          }
      }
  
@@ -40,7 +40,7 @@
          if (!this.level().isClientSide() && this.getBlockY() > this.level().getMaxY() + 30) {
              this.explode(this.position());
 -            this.discard();
-+            this.discard(EntityRemoveEvent.Cause.OUT_OF_WORLD); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.OUT_OF_WORLD).discard(); // CraftBukkit - add Bukkit remove cause
          } else {
              super.tick();
          }

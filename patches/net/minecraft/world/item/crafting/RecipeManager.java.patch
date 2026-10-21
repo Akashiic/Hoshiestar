@@ -58,7 +58,7 @@
          });
          return RecipeMap.create(recipeHolders);
      }
-@@ -85,7 +_,27 @@
+@@ -85,7 +_,19 @@
          LOGGER.info("Loaded {} recipes", recipes.values().size());
      }
  
@@ -71,6 +71,17 @@
 +
 +    private FeatureFlagSet featureflagset;
 +
+     public void finalizeRecipeLoading(FeatureFlagSet enabledFlags) {
++        this.featureflagset = enabledFlags;
++        // CraftBukkit end
++        this.recipes.order(this.recipePriorities); // Neo: order recipes by priority.
+         List<SelectableRecipe.SingleInputEntry<StonecutterRecipe>> stonecutterRecipes = new ArrayList<>();
+         List<RecipeManager.IngredientCollector> propertySetCollectors = RECIPE_PROPERTY_SETS.entrySet()
+             .stream()
+@@ -119,6 +_,14 @@
+         this.recipeToDisplay = this.allDisplays.stream().collect(Collectors.groupingBy(r -> r.parent.id(), IdentityHashMap::new, Collectors.toList()));
+     }
+ 
 +    public void finalizeRecipeLoading() {
 +        if (featureflagset != null) {
 +            finalizeRecipeLoading(featureflagset);
@@ -79,13 +90,9 @@
 +        }
 +    }
 +
-     public void finalizeRecipeLoading(FeatureFlagSet enabledFlags) {
-+        this.featureflagset = enabledFlags;
-+        // CraftBukkit end
-+        this.recipes.order(this.recipePriorities); // Neo: order recipes by priority.
-         List<SelectableRecipe.SingleInputEntry<StonecutterRecipe>> stonecutterRecipes = new ArrayList<>();
-         List<RecipeManager.IngredientCollector> propertySetCollectors = RECIPE_PROPERTY_SETS.entrySet()
-             .stream()
+     private static List<Ingredient> filterDisabled(FeatureFlagSet enabledFlags, List<Ingredient> ingredients) {
+         ingredients.removeIf(e -> !isIngredientEnabled(enabledFlags, e));
+         return ingredients;
 @@ -142,7 +_,10 @@
      }
  

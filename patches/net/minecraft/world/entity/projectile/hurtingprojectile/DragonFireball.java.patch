@@ -19,9 +19,9 @@
                  this.level().levelEvent(2006, this.blockPosition(), this.isSilent() ? -1 : 1);
 -                this.level().addFreshEntity(cloud);
 -                this.discard();
-+                this.level().addFreshEntity(cloud, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.EXPLOSION); // Paper - use correct spawn reason
-+                } else cloud.discard(null); // Paper - EnderDragon Events
-+                this.discard(EntityRemoveEvent.Cause.HIT); // CraftBukkit - add Bukkit remove cause
++                this.level().addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(cloud, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.EXPLOSION)); // Paper - use correct spawn reason
++                } else cloud.discard(); // Paper - EnderDragon Events
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.HIT).discard(); // CraftBukkit - add Bukkit remove cause
              }
          }
      }

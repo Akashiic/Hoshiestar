@@ -39,7 +39,7 @@
      public void checkDespawn() {
          if (this.level().getDifficulty() == Difficulty.PEACEFUL) {
 -            this.discard();
-+            this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
          }
      }
  

@@ -11,7 +11,7 @@
  import org.jspecify.annotations.Nullable;
  
  public abstract class AbstractHorse extends Animal implements PlayerRideableJumping, HasCustomInventoryScreen, OwnableEntity {
-@@ -124,15 +_,65 @@
+@@ -124,15 +_,77 @@
      protected boolean canGallop = true;
      protected int gallopSoundCounter;
      public @Nullable EntityReference<LivingEntity> owner;
@@ -39,6 +39,10 @@
 +        this.getAttribute(Attributes.JUMP_STRENGTH).setBaseValue(this.generateJumpStrength(random));
 +    }
 +
++    protected static float generateMaxHealth(IntUnaryOperator integerByBoundProvider) {
++        return 15.0F + integerByBoundProvider.applyAsInt(8) + integerByBoundProvider.applyAsInt(9);
++    }
++
 +    protected double generateMaxHealth(double min, double max) {
 +        if (min == max) return min;
 +        int diff = Mth.floor(max - min);
@@ -48,9 +52,17 @@
 +        return base + random.nextInt(first + 1) + random.nextInt(rest + 1);
 +    }
 +
++    protected static double generateJumpStrength(DoubleSupplier probabilityProvider) {
++        return 0.4F + probabilityProvider.getAsDouble() * 0.2 + probabilityProvider.getAsDouble() * 0.2 + probabilityProvider.getAsDouble() * 0.2;
++    }
++
 +    protected double generateJumpStrength(double min, double max) {
 +        if (min == max) return min;
 +        return min + (max - min) * this.random.nextDouble();
++    }
++
++    protected static double generateSpeed(DoubleSupplier probabilityProvider) {
++        return (0.45F + probabilityProvider.getAsDouble() * 0.3 + probabilityProvider.getAsDouble() * 0.3 + probabilityProvider.getAsDouble() * 0.3) * 0.25;
 +    }
 +
 +    protected double generateSpeed(double min, double max) {
@@ -220,6 +232,25 @@
          this.allowStandSliding = true;
          this.standIfPossible();
          this.playJumpSound();
+@@ -929,18 +_,6 @@
+         }
+     }
+ 
+-    protected static float generateMaxHealth(IntUnaryOperator integerByBoundProvider) {
+-        return 15.0F + integerByBoundProvider.applyAsInt(8) + integerByBoundProvider.applyAsInt(9);
+-    }
+-
+-    protected static double generateJumpStrength(DoubleSupplier probabilityProvider) {
+-        return 0.4F + probabilityProvider.getAsDouble() * 0.2 + probabilityProvider.getAsDouble() * 0.2 + probabilityProvider.getAsDouble() * 0.2;
+-    }
+-
+-    protected static double generateSpeed(DoubleSupplier probabilityProvider) {
+-        return (0.45F + probabilityProvider.getAsDouble() * 0.3 + probabilityProvider.getAsDouble() * 0.3 + probabilityProvider.getAsDouble() * 0.3) * 0.25;
+-    }
+-
+     @Override
+     public boolean onClimbable() {
+         return false;
 @@ -1017,8 +_,13 @@
              groupData = new AgeableMob.AgeableMobGroupData(0.2F);
          }

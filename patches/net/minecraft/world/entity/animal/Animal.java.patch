@@ -133,7 +133,7 @@
 +            this.finalizeSpawnChildFromBreeding$counter.set(experience);
              this.finalizeSpawnChildFromBreeding(level, partner, offspring);
 -            level.addFreshEntityWithPassengers(offspring);
-+            level.addFreshEntityWithPassengers(offspring, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.BREEDING);
++            level.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(offspring, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.BREEDING));
 +            // CraftBukkit end
          }
      }

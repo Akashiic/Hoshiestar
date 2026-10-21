@@ -460,7 +460,7 @@
                                          level, level.getCurrentDifficultyAt(mob.blockPosition()), EntitySpawnReason.CHUNK_GENERATION, groupSpawnData
                                      );
 -                                    level.addFreshEntityWithPassengers(mob);
-+                                    level.addFreshEntityWithPassengers(mob, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CHUNK_GEN); // CraftBukkit
++                                    level.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(mob, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CHUNK_GEN)); // CraftBukkit
                                      success = true;
                                  }
                              }

@@ -97,7 +97,7 @@
 +                            if (org.bukkit.craftbukkit.event.CraftEventFactory.callSpawnerSpawnEvent(entity, pos).isCancelled()) {
 +                                continue;
 +                            }
-+                            if (!level.tryAddFreshEntityWithPassengers(entity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPAWNER)) {
++                            if (!level.tryAddFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(entity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPAWNER))) {
 +                                // Paper end
                                  this.delay(level, pos);
                                  return;

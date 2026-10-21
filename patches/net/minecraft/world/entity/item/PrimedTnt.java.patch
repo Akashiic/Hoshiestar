@@ -45,7 +45,7 @@
          this.applyEffectsFromBlocks();
 +        // Paper start - Configurable TNT height nerf
 +        if (this.level().paperConfig().fixes.tntEntityHeightNerf.test(v -> this.getY() > v)) {
-+            this.discard(EntityRemoveEvent.Cause.OUT_OF_WORLD);
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.OUT_OF_WORLD).discard();
 +            return;
 +        }
 +        // Paper end - Configurable TNT height nerf
@@ -62,7 +62,7 @@
              if (!this.level().isClientSide()) {
                  this.explode();
              }
-+            this.discard(EntityRemoveEvent.Cause.EXPLODE); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.EXPLODE).discard(); // CraftBukkit - add Bukkit remove cause
 +            // CraftBukkit end
          } else {
              this.updateFluidInteraction();
@@ -130,7 +130,7 @@
 +            tntItem.setPickUpDelay(10);
 +
 +            inHand.hurtAndBreak(1, player, hand.asEquipmentSlot());
-+            serverWorld.addFreshEntity(tntItem, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CUSTOM);
++            serverWorld.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(tntItem, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CUSTOM));
 +
 +            this.playSound(net.minecraft.sounds.SoundEvents.SHEEP_SHEAR);
 +

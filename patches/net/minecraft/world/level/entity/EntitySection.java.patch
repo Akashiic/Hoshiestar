@@ -1,15 +1,38 @@
 --- a/net/minecraft/world/level/entity/EntitySection.java
 +++ b/net/minecraft/world/level/entity/EntitySection.java
-@@ -19,6 +_,12 @@
+@@ -19,14 +_,7 @@
          this.storage = new ClassInstanceMultiMap<>(entityClass);
      }
  
+-    public void add(T entity) {
+-        this.storage.add(entity);
+-    }
+-
+-    public boolean remove(T entity) {
+-        return this.storage.remove(entity);
+-    }
+-
 +    // Paper start - support retrieving all entities, regardless of whether they are accessible
+     public AbortableIterationConsumer.Continuation getEntities(AABB bb, AbortableIterationConsumer<T> entities) {
+         for (T entity : this.storage) {
+             if (entity.getBoundingBox().intersects(bb) && entities.accept(entity).shouldAbort()) {
+@@ -35,6 +_,19 @@
+         }
+ 
+         return AbortableIterationConsumer.Continuation.CONTINUE;
++    }
++
 +    public void getEntities(java.util.List<T> into) {
 +        into.addAll(this.storage);
 +    }
 +    // Paper end - support retrieving all entities, regardless of whether they are accessible
 +
-     public void add(T entity) {
-         this.storage.add(entity);
++    public void add(T entity) {
++        this.storage.add(entity);
++    }
++
++    public boolean remove(T entity) {
++        return this.storage.remove(entity);
      }
+ 
+     public <U extends T> AbortableIterationConsumer.Continuation getEntities(EntityTypeTest<T, U> type, AABB bb, AbortableIterationConsumer<? super U> consumer) {

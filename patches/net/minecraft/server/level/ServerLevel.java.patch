@@ -1485,7 +1485,7 @@
 -
 -    public void addDuringTeleport(Entity entity) {
 +        // CraftBukkit start
-+        return this.addFreshEntity(entity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.DEFAULT);
++        return this.addFreshEntity(entity, com.mohistmc.youer.util.SpawnReasonTag.take(entity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.DEFAULT)); // Youer - reason tagged by the (vanilla) call site
 +    }
 +
 +    @Override
@@ -1612,7 +1612,7 @@
 +
 +    public boolean tryAddFreshEntityWithPassengers(final Entity entity) {
 +        // CraftBukkit start
-+        return this.tryAddFreshEntityWithPassengers(entity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.DEFAULT);
++        return this.tryAddFreshEntityWithPassengers(entity, com.mohistmc.youer.util.SpawnReasonTag.take(entity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.DEFAULT)); // Youer
 +    }
 +
 +    public boolean tryAddFreshEntityWithPassengers(final Entity entity, final org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason reason) {
@@ -1621,7 +1621,7 @@
 +            return false;
 +        }
 +
-+        this.addFreshEntityWithPassengers(entity, reason); // CraftBukkit
++        this.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(entity, reason)); // CraftBukkit
 +        return true;
      }
  

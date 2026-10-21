@@ -21,7 +21,7 @@
 +                        return InteractionResult.PASS;
 +                    }
 +                    itemStack.hurtAndBreak(1, player, hand.asEquipmentSlot()); // Paper - moved after event
-+                    level.addFreshEntity(copperGolem, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.REANIMATE); // Paper - add SpawnReason
++                    level.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(copperGolem, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.REANIMATE)); // Paper - add SpawnReason
 +                    level.setBlock(pos, newState, Block.UPDATE_ALL);
 +                    // Paper end - call EntityChangeBlockEvent and spawnReason
                      return InteractionResult.SUCCESS;

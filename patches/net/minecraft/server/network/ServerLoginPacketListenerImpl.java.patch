@@ -89,7 +89,7 @@
          if (this.state == ServerLoginPacketListenerImpl.State.VERIFYING) {
              this.verifyLoginAndFinishConnectionSetup(Objects.requireNonNull(this.authenticatedProfile));
          }
-@@ -80,16 +_,40 @@
+@@ -80,16 +_,17 @@
              this.finishLoginAndWaitForClient(this.authenticatedProfile);
          }
  
@@ -103,19 +103,31 @@
 +            this.disconnectAsync(Component.translatable("multiplayer.disconnect.slow_login")); // Paper
          }
      }
-+
+ 
+-    @Override
+-    public boolean isAcceptingMessages() {
+-        return this.connection.isConnected();
+-    }
+-
 +    // CraftBukkit start
+     public void disconnect(Component component) {
+         try {
+             LOGGER.info("Disconnecting {}: {}", this.getUserName(), component.getString());
+@@ -100,6 +_,29 @@
+         }
+     }
+ 
 +    @Deprecated
 +    public void disconnect(String reason) {
 +        this.disconnect(io.papermc.paper.adventure.PaperAdventure.asVanilla(ColorAPI.adventure(reason))); // Paper - Fix hex colors not working in some kick messages
 +    }
 +    // CraftBukkit end
- 
-     @Override
-     public boolean isAcceptingMessages() {
-         return this.connection.isConnected();
-     }
- 
++
++    @Override
++    public boolean isAcceptingMessages() {
++        return this.connection.isConnected();
++    }
++
 +    // Paper start
 +    public void disconnectAsync(Component reason) {
 +        try {
@@ -128,9 +140,9 @@
 +    }
 +    // Paper end
 +
-     public void disconnect(Component component) {
-         try {
-             LOGGER.info("Disconnecting {}: {}", this.getUserName(), component.getString());
+     private boolean isPlayerAlreadyInWorld(GameProfile gameProfile) {
+         return this.server.getPlayerList().getPlayer(gameProfile.id()) != null;
+     }
 @@ -117,7 +_,14 @@
      @Override
      public void handleHello(ServerboundHelloPacket packet) {

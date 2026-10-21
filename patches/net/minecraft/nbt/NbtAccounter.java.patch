@@ -1,10 +1,17 @@
 --- a/net/minecraft/nbt/NbtAccounter.java
 +++ b/net/minecraft/nbt/NbtAccounter.java
-@@ -48,6 +_,16 @@
+@@ -48,6 +_,7 @@
          }
      }
  
 +    // Paper start - Track codec depth
+     public void pushDepth() {
+         if (this.depth >= this.maxDepth) {
+             throw new NbtAccounterException("Tried to read NBT tag with too high complexity, depth > " + this.maxDepth);
+@@ -56,12 +_,51 @@
+         }
+     }
+ 
 +    public void pushDepth(final int depth) {
 +        if (this.depth + depth >= this.maxDepth) {
 +            throw new NbtAccounterException("Tried to read NBT tag with too high complexity, depth > " + this.maxDepth);
@@ -14,10 +21,9 @@
 +    }
 +    // Paper end - Track codec depth
 +
-     public void pushDepth() {
-         if (this.depth >= this.maxDepth) {
-             throw new NbtAccounterException("Tried to read NBT tag with too high complexity, depth > " + this.maxDepth);
-@@ -62,6 +_,36 @@
+     public void popDepth() {
+         if (this.depth <= 0) {
+             throw new NbtAccounterException("NBT-Accounter tried to pop stack-depth at top-level");
          } else {
              this.depth--;
          }

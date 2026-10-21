@@ -76,7 +76,7 @@
                          }
  
 -                        this.level().addFreshEntity(chicken);
-+                        this.level().addFreshEntity(chicken, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.EGG); // CraftBukkit
++                        this.level().addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(chicken, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.EGG)); // CraftBukkit
                      }
                  }
              }
@@ -84,7 +84,7 @@
 -            this.level().broadcastEntityEvent(this, (byte)3);
 -            this.discard();
 +            this.level().broadcastEntityEvent(this, (byte) 3);
-+            this.discard(EntityRemoveEvent.Cause.HIT); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.HIT).discard(); // CraftBukkit - add Bukkit remove cause
          }
      }
  

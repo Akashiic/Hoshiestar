@@ -62,7 +62,7 @@
 +        } else {
 +            spawnReason = org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.BUILD_IRONGOLEM;
 +        }
-+        if (!level.addFreshEntity(golem, spawnReason)) {
++        if (!level.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(golem, spawnReason))) {
 +            return;
 +        }
 +        // Paper end

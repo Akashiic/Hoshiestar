@@ -42,7 +42,7 @@
              }
  
 -            pickupEntity.discard();
-+            pickupEntity.discard(EntityRemoveEvent.Cause.PICKUP); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(pickupEntity, EntityRemoveEvent.Cause.PICKUP).discard(); // CraftBukkit - add Bukkit remove cause
              return Optional.of(InteractionResult.SUCCESS);
          } else {
              return Optional.empty();

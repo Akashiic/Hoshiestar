@@ -73,7 +73,7 @@
              this.setGuaranteedDrop(EquipmentSlot.MAINHAND);
              this.take(entity, itemStack.getCount());
 -            entity.discard();
-+            entity.discard(EntityRemoveEvent.Cause.PICKUP); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(entity, EntityRemoveEvent.Cause.PICKUP).discard(); // CraftBukkit - add Bukkit remove cause
          }
      }
  

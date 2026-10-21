@@ -1,6 +1,6 @@
 --- a/net/minecraft/server/jsonrpc/JsonRpcNotificationService.java
 +++ b/net/minecraft/server/jsonrpc/JsonRpcNotificationService.java
-@@ -101,9 +_,17 @@
+@@ -106,6 +_,15 @@
      }
  
      @Override
@@ -10,11 +10,9 @@
 +    }
 +
 +    // Youer start - vanilla signature (binary compatibility with mods)
-+    @Override
-     public <T> void onGameRuleChanged(GameRule<T> gameRule, T value) {
-         this.broadcastNotification(OutgoingRpcMethods.GAMERULE_CHANGED, GameRulesService.getTypedRule(this.minecraftApi, gameRule, value));
-     }
 +    // Youer end
- 
-     @Override
++
++    @Override
      public void statusHeartbeat() {
+         this.broadcastNotification(OutgoingRpcMethods.STATUS_HEARTBEAT, ServerStateService.status(this.minecraftApi));
+     }

@@ -9,7 +9,7 @@
 -                        spawner.setEntityId(EntityType.SILVERFISH, random);
 -                    }
 +                    // Youer start - keep the vanilla placement when lithostitched is installed, its mixin targets it (upstream #557)
-+                    if (com.mohistmc.youer.api.ServerAPI.hasMod("lithostitched")) {
++                    if (!net.minecraft.world.level.levelgen.structure.StructurePiece.youer$transformsBlocks(level)) { // Youer - vanilla placement unless a structure transformer needs the CraftBukkit path
 +                        level.setBlock(pos, Blocks.SPAWNER.defaultBlockState(), 2);
 +                        if (level.getBlockEntity(pos) instanceof SpawnerBlockEntity spawner) {
 +                            spawner.setEntityId(EntityType.SILVERFISH, random);

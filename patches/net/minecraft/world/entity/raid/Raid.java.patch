@@ -151,7 +151,7 @@
                  raider.applyRaidBuffs(level, groupNumber, false);
                  raider.setOnGround(true);
 -                level.addFreshEntityWithPassengers(raider);
-+                level.addFreshEntityWithPassengers(raider, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.RAID); // CraftBukkit
++                level.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(raider, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.RAID)); // CraftBukkit
              }
          }
      }

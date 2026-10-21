@@ -29,7 +29,7 @@
 +            if (!activePortalExists && this.level.paperConfig().entities.behavior.shouldRemoveDragon) { // Paper - Toggle for removing existing dragon
                  LOGGER.info("But we didn't have a portal, let's remove it.");
 -                dragon.discard();
-+                dragon.discard(null); // CraftBukkit - add Bukkit remove cause
++                dragon.discard(); // CraftBukkit - add Bukkit remove cause
                  this.dragonUUID = null;
              }
          }

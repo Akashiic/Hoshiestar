@@ -349,11 +349,11 @@
                  if (!this.isPassenger()) {
                      LOGGER.warn("Couldn't reattach entity to player");
 -                    vehicle.discard();
-+                    vehicle.discard(null); // CraftBukkit - add Bukkit remove cause
++                    vehicle.discard(); // CraftBukkit - add Bukkit remove cause
  
                      for (Entity entityx : vehicle.getIndirectPassengers()) {
 -                        entityx.discard();
-+                        entityx.discard(null); // CraftBukkit - add Bukkit remove cause
++                        entityx.discard(); // CraftBukkit - add Bukkit remove cause
                      }
                  }
              }
@@ -902,37 +902,6 @@
 +    private org.bukkit.event.player.PlayerRespawnEvent.@Nullable RespawnReason findRespawn$reason;
 +    private @Nullable RespawnResult findRespawn$result;
 +
-+    public @Nullable TeleportTransition findRespawnPositionAndUseSpawnBlock(
-+            final boolean consumeSpawnBlock, final TeleportTransition.PostTeleportTransition postTeleportTransition,
-+            final org.bukkit.event.player.PlayerRespawnEvent.RespawnReason respawnReason
-+    ) {
-+        RespawnResult result = this.findRespawnPositionAndUseSpawnBlock0(consumeSpawnBlock, postTeleportTransition, respawnReason);
-+        return result == null ? null : result.transition();
-+    }
-+
-+    public @Nullable RespawnResult findRespawnPositionAndUseSpawnBlock0(
-+            final boolean consumeSpawnBlock, final TeleportTransition.PostTeleportTransition postTeleportTransition,
-+            final org.bukkit.event.player.PlayerRespawnEvent.RespawnReason respawnReason
-+    ) {
-+        this.findRespawn$reason = respawnReason;
-+        this.findRespawn$result = null;
-+        final TeleportTransition transition;
-+        final RespawnResult result;
-+        try {
-+            transition = this.findRespawnPositionAndUseSpawnBlock(consumeSpawnBlock, postTeleportTransition);
-+            result = this.findRespawn$result;
-+        } finally {
-+            this.findRespawn$reason = null;
-+            this.findRespawn$result = null;
-+        }
-+        if (transition == null) {
-+            return null;
-+        }
-+        // a mod may have replaced the returned transition; keep the flags computed by the body
-+        return result != null && result.transition() == transition ? result
-+            : new RespawnResult(transition, result != null && result.isBedSpawn(), result != null && result.isAnchorSpawn());
-+    }
-+
 +    public @Nullable TeleportTransition findRespawnPositionAndUseSpawnBlock(final boolean consumeSpawnBlock, final TeleportTransition.PostTeleportTransition postTeleportTransition) {
 +        // plugins switch on the reason; a mod calling the vanilla signature directly is reported as PLUGIN
 +        final org.bukkit.event.player.PlayerRespawnEvent.RespawnReason respawnReason = this.findRespawn$reason != null ? this.findRespawn$reason : org.bukkit.event.player.PlayerRespawnEvent.RespawnReason.PLUGIN;
@@ -1013,6 +982,37 @@
 +        return respawnResult.transition();
 +        // Youer end
 +        // CraftBukkit end
++    }
++
++    public @Nullable TeleportTransition findRespawnPositionAndUseSpawnBlock(
++            final boolean consumeSpawnBlock, final TeleportTransition.PostTeleportTransition postTeleportTransition,
++            final org.bukkit.event.player.PlayerRespawnEvent.RespawnReason respawnReason
++    ) {
++        RespawnResult result = this.findRespawnPositionAndUseSpawnBlock0(consumeSpawnBlock, postTeleportTransition, respawnReason);
++        return result == null ? null : result.transition();
++    }
++
++    public @Nullable RespawnResult findRespawnPositionAndUseSpawnBlock0(
++            final boolean consumeSpawnBlock, final TeleportTransition.PostTeleportTransition postTeleportTransition,
++            final org.bukkit.event.player.PlayerRespawnEvent.RespawnReason respawnReason
++    ) {
++        this.findRespawn$reason = respawnReason;
++        this.findRespawn$result = null;
++        final TeleportTransition transition;
++        final RespawnResult result;
++        try {
++            transition = this.findRespawnPositionAndUseSpawnBlock(consumeSpawnBlock, postTeleportTransition);
++            result = this.findRespawn$result;
++        } finally {
++            this.findRespawn$reason = null;
++            this.findRespawn$result = null;
++        }
++        if (transition == null) {
++            return null;
++        }
++        // a mod may have replaced the returned transition; keep the flags computed by the body
++        return result != null && result.transition() == transition ? result
++            : new RespawnResult(transition, result != null && result.isBedSpawn(), result != null && result.isAnchorSpawn());
      }
  
      public boolean isReceivingWaypoints() {
@@ -2311,7 +2311,7 @@
      }
  
      @Override
-@@ -2139,10 +_,43 @@
+@@ -2139,10 +_,29 @@
          }
      }
  
@@ -2319,20 +2319,6 @@
 +    // removeVehicle$inSuper short-circuits re-entry from Entity/Player's overloads (whichever of them holds the body).
 +    private boolean removeVehicle$suppressCancellation;
 +    private boolean removeVehicle$inSuper;
-+
-+    @Override
-+    public void removeVehicle(final boolean suppressCancellation) { // Paper - Force entity dismount during teleportation
-+        if (this.removeVehicle$inSuper) {
-+            super.removeVehicle(suppressCancellation);
-+            return;
-+        }
-+        this.removeVehicle$suppressCancellation = suppressCancellation;
-+        try {
-+            this.removeVehicle();
-+        } finally {
-+            this.removeVehicle$suppressCancellation = false;
-+        }
-+    }
 +
      @Override
      public void removeVehicle() {
@@ -2356,6 +2342,27 @@
          if (oldVehicle instanceof LivingEntity livingEntity) {
              for (MobEffectInstance effect : livingEntity.getActiveEffects()) {
                  this.connection.send(new ClientboundRemoveMobEffectPacket(oldVehicle.getId(), effect.getEffect()));
+@@ -2154,6 +_,20 @@
+         }
+     }
+ 
++    @Override
++    public void removeVehicle(final boolean suppressCancellation) { // Paper - Force entity dismount during teleportation
++        if (this.removeVehicle$inSuper) {
++            super.removeVehicle(suppressCancellation);
++            return;
++        }
++        this.removeVehicle$suppressCancellation = suppressCancellation;
++        try {
++            this.removeVehicle();
++        } finally {
++            this.removeVehicle$suppressCancellation = false;
++        }
++    }
++
+     public CommonPlayerSpawnInfo createCommonSpawnInfo(ServerLevel level) {
+         return new CommonPlayerSpawnInfo(
+             level.dimensionTypeRegistration(),
 @@ -2294,9 +_,21 @@
          }
      }

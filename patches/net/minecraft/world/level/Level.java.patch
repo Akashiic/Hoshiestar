@@ -74,7 +74,7 @@
      @Deprecated
      private final RandomSource soundSeedGenerator = RandomSource.createThreadSafe();
      private final Holder<DimensionType> dimensionTypeRegistration;
-@@ -130,6 +_,734 @@
+@@ -130,6 +_,761 @@
      private final DamageSources damageSources;
      private final PalettedContainerFactory palettedContainerFactory;
      private long subTickCount;
@@ -292,6 +292,17 @@
 +        return this.moonrise$areChunksLoaded(
 +                minBlockX >> 4, minBlockZ >> 4, maxBlockX >> 4, maxBlockZ >> 4
 +        );
++    }
++
++    public LevelChunk getChunk(int chunkX, int chunkZ) {
++        // Paper start - Perf: make sure loaded chunks get the inlined variant of this function
++        net.minecraft.server.level.ServerChunkCache cps = ((ServerLevel)this).getChunkSource();
++        LevelChunk ifLoaded = cps.getChunkAtIfLoadedImmediately(chunkX, chunkZ);
++        if (ifLoaded != null) {
++            return ifLoaded;
++        }
++        return (LevelChunk) cps.getChunk(chunkX, chunkZ, ChunkStatus.FULL, true); // Paper - avoid a method jump
++        // Paper end - Perf: make sure loaded chunks get the inlined variant of this function
 +    }
 +
 +    /**
@@ -736,6 +747,22 @@
 +    }
 +
 +    @Override
++    public int getHeight(Heightmap.Types type, int x, int z) {
++        int y;
++        if (x >= -30000000 && z >= -30000000 && x < 30000000 && z < 30000000) {
++            if (this.hasChunk(SectionPos.blockToSectionCoord(x), SectionPos.blockToSectionCoord(z))) {
++                y = this.getChunk(SectionPos.blockToSectionCoord(x), SectionPos.blockToSectionCoord(z)).getHeight(type, x & 15, z & 15) + 1;
++            } else {
++                y = this.getMinY();
++            }
++        } else {
++            y = this.getSeaLevel() + 1;
++        }
++
++        return y;
++    }
++
++    @Override
 +    public int getHeight() {
 +        return this.height;
 +    }
@@ -955,22 +982,13 @@
      }
  
      public boolean isInValidBounds(BlockPos pos) {
-@@ -195,8 +_,72 @@
+@@ -194,9 +_,62 @@
+         return this.getChunk(SectionPos.blockToSectionCoord(pos.getX()), SectionPos.blockToSectionCoord(pos.getZ()));
      }
  
-     public LevelChunk getChunk(int chunkX, int chunkZ) {
+-    public LevelChunk getChunk(int chunkX, int chunkZ) {
 -        return (LevelChunk)this.getChunk(chunkX, chunkZ, ChunkStatus.FULL);
 -    }
-+        // Paper start - Perf: make sure loaded chunks get the inlined variant of this function
-+        net.minecraft.server.level.ServerChunkCache cps = ((ServerLevel)this).getChunkSource();
-+        LevelChunk ifLoaded = cps.getChunkAtIfLoadedImmediately(chunkX, chunkZ);
-+        if (ifLoaded != null) {
-+            return ifLoaded;
-+        }
-+        return (LevelChunk) cps.getChunk(chunkX, chunkZ, ChunkStatus.FULL, true); // Paper - avoid a method jump
-+        // Paper end - Perf: make sure loaded chunks get the inlined variant of this function
-+    }
-+
 +    // Paper start - if loaded
 +    @Nullable
 +    @Override
@@ -1336,7 +1354,29 @@
      }
  
      public void updateNeighborsAtExceptFromFacing(BlockPos pos, Block blockObject, Direction skipDirection, @Nullable Orientation orientation) {
-@@ -348,12 +_,20 @@
+@@ -326,34 +_,26 @@
+     }
+ 
+     @Override
+-    public int getHeight(Heightmap.Types type, int x, int z) {
+-        int y;
+-        if (x >= -30000000 && z >= -30000000 && x < 30000000 && z < 30000000) {
+-            if (this.hasChunk(SectionPos.blockToSectionCoord(x), SectionPos.blockToSectionCoord(z))) {
+-                y = this.getChunk(SectionPos.blockToSectionCoord(x), SectionPos.blockToSectionCoord(z)).getHeight(type, x & 15, z & 15) + 1;
+-            } else {
+-                y = this.getMinY();
+-            }
+-        } else {
+-            y = this.getSeaLevel() + 1;
+-        }
+-
+-        return y;
+-    }
+-
+-    @Override
+     public LevelLightEngine getLightEngine() {
+         return this.getChunkSource().getLightEngine();
+     }
  
      @Override
      public BlockState getBlockState(BlockPos pos) {
@@ -1429,7 +1469,7 @@
 +            final String msg = String.format("Entity threw exception at %s:%s,%s,%s", io.papermc.paper.util.MCUtil.getLevelName(entity.level()), entity.getX(), entity.getY(), entity.getZ());
 +            MinecraftServer.LOGGER.error(msg, t);
 +            getCraftServer().getPluginManager().callEvent(new com.destroystokyo.paper.event.server.ServerExceptionEvent(new com.destroystokyo.paper.exception.ServerInternalException(msg, t))); // Paper - ServerExceptionEvent
-+            entity.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.DISCARD);
++            com.mohistmc.youer.util.RemoveCauseTag.tag(entity, org.bukkit.event.entity.EntityRemoveEvent.Cause.DISCARD).discard();
 +            // Paper end - Prevent block entity and entity crashes
 +        } finally {
 +            net.neoforged.neoforge.server.timings.TimeTracker.ENTITY_UPDATE.trackEnd(entity);

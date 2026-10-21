@@ -137,12 +137,24 @@
      @Override
      public void markUnsaved() {
          boolean wasUnsaved = this.isUnsaved();
-@@ -205,8 +_,28 @@
+@@ -205,8 +_,13 @@
              : super.getListenerRegistry(section);
      }
  
 +    // Paper start - Perf: Reduce instructions and provide final method
-+    @Override
+     @Override
+     public BlockState getBlockState(BlockPos pos) {
++        if (true) {
++            return this.getBlockStateFinal(pos.getX(), pos.getY(), pos.getZ());
++        }
++        // Paper end - Perf: Reduce instructions and provide final method
+         int x = pos.getX();
+         int y = pos.getY();
+         int z = pos.getZ();
+@@ -242,27 +_,56 @@
+     }
+ 
+     @Override
 +    public BlockState getBlockState(final int x, final int y, final int z) {
 +        return this.getBlockStateFinal(x, y, z);
 +    }
@@ -157,19 +169,6 @@
 +        return this.sections[sectionIndex].getStates().get((y & 15) << 8 | (z & 15) << 4 | x & 15);
 +    }
 +
-     @Override
-     public BlockState getBlockState(BlockPos pos) {
-+        if (true) {
-+            return this.getBlockStateFinal(pos.getX(), pos.getY(), pos.getZ());
-+        }
-+        // Paper end - Perf: Reduce instructions and provide final method
-         int x = pos.getX();
-         int y = pos.getY();
-         int z = pos.getZ();
-@@ -241,28 +_,42 @@
-         }
-     }
- 
 +    // Paper start - If loaded util
 +    @Override
 +    public final FluidState getFluidIfLoaded(BlockPos pos) {
@@ -182,7 +181,7 @@
 +    }
 +    // Paper end
 +
-     @Override
++    @Override
      public FluidState getFluidState(BlockPos pos) {
          return this.getFluidState(pos.getX(), pos.getY(), pos.getZ());
      }

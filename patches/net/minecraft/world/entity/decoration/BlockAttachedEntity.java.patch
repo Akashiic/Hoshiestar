@@ -49,7 +49,7 @@
 +                        return;
 +                    }
 +                    // CraftBukkit end
-+                    this.discard(EntityRemoveEvent.Cause.DROP); // CraftBukkit - add Bukkit remove cause
++                    com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DROP).discard(); // CraftBukkit - add Bukkit remove cause
                      this.dropItem(level, null);
                  }
              }

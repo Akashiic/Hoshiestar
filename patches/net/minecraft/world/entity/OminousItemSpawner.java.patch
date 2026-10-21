@@ -5,7 +5,7 @@
                  } else {
                      spawnedEntity = new ItemEntity(level, this.getX(), this.getY(), this.getZ(), item);
 -                    level.addFreshEntity(spawnedEntity);
-+                    level.addFreshEntity(spawnedEntity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.OMINOUS_ITEM_SPAWNER); // Paper - fixes and addition to spawn reason API
++                    level.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(spawnedEntity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.OMINOUS_ITEM_SPAWNER)); // Paper - fixes and addition to spawn reason API
                  }
  
                  level.levelEvent(3021, this.blockPosition(), 1);

@@ -16,7 +16,7 @@
              output.putString("id", this.getEncodeId());
              if (player.setEntityOnShoulder(output.buildResult())) {
 -                this.discard();
-+                this.discard(EntityRemoveEvent.Cause.PICKUP); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.PICKUP).discard(); // CraftBukkit - add Bukkit remove cause
                  return true;
              }
          }

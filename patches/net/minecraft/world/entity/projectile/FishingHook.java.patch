@@ -45,13 +45,13 @@
          Player owner = this.getPlayerOwner();
          if (owner == null) {
 -            this.discard();
-+            this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
          } else if (this.level().isClientSide() || !this.shouldStopFishing(owner)) {
              if (this.onGround()) {
                  this.life++;
                  if (this.life >= 1200) {
 -                    this.discard();
-+                    this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++                    com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
                      return;
                  }
              } else {
@@ -92,7 +92,7 @@
          }
  
 -        this.discard();
-+        this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++        com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
          return true;
      }
  
@@ -284,7 +284,7 @@
 +            // CraftBukkit end
  
 -            this.discard();
-+            this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
 +            if (event != null) return event.getRodDamage();
              return dmg;
          } else {
@@ -315,7 +315,7 @@
              int ownerId = packet.getData();
              LOGGER.error("Failed to recreate fishing hook on client. {} (id: {}) is not a valid owner.", this.level().getEntity(ownerId), ownerId);
 -            this.discard();
-+            this.discard(null); // CraftBukkit - add Bukkit remove cause
++            this.discard(); // CraftBukkit - add Bukkit remove cause
          }
      }
  

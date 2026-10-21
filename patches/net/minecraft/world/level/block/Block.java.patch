@@ -89,6 +89,18 @@
      }
  
 +    // Paper start - Add BlockBreakBlockEvent
+     public static void dropResources(BlockState state, Level level, BlockPos pos) {
+         if (level instanceof ServerLevel serverLevel) {
++            beginCapturingDrops();
+             getDrops(state, serverLevel, pos, null).forEach(stack -> popResource(level, pos, stack));
+-            state.spawnAfterBreak(serverLevel, pos, ItemStack.EMPTY, true);
+-        }
+-    }
++            List<ItemEntity> captured = stopCapturingDrops();
++            net.neoforged.neoforge.common.CommonHooks.handleBlockDrops(serverLevel, pos, state, null, captured, null, ItemStack.EMPTY);
++        }
++    }
++
 +    public static boolean dropResources(final BlockState state, final Level level, final BlockPos pos, final @Nullable BlockEntity blockEntity, final BlockPos source) {
 +        if (level instanceof ServerLevel serverLevel) {
 +            List<org.bukkit.inventory.ItemStack> items = new java.util.ArrayList<>();
@@ -108,16 +120,6 @@
 +        return true;
 +    }
 +    // Paper end - Add BlockBreakBlockEvent
-+
-     public static void dropResources(BlockState state, Level level, BlockPos pos) {
-         if (level instanceof ServerLevel serverLevel) {
-+            beginCapturingDrops();
-             getDrops(state, serverLevel, pos, null).forEach(stack -> popResource(level, pos, stack));
--            state.spawnAfterBreak(serverLevel, pos, ItemStack.EMPTY, true);
-+            List<ItemEntity> captured = stopCapturingDrops();
-+            net.neoforged.neoforge.common.CommonHooks.handleBlockDrops(serverLevel, pos, state, null, captured, null, ItemStack.EMPTY);
-         }
-     }
  
      public static void dropResources(BlockState state, LevelAccessor level, BlockPos pos, @Nullable BlockEntity blockEntity) {
          if (level instanceof ServerLevel serverLevel) {

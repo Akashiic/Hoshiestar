@@ -46,44 +46,46 @@
                      } else {
                          bee.setStayOutOfHiveCountdown(400);
                      }
-@@ -138,23 +_,57 @@
+@@ -138,11 +_,18 @@
      }
  
      private List<Entity> releaseAllOccupants(BlockState state, BeehiveBlockEntity.BeeReleaseStatus releaseStatus) {
--        List<Entity> spawned = Lists.newArrayList();
--        this.stored
--            .removeIf(
--                occupantEntry -> releaseOccupant(this.level, this.worldPosition, state, occupantEntry.toOccupant(), spawned, releaseStatus, this.savedFlowerPos)
--            );
--        if (!spawned.isEmpty()) {
--            super.setChanged();
--        }
--
--        return spawned;
--    }
 +        // CraftBukkit start - This allows us to bypass the night/rain/emergency check
-+        return releaseBees(state, releaseStatus, false);
-+    }
++        final boolean force = this.releaseAllOccupants$force; // Youer - vanilla body stays here (mod mixins), see releaseBees
++        this.releaseAllOccupants$force = false; // Youer
+         List<Entity> spawned = Lists.newArrayList();
+         this.stored
+             .removeIf(
+-                occupantEntry -> releaseOccupant(this.level, this.worldPosition, state, occupantEntry.toOccupant(), spawned, releaseStatus, this.savedFlowerPos)
++                occupantEntry -> {
++                    if (force) releaseOccupant$force.set(Boolean.TRUE); // Youer
++                    return releaseOccupant(this.level, this.worldPosition, state, occupantEntry.toOccupant(), spawned, releaseStatus, this.savedFlowerPos);
++                }
+             );
++        // CraftBukkit end
+         if (!spawned.isEmpty()) {
+             super.setChanged();
+         }
+@@ -150,11 +_,50 @@
+         return spawned;
+     }
+ 
++    // Youer start
++    private boolean releaseAllOccupants$force;
++    private static final ThreadLocal<Boolean> releaseOccupant$force = new ThreadLocal<>();
 +
 +    public List<Entity> releaseBees(BlockState blockstate, BeehiveBlockEntity.BeeReleaseStatus beehiveblockentity_beereleasestatus, boolean force) {
-+        List<Entity> list = Lists.newArrayList();
-+
-+        this.stored.removeIf((beehiveblockentity_beedata) -> {
-+            return releaseOccupant(this.level, this.worldPosition, blockstate, beehiveblockentity_beedata.toOccupant(), list, beehiveblockentity_beereleasestatus, this.savedFlowerPos, force);
-+            // CraftBukkit end
-+        });
-+        if (!list.isEmpty()) {
-+            super.setChanged();
-+        }
-+
-+        return list;
++        this.releaseAllOccupants$force = force;
++        return this.releaseAllOccupants(blockstate, beehiveblockentity_beereleasestatus);
 +    }
++    // Youer end
 +
 +    // Purpur start - Stored Bee API
 +    public List<Entity> releaseBee(BlockState iblockdata, BeehiveBlockEntity.BeeData data, BeehiveBlockEntity.BeeReleaseStatus tileentitybeehive_releasestatus, boolean force) {
 +        List<Entity> list = Lists.newArrayList();
 +
-+        BeehiveBlockEntity.releaseOccupant(this.level, this.worldPosition, iblockdata, data.occupant, list, tileentitybeehive_releasestatus, this.savedFlowerPos, force);
++        if (force) releaseOccupant$force.set(Boolean.TRUE); // Youer
++        BeehiveBlockEntity.releaseOccupant(this.level, this.worldPosition, iblockdata, data.occupant, list, tileentitybeehive_releasestatus, this.savedFlowerPos);
 +
 +        if (!list.isEmpty()) {
 +            stored.remove(data);
@@ -94,7 +96,7 @@
 +        return list;
 +    }
 +    // Purpur end - Stored Bee API
- 
++
      @VisibleForDebug
      public int getOccupantCount() {
          return this.stored.size();
@@ -139,30 +141,13 @@
              }
  
 -            bee.discard();
-+            bee.discard(EntityRemoveEvent.Cause.ENTER_BLOCK); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(bee, EntityRemoveEvent.Cause.ENTER_BLOCK).discard(); // CraftBukkit - add Bukkit remove cause
              super.setChanged();
          }
      }
-@@ -199,6 +_,12 @@
-         this.stored.add(new BeehiveBlockEntity.BeeData(occupant));
-     }
- 
-+    // CraftBukkit start
-+    private static boolean releaseOccupant(final Level level, final BlockPos blockPos, final BlockState state, final BeehiveBlockEntity.Occupant beeData, final @Nullable List<Entity> spawned, final BeehiveBlockEntity.BeeReleaseStatus releaseStatus, final @Nullable BlockPos savedFlowerPos) {
-+        return releaseOccupant(level, blockPos, state, beeData, spawned, releaseStatus, savedFlowerPos, false);
-+    }
-+    // CraftBukkit end
-+
-     private static boolean releaseOccupant(
-         Level level,
-         BlockPos blockPos,
-@@ -206,60 +_,81 @@
-         BeehiveBlockEntity.Occupant beeData,
-         @Nullable List<Entity> spawned,
+@@ -208,58 +_,82 @@
          BeehiveBlockEntity.BeeReleaseStatus releaseStatus,
--        @Nullable BlockPos savedFlowerPos
-+        @Nullable BlockPos savedFlowerPos,
-+        boolean force // CraftBukkit
+         @Nullable BlockPos savedFlowerPos
      ) {
 -        if (level.environmentAttributes().getValue(EnvironmentAttributes.BEES_STAY_IN_HIVE, blockPos)
 -            && releaseStatus != BeehiveBlockEntity.BeeReleaseStatus.EMERGENCY) {
@@ -207,6 +192,10 @@
 -                        double spawnY = blockPos.getY() + 0.5 - entity.getBbHeight() / 2.0F;
 -                        double spawnZ = blockPos.getZ() + 0.5 + delta * facing.getStepZ();
 -                        entity.snapTo(spawnX, spawnY, spawnZ, entity.getYRot(), entity.getXRot());
++        // CraftBukkit start
++        final boolean force = Boolean.TRUE.equals(releaseOccupant$force.get()); // Youer - vanilla signature holds the body (mod mixins)
++        releaseOccupant$force.remove(); // Youer
++        // CraftBukkit end
 +        if (!force && level.environmentAttributes().getValue(EnvironmentAttributes.BEES_STAY_IN_HIVE, blockPos) // CraftBukkit
 +                && releaseStatus != BeehiveBlockEntity.BeeReleaseStatus.EMERGENCY) {
 +            return false;
@@ -230,7 +219,7 @@
 +                double spawnZ = blockPos.getZ() + 0.5 + delta * facing.getStepZ();
 +                entity.snapTo(spawnX, spawnY, spawnZ, entity.getYRot(), entity.getXRot());
 +            }
-+            if (!level.addFreshEntity(entity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.BEEHIVE))
++            if (!level.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(entity, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.BEEHIVE)))
 +                return false; // CraftBukkit - SpawnReason, moved from below
 +            // CraftBukkit end
 +            if (entity instanceof Bee bee) {

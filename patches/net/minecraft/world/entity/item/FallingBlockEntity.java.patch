@@ -43,7 +43,7 @@
 +
          level.setBlock(pos, state.getFluidState().createLegacyBlock(), 3);
 -        level.addFreshEntity(entity);
-+        level.addFreshEntity(entity, spawnReason); // CraftBukkit
++        level.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(entity, spawnReason)); // CraftBukkit
          return entity;
      }
  
@@ -63,7 +63,7 @@
      public void tick() {
          if (this.blockState.isAir()) {
 -            this.discard();
-+            this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
          } else {
              Block block = this.blockState.getBlock();
              this.time++;
@@ -75,7 +75,7 @@
 +                if (this.dropItem && this.level() instanceof final ServerLevel serverLevel && serverLevel.getGameRules().get(GameRules.ENTITY_DROPS)) {
 +                    this.spawnAtLocation(serverLevel, block);
 +                }
-+                this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.OUT_OF_WORLD);
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.OUT_OF_WORLD).discard();
 +                return;
 +            }
 +            // Paper end - Configurable falling blocks height nerf
@@ -107,7 +107,7 @@
                          }
  
 -                        this.discard();
-+                        this.discard(EntityRemoveEvent.Cause.DROP); // CraftBukkit - add Bukkit remove cause
++                        com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DROP).discard(); // CraftBukkit - add Bukkit remove cause
                      }
                  } else {
                      BlockState currentState = this.level().getBlockState(pos);
@@ -117,7 +117,7 @@
  
 +                                // CraftBukkit start
 +                                if (!CraftEventFactory.callEntityChangeBlockEvent(this, pos, this.blockState)) {
-+                                    this.discard(EntityRemoveEvent.Cause.DESPAWN); // SPIGOT-6586 called before the event in previous versions
++                                    com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // SPIGOT-6586 called before the event in previous versions
 +                                    return;
 +                                }
 +                                // CraftBukkit end
@@ -126,7 +126,7 @@
                                          .chunkMap
                                          .sendToTrackingPlayers(this, new ClientboundBlockUpdatePacket(pos, this.level().getBlockState(pos)));
 -                                    this.discard();
-+                                    this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++                                    com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
                                      if (block instanceof Fallable fallable) {
                                          fallable.onLand(this.level(), pos, this.blockState, currentState, this);
                                      }
@@ -135,13 +135,13 @@
                                      }
                                  } else if (this.dropItem && serverLevel.getGameRules().get(GameRules.ENTITY_DROPS)) {
 -                                    this.discard();
-+                                    this.discard(EntityRemoveEvent.Cause.DROP); // CraftBukkit - add Bukkit remove cause
++                                    com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DROP).discard(); // CraftBukkit - add Bukkit remove cause
                                      this.callOnBrokenAfterFall(block, pos);
                                      this.spawnAtLocation(serverLevel, block);
                                  }
                              } else {
 -                                this.discard();
-+                                this.discard(EntityRemoveEvent.Cause.DROP); // CraftBukkit - add Bukkit remove cause
++                                com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DROP).discard(); // CraftBukkit - add Bukkit remove cause
                                  if (this.dropItem && serverLevel.getGameRules().get(GameRules.ENTITY_DROPS)) {
                                      this.callOnBrokenAfterFall(block, pos);
                                      this.spawnAtLocation(serverLevel, block);
@@ -149,7 +149,7 @@
                              }
                          } else {
 -                            this.discard();
-+                            this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++                            com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
                              this.callOnBrokenAfterFall(block, pos);
                          }
                      }

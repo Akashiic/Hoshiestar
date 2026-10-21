@@ -83,7 +83,7 @@
              if (this.despawnDelay <= 0) {
                  this.removeLeash();
 -                this.discard();
-+                this.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++                com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
              }
          }
      }

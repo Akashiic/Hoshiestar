@@ -1,14 +1,16 @@
 --- a/net/minecraft/world/level/levelgen/structure/structures/ShipwreckPieces.java
 +++ b/net/minecraft/world/level/levelgen/structure/structures/ShipwreckPieces.java
-@@ -139,7 +_,12 @@
+@@ -139,7 +_,13 @@
          protected void handleDataMarker(String markerId, BlockPos position, ServerLevelAccessor level, RandomSource random, BoundingBox chunkBB) {
              ResourceKey<LootTable> lootTable = ShipwreckPieces.MARKERS_TO_LOOT.get(markerId);
              if (lootTable != null) {
+-                RandomizableContainer.setBlockEntityLootTable(level, random, position.below(), lootTable);
 +                // CraftBukkit start - ensure block transformation
-+                /*
-                 RandomizableContainer.setBlockEntityLootTable(level, random, position.below(), lootTable);
-+                */
-+                setCraftLootTable(level, position.below(), random, lootTable);
++                if (!net.minecraft.world.level.levelgen.structure.StructurePiece.youer$transformsBlocks(level)) { // Youer - vanilla placement, mod mixins target it; the CraftBukkit path is only needed for structure transformers
++                    RandomizableContainer.setBlockEntityLootTable(level, random, position.below(), lootTable);
++                } else {
++                    setCraftLootTable(level, position.below(), random, lootTable);
++                }
 +                // CraftBukkit end
              }
          }

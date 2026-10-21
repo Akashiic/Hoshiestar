@@ -23,7 +23,7 @@
  
  public class LeadItem extends Item {
      public LeadItem(Item.Properties properties) {
-@@ -27,40 +_,58 @@
+@@ -27,7 +_,7 @@
          if (state.is(BlockTags.FENCES)) {
              Player player = context.getPlayer();
              if (!level.isClientSide() && player != null) {
@@ -32,10 +32,13 @@
              }
          }
  
-         return InteractionResult.PASS;
+@@ -35,32 +_,51 @@
      }
  
--    public static InteractionResult bindPlayerMobs(Player player, Level level, BlockPos pos) {
+     public static InteractionResult bindPlayerMobs(Player player, Level level, BlockPos pos) {
++        return bindPlayerMobs(player, level, pos, net.minecraft.world.InteractionHand.MAIN_HAND);
++    }
++
 +    public static InteractionResult bindPlayerMobs(Player player, Level level, BlockPos pos, net.minecraft.world.InteractionHand hand) { // CraftBukkit - Add EnumHand
          List<Leashable> entitiesToLeash = Leashable.leashableInArea(level, Vec3.atCenterOf(pos), l -> l.getLeashHolder() == player);
          if (entitiesToLeash.isEmpty()) {
@@ -76,7 +79,6 @@
                  return InteractionResult.PASS;
              }
          }
--    }
 +        // CraftBukkit end
 +        boolean anyLeashed = false;
 +
@@ -98,11 +100,8 @@
 +        }
 +
 +        return InteractionResult.PASS;
-+    }
+     }
 +
 +    // CraftBukkit start
-+    public static InteractionResult bindPlayerMobs(Player player, Level level, BlockPos pos) {
-+        return bindPlayerMobs(player, level, pos, net.minecraft.world.InteractionHand.MAIN_HAND);
-+    }
 +    // CraftBukkit end
  }

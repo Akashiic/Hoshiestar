@@ -25,7 +25,7 @@
                  tadpole.snapTo(xPos, pos.getY() - 0.5, zPos, yRot, 0.0F);
                  tadpole.setPersistenceRequired();
 -                level.addFreshEntity(tadpole);
-+                level.addFreshEntity(tadpole, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.EGG); // Paper - use correct spawn reason
++                level.addFreshEntity(com.mohistmc.youer.util.SpawnReasonTag.tag(tadpole, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.EGG)); // Paper - use correct spawn reason
              }
          }
      }

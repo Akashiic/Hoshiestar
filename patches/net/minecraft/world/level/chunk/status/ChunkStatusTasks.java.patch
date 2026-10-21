@@ -78,7 +78,7 @@
 +                && java.util.Objects.equals(other.getEncodeId(), entity.getEncodeId())
 +                && entity.getBukkitEntity().getLocation().distance(other.getBukkitEntity().getLocation()) < level.paperConfig().entities.spawning.duplicateUuid.safeRegenDeleteRange
 +        ) {
-+            entity.discard(null);
++            entity.discard();
 +            return true;
 +        }
 +        if (!other.isRemoved()) {
@@ -88,7 +88,7 @@
 +                    break;
 +                }
 +                case DELETE: {
-+                    entity.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.DISCARD);
++                    com.mohistmc.youer.util.RemoveCauseTag.tag(entity, org.bukkit.event.entity.EntityRemoveEvent.Cause.DISCARD).discard();
 +                    return true;
 +                }
 +                default:

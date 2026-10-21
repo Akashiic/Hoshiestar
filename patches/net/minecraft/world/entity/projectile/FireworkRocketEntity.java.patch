@@ -72,7 +72,7 @@
          this.gameEvent(GameEvent.EXPLODE, this.getOwner());
          this.dealExplosionDamage(level);
 -        this.discard();
-+        this.discard(EntityRemoveEvent.Cause.EXPLODE); // CraftBukkit - add Bukkit remove cause
++        com.mohistmc.youer.util.RemoveCauseTag.tag(this, EntityRemoveEvent.Cause.EXPLODE).discard(); // CraftBukkit - add Bukkit remove cause
      }
  
      @Override

@@ -7,7 +7,7 @@
  import java.util.Optional;
  import net.minecraft.core.BlockPos;
  import net.minecraft.core.Direction;
-@@ -77,6 +_,22 @@
+@@ -77,6 +_,14 @@
          return level.getGameRules().get(GameRules.WATER_SOURCE_CONVERSION);
      }
  
@@ -19,7 +19,13 @@
 +    // Purpur end - Implement infinite liquids
 +
 +    // Paper start - Add BlockBreakBlockEvent
-+    @Override
+     @Override
+     protected void beforeDestroyingBlock(LevelAccessor level, BlockPos pos, BlockState state) {
+         BlockEntity blockEntity = state.hasBlockEntity() ? level.getBlockEntity(pos) : null;
+@@ -84,6 +_,14 @@
+     }
+ 
+     @Override
 +    protected void beforeDestroyingBlock(LevelAccessor level, BlockPos pos, BlockState state, BlockPos source) {
 +        BlockEntity blockEntity = state.hasBlockEntity() ? level.getBlockEntity(pos) : null;
 +        Block.dropResources(state, (Level) level, pos, blockEntity, source);
@@ -27,9 +33,10 @@
 +    // Paper end - Add BlockBreakBlockEvent
 +
 +
-     @Override
-     protected void beforeDestroyingBlock(LevelAccessor level, BlockPos pos, BlockState state) {
-         BlockEntity blockEntity = state.hasBlockEntity() ? level.getBlockEntity(pos) : null;
++    @Override
+     protected void entityInside(Level level, BlockPos pos, Entity entity, InsideBlockEffectApplier effectApplier) {
+         effectApplier.apply(InsideBlockEffectType.EXTINGUISH);
+     }
 @@ -108,8 +_,15 @@
          return 1;
      }

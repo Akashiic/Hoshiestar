@@ -30,7 +30,7 @@
      public void end() {
          if (this.flame != null) {
 -            this.flame.discard();
-+            this.flame.discard(EntityRemoveEvent.Cause.DESPAWN); // CraftBukkit - add Bukkit remove cause
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this.flame, EntityRemoveEvent.Cause.DESPAWN).discard(); // CraftBukkit - add Bukkit remove cause
              this.flame = null;
          }
      }

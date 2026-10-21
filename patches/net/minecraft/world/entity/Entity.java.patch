@@ -500,7 +500,7 @@
      public final void discard() {
 -        this.remove(Entity.RemovalReason.DISCARDED);
 +        // CraftBukkit start - add Bukkit remove cause
-+        this.discard(null);
++        this.discard(com.mohistmc.youer.util.RemoveCauseTag.take(this, null)); // Youer - cause tagged by the (vanilla) call site
 +    }
 +
 +    public final void discard(org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause cause) {
@@ -652,7 +652,7 @@
      public void tick() {
 +        // Paper start - entity despawn time limit
 +        if (this.despawnTime >= 0 && this.totalEntityAge >= this.despawnTime) {
-+            this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.DESPAWN);
++            com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.DESPAWN).discard();
 +            return;
 +        }
 +        // Paper end - entity despawn time limit
@@ -819,7 +819,7 @@
  
      protected void onBelowWorld() {
 -        this.discard();
-+        this.discard(org.bukkit.event.entity.EntityRemoveEvent.Cause.OUT_OF_WORLD); // CraftBukkit - add Bukkit remove cause
++        com.mohistmc.youer.util.RemoveCauseTag.tag(this, org.bukkit.event.entity.EntityRemoveEvent.Cause.OUT_OF_WORLD).discard(); // CraftBukkit - add Bukkit remove cause
      }
  
      public boolean isFree(double xa, double ya, double za) {

@@ -37,7 +37,7 @@
              if (skeleton != null) {
                  skeleton.startRiding(this.horse);
 -                level.addFreshEntityWithPassengers(skeleton);
-+                level.addFreshEntityWithPassengers(skeleton, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.TRAP); // CraftBukkit
++                level.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(skeleton, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.TRAP)); // CraftBukkit
  
                  for (int i = 0; i < 3; i++) {
                      AbstractHorse otherHorse = this.createHorse(difficulty);
@@ -46,7 +46,7 @@
                              otherSkeleton.startRiding(otherHorse);
                              otherHorse.push(this.horse.getRandom().triangle(0.0, 1.1485), 0.0, this.horse.getRandom().triangle(0.0, 1.1485));
 -                            level.addFreshEntityWithPassengers(otherHorse);
-+                            level.addFreshEntityWithPassengers(otherHorse, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.JOCKEY); // CraftBukkit
++                            level.addFreshEntityWithPassengers(com.mohistmc.youer.util.SpawnReasonTag.tag(otherHorse, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.JOCKEY)); // CraftBukkit
                          }
                      }
                  }
