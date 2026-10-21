@@ -14,26 +14,39 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
  */
 public class YouerMixinPlugin implements IMixinConfigPlugin {
 
-    public Set<String> mixins = new HashSet<String>();
+    /**
+     * Mod mixins that cannot apply on top of Paper/Moonrise and are skipped. Each entry duplicates an optimisation
+     * Paper already performs, or targets vanilla code that Paper's chunk/light/world-loading rewrite replaced.
+     * Whole features are listed together because their mixins depend on each other.
+     */
+    private static final List<String> INCOMPATIBLE_MIXINS = List.of(
+            // Architectury: ChunkMap hook re-implemented in ca.spottedleaf.moonrise.paper.PaperHooks
+            "dev.architectury.mixin.neoforge.neoforge.MixinChunkMap", // Architectury 21+ (26.2)
+            "dev.architectury.mixin.forge.neoforge.MixinChunkMap", // Architectury 20.x (26.1.2)
+            // ModernFix thread_priorities: Paper replaces the vanilla ForkJoinPool constructor in Util#makeExecutor and
+            // already deprioritizes worker threads
+            "org.embeddedt.modernfix.common.mixin.perf.thread_priorities.UtilMixin",
+            // ModernFix cache_strongholds: captures a ResourceKey constructor argument by type, but Paper's ServerLevel
+            // constructor takes two (dimension, typeKey); only a startup-time cache is lost
+            "org.embeddedt.modernfix.common.mixin.perf.cache_strongholds.ServerLevelMixin",
+            "org.embeddedt.modernfix.common.mixin.perf.cache_strongholds.ChunkGeneratorMixin",
+            "org.embeddedt.modernfix.common.mixin.perf.cache_strongholds.ConcentricRingsStructurePlacementMixin",
+            // ModernFix release_protochunks / compact_imposterprotochunks: shadow vanilla ChunkMap/ChunkHolder/light
+            // fields that Moonrise's chunk system and Starlight replace (Moonrise manages proto chunk lifetime itself)
+            "org.embeddedt.modernfix.common.mixin.perf.release_protochunks.ChunkHolderMixin",
+            "org.embeddedt.modernfix.common.mixin.perf.release_protochunks.ChunkMapMixin",
+            "org.embeddedt.modernfix.common.mixin.perf.release_protochunks.ImposterProtoChunkMixin",
+            "org.embeddedt.modernfix.common.mixin.perf.compact_imposterprotochunks.ChunkAccessMixin",
+            "org.embeddedt.modernfix.common.mixin.perf.compact_imposterprotochunks.ImposterProtoChunkMixin",
+            // FerriteCore fastmap: Moonrise already optimises blockstate property access and nulls propertyValues
+            "malte0811.ferritecore.mixin.fastmap.FastMapStateHolderMixin",
+            "malte0811.ferritecore.mixin.fastmap.StateDefinitionMixin"
+    );
+
     @Override
     public void onLoad(String mixinPackage) {
         Youer.LOGGER.info("YouerMixinPlugin loaded");
-        mixins.add("dev.architectury.mixin.neoforge.neoforge.MixinChunkMap"); // Architectury 21+ (26.2)
-        mixins.add("dev.architectury.mixin.forge.neoforge.MixinChunkMap"); // Architectury 20.x (26.1.2)
-        // ModernFix lowers worker thread priority through the vanilla 4-arg ForkJoinPool constructor in Util#makeExecutor;
-        // Paper replaces that call (and already deprioritizes worker threads), so the injection has no target.
-        mixins.add("org.embeddedt.modernfix.common.mixin.perf.thread_priorities.UtilMixin");
-        // ModernFix stronghold cache wraps ensureStructuresGenerated() in ServerLevel#<init> and captures the ResourceKey
-        // argument by type; Paper's constructor takes two ResourceKeys (dimension, typeKey), so the capture is ambiguous.
-        // Skip the whole feature (its mixins depend on each other); only a startup-time cache is lost.
-        mixins.add("org.embeddedt.modernfix.common.mixin.perf.cache_strongholds.ServerLevelMixin");
-        mixins.add("org.embeddedt.modernfix.common.mixin.perf.cache_strongholds.ChunkGeneratorMixin"); // needs the path set above
-        mixins.add("org.embeddedt.modernfix.common.mixin.perf.cache_strongholds.ConcentricRingsStructurePlacementMixin");
-        // FerriteCore "fastmap" replaces StateHolder's property table; Moonrise (Paper) already does the same optimisation
-        // (optimise blockstate property access) and nulls propertyValues, so both mixins of that module must be skipped.
-        mixins.add("malte0811.ferritecore.mixin.fastmap.FastMapStateHolderMixin");
-        mixins.add("malte0811.ferritecore.mixin.fastmap.StateDefinitionMixin");
-        Mixins.addBlacklist(mixins);
+        Mixins.addBlacklist(new HashSet<>(INCOMPATIBLE_MIXINS));
     }
 
     @Override
