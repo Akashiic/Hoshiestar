@@ -29,7 +29,7 @@
          this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, IronGolem.class, true));
          this.targetSelector.addGoal(5, new NearestAttackableTargetGoal<>(this, Turtle.class, 10, true, false, Turtle.BABY_ON_LAND_SELECTOR));
      }
-@@ -213,7 +_,10 @@
+@@ -213,12 +_,15 @@
      public void tick() {
          if (this.level() instanceof ServerLevel serverLevel && this.isAlive() && !this.isNoAi()) {
              if (this.isUnderWaterConverting()) {
@@ -41,6 +41,12 @@
                  if (this.conversionTime < 0) {
                      this.doUnderWaterConversion(serverLevel);
                  }
+             } else if (this.convertsInWater()) {
+-                if (this.isEyeInFluid(FluidTags.WATER)) {
++                if (this.getFluidInteraction().isEyeInFluidMatching(this, (_, type, _) -> type.getIsWaterLike())) {
+                     this.inWaterTime++;
+                     if (this.inWaterTime >= 600) {
+                         this.startUnderWaterConversion(300);
 @@ -230,14 +_,17 @@
          }
  

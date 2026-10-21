@@ -43,7 +43,7 @@
      }
  
      @Override
-@@ -106,13 +_,17 @@
+@@ -106,18 +_,26 @@
  
      @Override
      public void tick() {
@@ -65,6 +65,15 @@
  
              this.xo = this.getX();
              this.yo = this.getY();
+             this.zo = this.getZ();
+             Vec3 oldMovement = this.getDeltaMovement();
++            net.neoforged.neoforge.fluids.FluidType fluidType = this.getMaxHeightFluidType();
++            if (!fluidType.isAir() && !fluidType.isVanilla() && this.getFluidTypeHeight(fluidType) > FLOAT_HEIGHT) {
++                fluidType.setItemMovement(this);
++            } else
+             if (this.isInWater() && this.getFluidHeight(FluidTags.WATER) > 0.1F) {
+                 this.setUnderwaterMovement();
+             } else if (this.isInLava() && this.getFluidHeight(FluidTags.LAVA) > 0.1F) {
 @@ -142,7 +_,8 @@
                  this.applyEffectsFromBlocks();
                  float friction = 0.98F;

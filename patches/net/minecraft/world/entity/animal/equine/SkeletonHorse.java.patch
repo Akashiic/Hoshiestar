@@ -11,6 +11,15 @@
  public class SkeletonHorse extends AbstractHorse {
      private final SkeletonTrapGoal skeletonTrapGoal = new SkeletonTrapGoal(this);
      private static final int TRAP_MAX_LIFE = 18000;
+@@ -66,7 +_,7 @@
+ 
+     @Override
+     public SoundEvent getAmbientSound() {
+-        return this.isEyeInFluid(FluidTags.WATER) ? SoundEvents.SKELETON_HORSE_AMBIENT_WATER : SoundEvents.SKELETON_HORSE_AMBIENT;
++        return this.getFluidInteraction().isEyeInFluidMatching(this, (_, type, _) -> type.getIsWaterLike()) ? SoundEvents.SKELETON_HORSE_AMBIENT_WATER : SoundEvents.SKELETON_HORSE_AMBIENT;
+     }
+ 
+     @Override
 @@ -126,7 +_,7 @@
      public void aiStep() {
          super.aiStep();
