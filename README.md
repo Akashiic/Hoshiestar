@@ -89,8 +89,32 @@ Testes automáticos feitos num servidor real:
 | Materiais e biomas de mods vistos pela API Bukkit | 512 materiais e 68 biomas do Biomes O' Plenty |
 | Blocos, entidades, eventos, Adventure, schedulers síncrono e assíncrono | 15 de 15 verificações OK |
 | Clone limpo → `setup` → `youerJar` → boot → `stop` | OK, sem erros no log |
+| **All the Mods 11** (server pack 0.12.0-beta, 280 mods) | sobe em ~6 min, 20 TPS e ~4 ms/tick gerando chunks nas três dimensões, nenhum erro depois do "Done", `stop` limpo |
+| 3 jogadores (bots) por 15 min num servidor sem mods, com mortes, PvE e troca de dimensão forçadas via RCON | 20 TPS, nenhum kick, nenhum erro no servidor |
 
-Ainda falta testar com jogadores de verdade e com modpacks grandes. Se você testar, conte nas issues o que funcionou e o que não funcionou.
+### Modpacks feitos para um NeoForge mais antigo
+
+O Hoshiestar usa sempre o NeoForge 26.1.2 mais recente (hoje o 26.1.2.122), mesmo quando o modpack foi montado
+para um build anterior. Quase sempre isso não muda nada, mas um mod que injeta código num método que o próprio
+NeoForge mudou entre os builds quebra também no NeoForge puro. No ATM 11 (feito para o 26.1.2.109) isso aconteceu
+com um único mod:
+
+- **KubeJS 8.0.6** não carrega em NeoForge 26.1.2.110 ou mais novo. Use o **KubeJS 8.0.7** ou mais novo.
+
+Se encontrar outro caso, conte nas issues.
+
+### Como a compatibilidade com mods é verificada
+
+Além dos testes acima, três verificações automáticas comparam o bytecode do Hoshiestar com o do NeoForge puro,
+cobrindo todos os mixins dos mods de um modpack, inclusive os que estão dentro de outros jars (jar-in-jar):
+
+- se cada ponto de injeção (`INVOKE`, `FIELD`, `NEW`, `INVOKE_ASSIGN`) ainda existe com o mesmo dono e descritor;
+- se `@Shadow`, `@Accessor` e `@Invoker` ainda encontram o campo ou método;
+- se o primeiro método (e o primeiro construtor) com cada nome é o mesmo do vanilla, porque é nele que um mixin
+  sem descritor se aplica.
+
+No ATM 11 sobram apenas os mixins que o Hoshiestar desativa de propósito, porque duplicam otimizações que o Paper
+e o Moonrise já fazem (lista em `YouerMixinPlugin`).
 
 ## Limitações conhecidas
 
