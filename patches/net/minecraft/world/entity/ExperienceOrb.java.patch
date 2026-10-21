@@ -218,7 +218,7 @@
              }
  
              return true;
-@@ -277,31 +_,45 @@
+@@ -277,31 +_,52 @@
      public void playerTouch(Player player) {
          if (player instanceof ServerPlayer serverPlayer) {
              if (player.takeXpDelay == 0) {
@@ -244,8 +244,15 @@
  
      private int repairPlayerItems(ServerPlayer player, int amount) {
 -        Optional<EnchantedItemInUse> selected = EnchantmentHelper.getRandomItemWith(EnchantmentEffectComponents.REPAIR_WITH_XP, player, ItemStack::isDamaged);
-+        Optional<EnchantedItemInUse> selected = level().purpurConfig.useBetterMending ? EnchantmentHelper.getMostDamagedItemWith(EnchantmentEffectComponents.REPAIR_WITH_XP, player) :EnchantmentHelper.getRandomItemWith(// Purpur - Add option to mend the most damaged equipment first
-+                EnchantmentEffectComponents.REPAIR_WITH_XP, player, ItemStack::isDamaged);
++        // Purpur start - Add option to mend the most damaged equipment first
++        // Youer - if/else instead of a ternary: the vanilla invoke must store straight into the local (Clumps INVOKE_ASSIGN)
++        Optional<EnchantedItemInUse> selected;
++        if (level().purpurConfig.useBetterMending) {
++            selected = EnchantmentHelper.getMostDamagedItemWith(EnchantmentEffectComponents.REPAIR_WITH_XP, player);
++        } else {
++            selected = EnchantmentHelper.getRandomItemWith(EnchantmentEffectComponents.REPAIR_WITH_XP, player, ItemStack::isDamaged);
++        }
++        // Purpur end - Add option to mend the most damaged equipment first
          if (selected.isPresent()) {
              ItemStack itemStack = selected.get().itemStack();
 -            int toRepairFromXpAmount = EnchantmentHelper.modifyDurabilityToRepairFromXp(player.level(), itemStack, amount);

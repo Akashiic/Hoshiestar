@@ -20,7 +20,7 @@
      public final ServerLevel level;
      private final ThreadedLevelLightEngine lightEngine;
      private final BlockableEventLoop<Runnable> mainThreadExecutor;
-@@ -137,20 +_,43 @@
+@@ -137,20 +_,97 @@
      private final PoiManager poiManager;
      public final LongSet toDrop = new LongOpenHashSet();
      private boolean modified;
@@ -38,6 +38,60 @@
 -    private final Queue<Runnable> unloadQueue = Queues.newConcurrentLinkedQueue();
 -    private final AtomicInteger activeChunkWrites = new AtomicInteger();
 +    // Paper - rewrite chunk system
++    // Youer start - the vanilla holder map is gone with the Moonrise chunk system, but mods read it through
++    // accessors (Lootr, JourneyMap: visibleChunkMap.values()); this read-only view resolves against Moonrise
++    private volatile it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunkMap = new YouerChunkHolderView();
++
++    private final class YouerChunkHolderView extends it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap<ChunkHolder> {
++        private ca.spottedleaf.moonrise.patches.chunk_system.scheduling.ChunkHolderManager manager() {
++            return ((ca.spottedleaf.moonrise.patches.chunk_system.level.ChunkSystemServerLevel) ChunkMap.this.level).moonrise$getChunkTaskScheduler().chunkHolderManager;
++        }
++
++        @Override
++        public ChunkHolder get(long key) {
++            return ChunkMap.this.getVisibleChunkIfPresent(key);
++        }
++
++        @Override
++        public boolean containsKey(long key) {
++            return this.get(key) != null;
++        }
++
++        @Override
++        public int size() {
++            return this.manager().getChunkHolders().size();
++        }
++
++        @Override
++        public boolean isEmpty() {
++            return this.size() == 0;
++        }
++
++        @Override
++        public it.unimi.dsi.fastutil.objects.ObjectCollection<ChunkHolder> values() {
++            final java.util.List<ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder> holders = this.manager().getChunkHolders();
++            final it.unimi.dsi.fastutil.objects.ObjectArrayList<ChunkHolder> ret = new it.unimi.dsi.fastutil.objects.ObjectArrayList<>(holders.size());
++            for (final ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder holder : holders) {
++                ret.add(holder.vanillaChunkHolder);
++            }
++            return it.unimi.dsi.fastutil.objects.ObjectCollections.unmodifiable(ret);
++        }
++
++        @Override
++        public it.unimi.dsi.fastutil.longs.LongSortedSet keySet() {
++            final it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet ret = new it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet();
++            for (final ca.spottedleaf.moonrise.patches.chunk_system.scheduling.NewChunkHolder holder : this.manager().getChunkHolders()) {
++                ret.add(ca.spottedleaf.moonrise.common.util.CoordinateUtils.getChunkKey(holder.chunkX, holder.chunkZ));
++            }
++            return it.unimi.dsi.fastutil.longs.LongSortedSets.unmodifiable(ret);
++        }
++
++        @Override
++        public ChunkHolder put(long key, ChunkHolder value) {
++            throw new UnsupportedOperationException("Chunk holders are managed by the Moonrise chunk system");
++        }
++    }
++    // Youer end
      public int serverViewDistance;
 -    private final WorldGenContext worldGenContext;
 +    public final WorldGenContext worldGenContext;

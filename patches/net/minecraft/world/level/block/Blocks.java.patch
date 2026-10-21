@@ -25,7 +25,7 @@
              .instabreak()
              .sound(SoundType.FLOWERING_AZALEA)
              .noOcclusion()
-@@ -7219,11 +_,24 @@
+@@ -7219,11 +_,27 @@
      }
  
      static {
@@ -47,8 +47,11 @@
 +                }
              }
          }
-+        // Make sure this stays as a method reference, else the synthetic lambda method makes this blow up
-+        statesToInit.parallelStream().forEach(BlockBehaviour.BlockStateBase::initCache);
++        // Youer start - serial like vanilla: this runs inside Blocks.<clinit>, and mod mixins on the cache init path
++        // (getCollisionShape, ...) touch Blocks; on worker threads that waits for this class init -> deadlock (camol)
++        // statesToInit.parallelStream().forEach(BlockBehaviour.BlockStateBase::initCache);
++        statesToInit.forEach(BlockBehaviour.BlockStateBase::initCache);
++        // Youer end
 +        // Paper end - Perf: Optimize block state cache initialization
      }
  }

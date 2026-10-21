@@ -61,7 +61,7 @@
  import org.jspecify.annotations.Nullable;
  import org.slf4j.Logger;
  
-@@ -113,24 +_,35 @@
+@@ -113,24 +_,80 @@
      private static final int SEND_PLAYER_INFO_INTERVAL = 600;
      private static final SimpleDateFormat BAN_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd 'at' HH:mm:ss z", Locale.ROOT);
      private final MinecraftServer server;
@@ -76,7 +76,52 @@
 -    private final Map<UUID, PlayerAdvancements> advancements = Maps.newHashMap();
 +    // CraftBukkit start
 +    // private final Map<UUID, ServerStatsCounter> stats = Maps.newHashMap();
-+    // private final Map<UUID, PlayerAdvancements> advancements = Maps.newHashMap();
++    // Youer start - CraftBukkit keeps stats/advancements on the ServerPlayer; mods still read these vanilla maps
++    // (accessors / shadows, e.g. FTB Essentials), so expose live views over the online players
++    private final Map<UUID, ServerStatsCounter> stats = new YouerPlayerDataView<>(ServerPlayer::getStats);
++    private final Map<UUID, PlayerAdvancements> advancements = new YouerPlayerDataView<>(ServerPlayer::getAdvancements);
++
++    private final class YouerPlayerDataView<V> extends java.util.AbstractMap<UUID, V> {
++        private final java.util.function.Function<ServerPlayer, V> getter;
++
++        private YouerPlayerDataView(java.util.function.Function<ServerPlayer, V> getter) {
++            this.getter = getter;
++        }
++
++        @Override
++        public V get(Object key) {
++            ServerPlayer player = PlayerList.this.playersByUUID.get(key);
++            return player == null ? null : this.getter.apply(player);
++        }
++
++        @Override
++        public boolean containsKey(Object key) {
++            return this.get(key) != null;
++        }
++
++        @Override
++        public V put(UUID key, V value) {
++            return this.get(key); // owned by the player object; nothing to store
++        }
++
++        @Override
++        public V remove(Object key) {
++            return this.get(key); // dropped together with the player
++        }
++
++        @Override
++        public java.util.Set<Entry<UUID, V>> entrySet() {
++            Map<UUID, V> snapshot = new java.util.LinkedHashMap<>();
++            for (Map.Entry<UUID, ServerPlayer> entry : PlayerList.this.playersByUUID.entrySet()) {
++                V value = this.getter.apply(entry.getValue());
++                if (value != null) {
++                    snapshot.put(entry.getKey(), value);
++                }
++            }
++            return java.util.Collections.unmodifiableMap(snapshot).entrySet();
++        }
++    }
++    // Youer end
 +    // CraftBukkit end
      public final PlayerDataStorage playerIo;
      private final LayeredRegistryAccess<RegistryLayer> registries;

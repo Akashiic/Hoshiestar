@@ -40,7 +40,9 @@ public class YouerMixinPlugin implements IMixinConfigPlugin {
             "org.embeddedt.modernfix.common.mixin.perf.compact_imposterprotochunks.ImposterProtoChunkMixin",
             // FerriteCore fastmap: Moonrise already optimises blockstate property access and nulls propertyValues
             "malte0811.ferritecore.mixin.fastmap.FastMapStateHolderMixin",
-            "malte0811.ferritecore.mixin.fastmap.StateDefinitionMixin"
+            "malte0811.ferritecore.mixin.fastmap.StateDefinitionMixin",
+            // FerriteCore threaddetec: shrinks PalettedContainer#threadingDetector, which Moonrise already removed
+            "malte0811.ferritecore.mixin.threaddetec.PalettedContainerMixin"
     );
 
     @Override

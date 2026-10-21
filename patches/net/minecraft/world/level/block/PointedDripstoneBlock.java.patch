@@ -57,7 +57,7 @@
                              } else {
                                  BlockPos cauldronPos = findFillableCauldronBelowStalactiteTip(level, stalactiteTipPos, fluid);
                                  if (cauldronPos != null) {
-@@ -359,17 +_,17 @@
+@@ -359,18 +_,32 @@
          if (isUnmergedTipWithDirection(existingStateAtTargetPos, growToDirection.getOpposite())) {
              createMergedTips(existingStateAtTargetPos, level, targetPos);
          } else if (existingStateAtTargetPos.isAir() || existingStateAtTargetPos.is(Blocks.WATER)) {
@@ -65,19 +65,34 @@
 +            createDripstone(level, targetPos, growToDirection, DripstoneThickness.TIP, growFromPos); // CraftBukkit
          }
      }
++
++    // Youer start - vanilla signature keeps the body (mod mixins); the spread source arrives through a one-shot thread local
++    private static final ThreadLocal<BlockPos> createDripstone$source = new ThreadLocal<>();
++
++    // Youer end
  
--    private static void createDripstone(LevelAccessor level, BlockPos pos, Direction direction, DripstoneThickness thickness) {
-+    private static void createDripstone(LevelAccessor level, BlockPos pos, Direction direction, DripstoneThickness thickness, BlockPos source) { // CraftBukkit
+     private static void createDripstone(LevelAccessor level, BlockPos pos, Direction direction, DripstoneThickness thickness) {
++        final BlockPos source = createDripstone$source.get(); // CraftBukkit // Youer
++        createDripstone$source.remove(); // Youer
          BlockState state = Blocks.POINTED_DRIPSTONE
              .defaultBlockState()
              .setValue(TIP_DIRECTION, direction)
              .setValue(THICKNESS, thickness)
              .setValue(WATERLOGGED, level.getFluidState(pos).is(Fluids.WATER));
 -        level.setBlock(pos, state, 3);
+-    }
++        if (source == null) { level.setBlock(pos, state, 3); return; } // Youer - called without a spread source (mods)
 +        org.bukkit.craftbukkit.event.CraftEventFactory.handleBlockSpreadEvent(level, source, pos, state, 3); // CraftBukkit
-     }
++    }
++
++    private static void createDripstone(LevelAccessor level, BlockPos pos, Direction direction, DripstoneThickness thickness, BlockPos source) {
++        createDripstone$source.set(source);
++        createDripstone(level, pos, direction, thickness);
++    }
++    // Youer - Bukkit overload, see above
  
      private static void createMergedTips(BlockState tipState, LevelAccessor level, BlockPos tipPos) {
+         BlockPos stalactitePos;
 @@ -383,8 +_,8 @@
              stalagmitePos = tipPos.below();
          }
