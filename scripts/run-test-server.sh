@@ -47,11 +47,35 @@ fetch_lib "net/minecraft/server/1.7.10/server-1.7.10.jar" \
           "https://piston-data.mojang.com/v1/objects/952438ac4e01b4d115c5fc38f891710c4941df29/server.jar"
 echo "952438ac4e01b4d115c5fc38f891710c4941df29  libraries/net/minecraft/server/1.7.10/server-1.7.10.jar" | sha1sum -c --quiet -
 
+# Flags da JVM iguais as de producao (script de inicializacao enviado pelo admin),
+# com duas diferencas de teste: a memoria vem do parametro e nao usamos AlwaysPreTouch
+# (ele ocupa toda a memoria na hora, e a maquina de teste e menor).
+JVM_FLAGS=(
+  -Duser.timezone=America/Sao_Paulo -Dterminal.jline=false -Dterminal.ansi=true -Dfile.encoding=UTF8
+  "-Xms$XMX" "-Xmx$XMX"
+  -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions
+  -XX:+DisableExplicitGC -XX:G1NewSizePercent=40 -XX:G1MaxNewSizePercent=50 -XX:G1HeapRegionSize=16M
+  -XX:G1ReservePercent=15 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4
+  -XX:InitiatingHeapOccupancyPercent=20 -XX:G1MixedGCLiveThresholdPercent=90
+  -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem
+  -XX:MaxTenuringThreshold=1 -Dakashic.mirai.experimentalServerGeneration=true
+)
+# Agentes Java de producao. O Akashic-RGB-Transport depende do proxy Velocity e so entra
+# com HOSHIE_WITH_PROXY_AGENT=true.
+for agent in Akashic-nChat-*-agent.jar AkashicBellow-WorldEdit-*-agent.jar; do
+  [[ -f "$agent" ]] && JVM_FLAGS+=("-javaagent:$PWD/$agent")
+done
+if [[ "${HOSHIE_WITH_PROXY_AGENT:-false}" == "true" ]]; then
+  for agent in Akashic-RGB-Transport-*-agent.jar; do
+    [[ -f "$agent" ]] && JVM_FLAGS+=("-javaagent:$PWD/$agent" "-Dakashic.tabRgb.policy=$PWD/akashic-tab-rgb-backend.policy")
+  done
+fi
+
 # No primeiro boot o Crucible so instala as bibliotecas e pede para ligar de novo.
 for attempt in 1 2; do
   : > console.in
-  echo "[run-test-server] ligando (Xmx=$XMX, tentativa $attempt). Log: $DIR/console.log"
-  tail -f console.in | java @java9args.txt -Xms4G "-Xmx$XMX" -jar server.jar nogui > console.log 2>&1 || true
+  echo "[run-test-server] ligando (memoria $XMX, tentativa $attempt). Log: $DIR/console.log"
+  tail -f console.in | java "${JVM_FLAGS[@]}" @java9args.txt -Dfml.doNotBackup=true -jar server.jar nogui > console.log 2>&1 || true
   pkill -f "tail -f console.in" 2>/dev/null || true
   grep -q "A restart is required to be able to boot" console.log || break
   echo "[run-test-server] bibliotecas instaladas; ligando de novo."
