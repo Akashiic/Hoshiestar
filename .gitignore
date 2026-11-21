@@ -1,0 +1,18 @@
+# Nunca versionar o servidor, o mundo, jars de mods/plugins nem configs de producao
+# (tem senha de banco, token de bot e codigo de terceiros).
+/ambiente/
+/test-env/
+*.tar.gz
+*.zip
+*.jar
+*.mca
+*.log
+world*/
+libraries/
+# build
+.gradle/
+build/
+out/
+*.class
+.idea/
+*.iml
