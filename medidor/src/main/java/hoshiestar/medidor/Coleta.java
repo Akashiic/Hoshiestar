@@ -69,6 +69,7 @@ final class Coleta {
     boolean forcado;           // nanoTime acima do limite e o admin pediu "forcar"
     int refAmostras;           // ticks sem medicao usados na referencia
     long refMedianaNs;         // mediana do tick do servidor antes de ligar (0 = sem referencia)
+    long limiteCustoNs;        // limite da regra de custo da valvula nesta medicao (ns por tick)
     long janelas;
     int janelasAcima;
     long ultimaMedianaJanelaNs;

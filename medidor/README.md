@@ -16,7 +16,7 @@ Licença: GPLv3 ou posterior (o mesmo do projeto).
 
 ## Como o admin usa
 
-1. Copie `Hoshiestar-Medidor-1.0.2-serveronly.jar` para `mods/` e reinicie o servidor.
+1. Copie `Hoshiestar-Medidor-1.0.4-serveronly.jar` para `mods/` e reinicie o servidor.
    No boot aparecem linhas `[Hoshiestar-Medidor]`; a última diz, por exemplo:
    `Pronto (desligado). Ganchos: tile entities=firewall, entidades=sim, jogadores pela rede=sim.`
 2. Antes, confira a fonte de relógio da máquina (o medidor lê o relógio duas vezes por tick medido):
@@ -33,17 +33,36 @@ Licença: GPLv3 ou posterior (o mesmo do projeto).
    (segundos: padrão 300, mínimo 10, máximo 1800). Sai **uma** linha no console quando começa, com
    a calibração (custo do relógio e de um tick medido nesta máquina) e o tick do servidor antes de
    ligar. Se o relógio custar mais de 150 ns por leitura, a medição é **recusada** com o motivo; dá
-   para insistir com `hoshie medir 600 forcar` (a válvula do passo 4 continua valendo).
+   para insistir com `hoshie medir 600 forcar` (a válvula do passo 4 continua valendo). Com relógio
+   lento, a recusa custa uma pausa única no tick: se as 2 primeiras rodadas de 1.000 leituras já
+   passam de 450 ns por leitura (3 vezes o limite), a calibração para ali (2,6 / 4,6 / 10,7 ms com 1 /
+   2 / 5 µs por leitura, cronometrado fora do servidor com um relógio lento simulado); entre 150 e
+   450 ns, para sozinha em ~20 ms. A segunda parte da calibração nem roda.
 4. Espere. Para antes, se quiser: `hoshie parar`. Ver andamento (inclui a válvula): `hoshie status`.
+   Ele mostra, depois da primeira janela, `custo estimado X ms por tick (x2 = Y ms; limite Z ms)`, com
+   o limite que vale **nesta** medição.
    **Válvula de sobrecarga**: o medidor para sozinho, e grava o que já coletou, se a mediana do tick
    do servidor, em 2 janelas seguidas de 100 ticks, passar a mediana dos 100 ticks antes de ligar
-   em mais de 25% **e** em mais de 15 ms, ou se o custo estimado do próprio medidor passar de 20 ms
-   por tick. Aí sai um aviso no console e o `.txt` diz no topo que a medição foi parada.
+   em mais de 25% **e** em mais de 15 ms, ou se o custo estimado do próprio medidor, **vezes 2** de
+   margem, passar de 10% do tick de antes de ligar, com piso de 5 ms e teto de 10 ms por tick (numa
+   janela; sem referência, 5 ms). Exemplo: com o tick de 84 ms da produção, o limite fica em 8,4 ms.
+   A margem existe porque a calibração mede o melhor caso e não inclui a parte do gancho
+   (conferência da thread, busca na pilha, nome da classe). A regra que mede o dano de verdade é a
+   do tempo de tick; a do custo é uma segunda trava. Quando a válvula dispara, sai um aviso no
+   console e o `.txt` diz no topo que a medição foi parada.
    A válvula não sabe distinguir o custo do medidor de uma subida natural da carga (gente entrando,
    uma máquina ligando): nesses casos ela também para. Se isso acontecer, repita.
 5. Quando termina, sai **uma** linha no console com o caminho dos arquivos e o veredito do autoteste:
    `<pasta do servidor>/hoshiestar/medicao-AAAAMMDD-HHMMSS.json` e `.txt` `(autoteste: ok)`.
-   Mande os dois para o projeto.
+   Se essa pasta não puder ser criada ou gravada (sem permissão; disco cheio, se o `/tmp` estiver em
+   outro disco), os arquivos vão para a pasta reserva `<java.io.tmpdir>/hoshiestar-<usuário>/` (no
+   Linux, normalmente `/tmp/hoshiestar-<usuário que roda o servidor>/`) e a linha sai como aviso, com
+   o caminho que valeu e o motivo. Nesse caso, **copie os arquivos de lá logo**: o `/tmp` costuma ser
+   apagado no reboot e é uma pasta compartilhada da máquina. A pasta e os arquivos da reserva ficam só
+   para o dono (o usuário que roda o servidor). Se esse caminho já existe e é um link simbólico
+   (atalho para outra pasta), não é uma pasta, ou é de outro usuário, o medidor **recusa** a reserva e
+   não grava nada lá: sai um erro no console com o motivo e a medição precisa ser repetida depois de
+   resolver a pasta principal. Mande os dois arquivos para o projeto.
 
 Só uma medição por vez. Se o servidor desligar normalmente (`stop`) no meio, a medição é encerrada
 e gravada. Se o servidor **cair** (crash no laço de tick) durante a medição, nenhum arquivo é
@@ -59,12 +78,23 @@ mundo rodou o laço; se foi em menos da metade (ou em nenhum), o `.txt` avisa lo
 da linha de concentração, e o `.json` traz `dados_validos: false`.
 
 **Custo enquanto mede** (ligado): é **calibrado na própria máquina** no início de cada medição
-(alguns ms, uma vez). No servidor de teste deu ~25 a 30 ns por leitura do relógio e 80 a 90 ns por
-tick medido (melhor caso, cache quente; na produção, com tabelas maiores, deve ser um pouco mais).
-Com 20 a 30 mil ticks de máquina/entidade por tick do servidor, como em produção, isso daria uns
-2 a 3 ms a mais por tick, **se** a VM tiver relógio rápido; por isso a calibração recusa relógio
-lento e a válvula para a medição se o tick piorar. O `.txt` e o `.json` trazem a calibração, a
-estimativa de custo e o que a válvula viu. Desligado, o custo é zero na prática (ver garantias).
+(uma pausa única: a parte do relógio para sozinha em ~20 ms e a do tick vazio em ~30 ms; com relógio
+rápido e o JIT já aquecido o total fica entre 15 e 25 ms; na primeira medição depois do boot, até
+~40 ms. Esses tempos foram cronometrados fora do servidor, numa JVM 8 sozinha). No servidor de
+teste deu ~25 a 30 ns por leitura do relógio e 80 a 90 ns por tick medido (melhor caso, cache
+quente; na produção, com tabelas maiores, deve ser um pouco mais). Com 20 a 30 mil ticks de
+máquina/entidade por tick do servidor, como em produção, isso daria uns 2 a 3 ms a mais por tick,
+**se** a VM tiver relógio rápido; por isso a calibração recusa relógio lento e a válvula para a
+medição se o tick piorar. Com a margem de 2x da válvula, esses 2 a 3 ms estimados viram 4 a 6 ms,
+abaixo do limite de 8,4 ms que a produção teria (tick de 84 ms antes de ligar). Mas isso depende do
+custo do tick medido que a calibração der **na máquina de produção**: se lá der 140 ns por tick
+medido ou mais, uns 30 mil ticks de máquina/entidade por tick do servidor já bastam para a regra de
+custo parar a medição (30.000 × 140 ns × 2 = 8,4 ms). Se a válvula parar a medição pela regra de
+custo (isso apareceria já na primeira janela, de 100 ticks, uns 5 a 9 s), o `.txt` diz o motivo;
+nesse caso, **mande os arquivos para o projeto mesmo assim** (eles têm a calibração e o que foi
+medido até ali) e avise. O `.txt` e o `.json` trazem a calibração, a
+estimativa de custo, o limite usado e o que a válvula viu. Desligado, o custo é zero na prática (ver
+garantias).
 
 ## O que os arquivos dizem
 
@@ -84,15 +114,22 @@ Termos:
   do gancho, ~25 ns no teste) cai **dentro** de cada tick medido. Classes com muitos ticks quase
   vazios (funis parados, TEs bloqueadas pelo firewall, entidades inativas) ficam infladas em até
   ticks × esse valor. O `.txt` tem a coluna `s/artef.` na tabela de classes e o `.json` traz
-  `total_ns_sem_artefato_est` em toda linha e `meta.calibracao.custo_quadro_vazio_ns`.
+  `total_ns_sem_artefato_est` em toda linha e `meta.calibracao.artefato_dentro_do_quadro_ns`.
 - **Ticks indiretos**: o medidor mede o que passa pelo laço do mundo. Um acelerador que chama
   `updateEntity()` de outra TE direto (sem o laço) põe o tempo da TE acelerada na classe de quem
   chamou (a TE do acelerador, ou `EntityPlayerMP (tick pela rede)` quando é um item no inventário).
   O tempo não se perde nem conta duas vezes; só fica com outra classe.
-- **Jogador**: a classe `EntityPlayerMP` é o tick do jogador pelo laço do mundo;
-  `EntityPlayerMP (tick pela rede)` é o tick pela rede (`onUpdateEntity`), que roda uma vez por
-  pacote de movimento (perto de 1 por tick do servidor, às vezes mais). As duas linhas ficam
-  separadas para a contagem de ticks não somar caminhos diferentes. O tempo não é contado duas vezes.
+- **Jogador**: `EntityPlayerMP (tick pela rede)` é o tick pela rede (`onUpdateEntity`), que roda
+  uma vez por pacote de movimento (perto de 1 por tick do servidor, às vezes mais). A classe
+  `EntityPlayerMP` sem sufixo é o tick do jogador pelo laço do mundo **e também** o
+  `worldserver.updateEntity(jogador)` que o próprio caminho da rede chama, logo depois do
+  `onUpdateEntity`, quando o jogador está montado ou dormindo. As duas linhas ficam separadas para a
+  contagem de ticks não somar caminhos diferentes. O tempo não é contado duas vezes.
+- **Tick em que a medição liga ou para pelo comando**: conta só o trecho medido (do início da
+  medição ao fim do tick, ou do início do tick até a parada). Assim a parte medida nunca passa de
+  100% do tick contado. Esse tick pela metade conta como um tick inteiro nas médias por tick (ms/tick
+  do servidor e de cada lugar); a diferença é de ~1 tick em N (~0,05% em 300 s; 1 a 2% numa medição
+  mínima de 10 s).
 
 O `.txt` (português, para ler direto):
 - totais, ms por tick, e quanto do tick inteiro a parte medida representa;
@@ -106,9 +143,14 @@ O `.txt` (português, para ler direto):
 
 O `.json` tem tudo isso com mais linhas (300 seções, 300 chunks, 150 classes, até 10 classes por
 seção), cada uma com `te_ns`, `ent_ns`, `te_ticks`, `ent_ticks` e `pct_do_medido`, mais os
-metadados (versão, início, fim, segundos, ticks do servidor, totais em ns), `meta.calibracao`
-(`nanotime_ns`, `custo_quadro_ns`, `custo_quadro_vazio_ns`, `forcado`) e `meta.valvula` (`disparou`,
-`motivo`, tick antes de ligar, maior mediana de janela, maior custo estimado). `meta.autoteste` é o
+metadados (versão, início, fim, segundos, ticks do servidor, totais em ns; `ticks_iniciados` pode
+ser 1 a menos que `ticks_servidor` quando a medição começa no meio de um tick, porque esse tick
+pela metade é contado mas não foi "iniciado" com a medição ligada), `meta.calibracao`
+(`nanotime_ns`, `custo_quadro_total_ns` = custo total de um tick medido vazio,
+`artefato_dentro_do_quadro_ns` = a parte desse custo que cai dentro do tempo medido, `forcado`) e
+`meta.valvula` (`disparou`, `motivo`, tick antes de ligar, maior mediana de janela, maior custo
+estimado sem a margem, `limite_custo_estimado_ms_por_tick` usado nesta medição, `limite_custo_regra`
+e `margem_custo_estimado`). `meta.autoteste` é o
 autoteste refeito no fim (vale para a medição inteira); `meta.autoteste_no_tick_100` é a foto do
 início; `meta.dados_validos` é `false` quando o autoteste final diz "sem dados" ou `NAO_LIGADO`.
 
@@ -134,7 +176,10 @@ início; `meta.dados_validos` é `false` quando o autoteste final diz "sem dados
    fica em poucos MB. Contadores em `long` (não saturam).
 4. **Sem disco na thread do tick**: no fim, os dados são entregues a uma thread separada (daemon,
    prioridade mínima) que monta e grava os arquivos em `<pasta do servidor>/hoshiestar/` (a pasta
-   vem do próprio servidor, não do diretório de trabalho). Os nomes são reservados antes
+   vem do próprio servidor, não do diretório de trabalho); se essa pasta falhar, a mesma thread tenta
+   a reserva `<java.io.tmpdir>/hoshiestar-<usuário>/` (pasta e arquivos só para o dono; recusada se o
+   caminho é link simbólico, não é pasta ou é de outro usuário). Os nomes são
+   reservados antes
    (`createNewFile`), então duas gravações nunca escrevem no mesmo arquivo; o temporário de cada
    escrita tem nome único e nunca fica para trás.
 5. **Convive com o pacote**: nenhum `@Redirect` nem `@WrapOperation`; nenhuma instrução original é
@@ -148,7 +193,8 @@ início; `meta.dados_validos` é `false` quando o autoteste final diz "sem dados
    com op nível 3 ou mais. Todo o resto é recusado (blocos de comando, mods, plugin com `*` para
    quem não é op 3).
 8. **Proteção enquanto mede**: calibração do relógio no início (recusa relógio lento, salvo
-   `forcar`) e válvula de sobrecarga durante a medição (ver "Como o admin usa").
+   `forcar`; a parte do relógio para em ~20 ms mais uma rodada, a do tick vazio em ~30 ms mais uma
+   rodada) e válvula de sobrecarga durante a medição (ver "Como o admin usa").
 9. **Comando de outra thread** (RCON): o pedido é entregue à thread principal sob uma trava, e
    `hoshie parar` vale só para a medição que estava em andamento quando foi dado.
 
@@ -176,7 +222,10 @@ são só contabilidade de chunk e não contam. Jogadores: o tick pesado deles ro
 posição do jogador.
 
 Três verificações dizem se o gancho está vivo, em vez de mostrar zero como se fosse dado:
-- no boot, o log diz qual gancho ficou no bytecode (`tile entities=vanilla|firewall|NENHUM`). Sai
+- no boot, o log diz qual gancho ficou no bytecode (`tile entities=vanilla|firewall|NENHUM`). Um par
+  só conta como ligado se as **duas metades** (antes e depois da chamada) estão no bytecode; se só
+  uma ficou, o log, a linha "Pronto" e o `hoshie status` avisam "gancho pela metade" e o par conta
+  como não ligado (vale também para entidades e para o jogador pela rede). Sai
   também uma linha `Transformadores: ...` com a posição do firewall e do Mixin na lista do
   LaunchClassLoader. O Mixin pode ter vários `Proxy` nessa lista: cada `Proxy` novo desliga os
   anteriores, e o que trabalha é o **último** (no pacote real, posição 130, depois do firewall na
@@ -223,6 +272,25 @@ antes de ligar, 2 janelas seguidas) e gravou os arquivos com o aviso no topo; um
 cliente de verdade (só o bot de protocolo), relógio lento de verdade (o caminho da recusa não teve
 como ser exercitado nesta máquina) e carga de produção.
 
+Versão 1.0.3 (correções da revisão da 1.0.2): calibração limitada no tempo (e recusa rápida de
+relógio claramente lento), regra de custo da válvula com margem 2x e limite de 10% do tick antes de
+ligar (entre 5 e 10 ms), conferência das duas metades de cada par de ganchos no boot,
+pasta reserva para os arquivos (só para o dono), nomes mais claros na calibração do `.json`, tick parcial contado na
+ligada/parada por comando, versão vinda de uma fonte só. **Não testada com servidor rodando**: só
+compilação, conferência estática do bytecode e testes numa JVM 8 sozinha, sem Minecraft rodando
+(tempo da calibração com relógio rápido e com relógio lento simulado, limite da regra de custo,
+contagem do tick parcial, pasta reserva, `.json` válido). A conferência das metades de início (o nome do método
+de gancho que o Mixin deixa no bytecode para `@ModifyReceiver`/`@ModifyArg`) segue a mesma regra já
+vista funcionando para os de fim, mas precisa ser confirmada no primeiro boot (a linha "Pronto" deve
+dizer `tile entities=firewall` sem aviso de "gancho pela metade").
+
+Versão 1.0.4 (correções pequenas da revisão da 1.0.3): `hoshie status` mostra o custo estimado com a
+margem e o limite desta medição; a pasta reserva passou a ter o nome do usuário
+(`hoshiestar-<usuário>`) e é recusada se for link simbólico, não for pasta ou for de outro usuário;
+README explica `ticks_iniciados` e a dependência da regra de custo com a calibração da produção.
+**Não testada com servidor rodando**: só compilação, conferência estática do bytecode e um teste da
+pasta reserva numa JVM 8 sozinha (caso normal, link simbólico, arquivo no lugar, pasta de outro dono).
+
 ## Como compilar
 
 Rota "SRG direto": sem Gradle e sem rede.
@@ -241,7 +309,9 @@ padrão `/usr/lib/jvm/java-8-openjdk-amd64`), `xz` e `unzip`. O script:
    para nomes SRG com o SpecialSource que já está em `libraries/`;
 3. compila com `javac` do JDK 8 contra essa visão. O código escreve todo alvo de mixin e todo membro
    do Minecraft com nome SRG e `remap = false`, então não há refmap nem reobfuscação;
-4. empacota e confere que todo `.class` tem versão 52.
+4. empacota e confere que todo `.class` tem versão 52 e que a versão é a mesma no manifesto, no
+   `mcmod.info` e no `@Mod`. A única fonte da versão é `Medidor.VERSAO`: o `mcmod.info` do código
+   traz `${version}` e o script põe o número (e falha se não conseguir).
 
 Limitação da visão SRG: as classes do jogo vêm do jar vanilla, sem os patches binários do Forge e
 do Crucible. Para o que o medidor usa (campos de posição, dimensão, comando) isso basta; os alvos

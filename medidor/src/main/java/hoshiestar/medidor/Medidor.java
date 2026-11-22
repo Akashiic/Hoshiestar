@@ -62,7 +62,7 @@ public final class Medidor {
     private Medidor() {
     }
 
-    public static final String VERSAO = "1.0.2";
+    public static final String VERSAO = "1.0.4";
     static final Logger LOG = Ganchos.LOG;
     static final String P = "[Hoshiestar-Medidor] ";
 
@@ -87,8 +87,31 @@ public final class Medidor {
     static final long VALVULA_NS = 15000000L;
     /** ...em tantas janelas seguidas. */
     static final int VALVULA_JANELAS = 2;
-    /** Valvula: custo estimado do medidor (quadros x custo calibrado) acima disso por tick, numa janela. */
-    static final long VALVULA_CUSTO_NS = 20000000L;
+    /**
+     * Valvula: custo estimado do medidor (quadros x custo calibrado x {@link #VALVULA_CUSTO_FATOR}) acima do limite
+     * por tick, numa janela. O limite e {@link #VALVULA_CUSTO_PCT_REF}% da mediana do tick antes de ligar, mas
+     * nunca menos que {@link #VALVULA_CUSTO_NS} nem mais que {@link #VALVULA_CUSTO_MAX_NS} (sem referencia: o
+     * minimo). Assim, num servidor ja lento (tick de 84 ms na producao) a regra de custo nao para a medicao de pico
+     * por uma estimativa de ~3% do tick; a protecao principal continua sendo a regra do tempo de tick.
+     */
+    static final long VALVULA_CUSTO_NS = 5000000L;
+    static final long VALVULA_CUSTO_MAX_NS = 10000000L;
+    static final int VALVULA_CUSTO_PCT_REF = 10;
+    /**
+     * Margem da regra de custo: a calibracao e o melhor caso (cache quente) e nao inclui a parte do gancho
+     * (conferencia da thread, caminho ate o handler, descartarMortos, getClass, indiceDim); por isso a regra
+     * compara o dobro do custo calibrado com o limite.
+     */
+    static final double VALVULA_CUSTO_FATOR = 2.0;
+    /** Tempo maximo da calibracao do relogio (a que decide a recusa), para relogio lento nao travar o tick. */
+    static final long CALIB_MAX_NS = 20000000L;
+    /**
+     * Tempo maximo da calibracao do quadro (so roda se o relogio passou ou se foi forcado). Mais folga que a do
+     * relogio: na primeira medicao depois do boot o JIT ainda nao compilou o caminho do quadro, e com 20 ms o
+     * valor as vezes sai 2 a 3 vezes maior que o real (visto fora do servidor), o que faria a valvula de custo
+     * parar a medicao sem motivo.
+     */
+    static final long CALIB_QUADRO_MAX_NS = 30000000L;
     /** Referencia minima (ticks sem medicao vistos antes de ligar) para a valvula de tempo de tick valer. */
     static final int REF_MIN = 20;
 
@@ -97,7 +120,10 @@ public final class Medidor {
     private static Thread threadPrincipal;
     private static long fimPrevistoNano;
     private static long inicioTickNano;
-    /** O tick corrente comecou com o relogio marcado (falso no tick em que a medicao liga ou para pelo comando). */
+    /**
+     * O tick corrente esta sendo contado: verdadeiro do inicio do tick (ou do inicio da medicao, se ela ligou no
+     * meio do tick) ate o fim do tick ou a parada da medicao.
+     */
     private static boolean contarEsteTick;
 
     // ---- tempos de tick do servidor (so thread principal) ----
@@ -543,8 +569,8 @@ public final class Medidor {
 
     /**
      * Fecha uma janela de {@link #JANELA} ticks medidos. Devolve o motivo para parar, ou null.
-     * Duas regras: (1) custo estimado do medidor (quadros da janela x custo calibrado de um quadro)
-     * acima de {@link #VALVULA_CUSTO_NS} por tick; (2) mediana do tick do servidor acima da
+     * Duas regras: (1) custo estimado do medidor (quadros da janela x custo calibrado de um quadro),
+     * vezes a margem {@link #VALVULA_CUSTO_FATOR}, acima do limite da medicao ({@link #limiteCusto}) por tick; (2) mediana do tick do servidor acima da
      * referencia (mediana antes de ligar) em mais de 25% e de 15 ms, em {@link #VALVULA_JANELAS}
      * janelas seguidas. Mediana, e nao media, para um tick isolado lento (salvamento, GC) nao disparar.
      */
@@ -563,9 +589,10 @@ public final class Medidor {
         if (custo > c.maiorCustoEstNsPorTick) {
             c.maiorCustoEstNsPorTick = custo;
         }
-        if (custo > VALVULA_CUSTO_NS) {
-            return String.format(Locale.ROOT, "custo estimado do medidor %.1f ms por tick (limite %d ms)", custo / 1e6,
-                    VALVULA_CUSTO_NS / 1000000L);
+        if (custo * VALVULA_CUSTO_FATOR > c.limiteCustoNs) {
+            return String.format(Locale.ROOT, "custo estimado do medidor %.1f ms por tick, %.1f ms com a margem de %.0fx"
+                    + " (limite %.1f ms)", custo / 1e6, custo * VALVULA_CUSTO_FATOR / 1e6, VALVULA_CUSTO_FATOR,
+                    c.limiteCustoNs / 1e6);
         }
         long ref = c.refMedianaNs;
         if (ref > 0L && med > ref * VALVULA_FATOR && med - ref > VALVULA_NS) {
@@ -581,20 +608,34 @@ public final class Medidor {
         return null;
     }
 
-    /** Custo de uma chamada de System.nanoTime (ns), o menor de varias rodadas (a primeira aquece o JIT). */
+    /** Limite da regra de custo: {@link #VALVULA_CUSTO_PCT_REF}% da referencia, entre o minimo e o maximo. */
+    static long limiteCusto(long refMedianaNs) {
+        long l = refMedianaNs / 100L * VALVULA_CUSTO_PCT_REF;
+        return Math.min(VALVULA_CUSTO_MAX_NS, Math.max(VALVULA_CUSTO_NS, l));
+    }
+
+    /**
+     * Custo de uma chamada de System.nanoTime (ns), o menor de varias rodadas curtas (as primeiras aquecem o
+     * JIT). Para em {@link #CALIB_MAX_NS} no total: o tempo e conferido a cada rodada de 1.000 leituras, entao
+     * relogio lento passa no maximo uma rodada do limite. Se as 2 primeiras rodadas ja derem mais de 3x
+     * {@link #LIMITE_NANOTIME_NS}, para ali (o relogio e lento com certeza; o valor so serve para o aviso).
+     */
     private static double calibrarNanoTime() {
-        final int n = 20000;
+        final int n = 1000;
         double melhor = Double.MAX_VALUE;
-        long gasto = 0L;
         long lixo = 0L;
-        for (int r = 0; r < 10 && gasto < 30000000L; r++) {
+        final long inicio = System.nanoTime();
+        for (int r = 0; r < 200; r++) {
             long t0 = System.nanoTime();
             for (int i = 0; i < n; i++) {
                 lixo += System.nanoTime();
             }
-            long dt = System.nanoTime() - t0;
-            gasto += dt;
-            melhor = Math.min(melhor, dt / (double) n);
+            long t1 = System.nanoTime();
+            melhor = Math.min(melhor, (t1 - t0) / (double) n);
+            // relogio claramente lento (mais de 3x o limite ja nas 2 primeiras rodadas): nao precisa de mais rodadas
+            if (t1 - inicio >= CALIB_MAX_NS || (r >= 1 && melhor > 3 * LIMITE_NANOTIME_NS)) {
+                break;
+            }
         }
         sumidouro += lixo;
         return melhor;
@@ -607,13 +648,13 @@ public final class Medidor {
      * Nao toca em objeto nenhum do jogo.
      */
     private static double[] calibrarQuadro() {
-        final int n = 5000;
+        final int n = 500;
         Coleta r = new Coleta(0);
         int d = r.indiceDim(null);
         double melhorTotal = Double.MAX_VALUE;
         double melhorDentro = Double.MAX_VALUE;
-        long gasto = 0L;
-        for (int k = 0; k < 20 && gasto < 30000000L; k++) {
+        final long inicio = System.nanoTime();
+        for (int k = 0; k < 200; k++) {
             long medidoAntes = r.teNsTotal;
             long t0 = System.nanoTime();
             for (int i = 0; i < n; i++) {
@@ -621,10 +662,12 @@ public final class Medidor {
                 long agora = System.nanoTime();
                 fechar(prof - 1, agora, r);
             }
-            long dt = System.nanoTime() - t0;
-            gasto += dt;
-            melhorTotal = Math.min(melhorTotal, dt / (double) n);
+            long t1 = System.nanoTime();
+            melhorTotal = Math.min(melhorTotal, (t1 - t0) / (double) n);
             melhorDentro = Math.min(melhorDentro, (r.teNsTotal - medidoAntes) / (double) n);
+            if (t1 - inicio >= CALIB_QUADRO_MAX_NS) {
+                break;
+            }
         }
         limparPilha();
         return new double[] {melhorTotal, melhorDentro};
@@ -641,12 +684,12 @@ public final class Medidor {
             return "Ja existe uma medicao em andamento. Use 'hoshie status' ou 'hoshie parar'.";
         }
         limparPilha();
-        // Calibracao (alguns ms, uma vez, na thread principal; este tick nao entra na conta).
+        // Calibracao (uma vez, na thread principal; relogio ate CALIB_MAX_NS, quadro ate CALIB_QUADRO_MAX_NS, e a
+        // parte do quadro so roda se o relogio passar ou se for forcado). O tempo dela fica fora da conta.
         double nano = calibrarNanoTime();
-        double[] quadro = calibrarQuadro();
-        ultimaCalibracao = String.format(Locale.ROOT, "nanoTime %.0f ns por chamada; quadro vazio %.0f ns (%.0f ns dentro"
-                + " do tempo medido)", nano, quadro[0], quadro[1]);
         if (nano > LIMITE_NANOTIME_NS && !forcar) {
+            ultimaCalibracao = String.format(Locale.ROOT, "nanoTime %.0f ns por chamada (quadro nao calibrado:"
+                    + " recusado antes)", nano);
             String msg = String.format(Locale.ROOT, "Medicao RECUSADA: System.nanoTime custa %.0f ns por chamada nesta"
                     + " maquina (limite %.0f ns); medir assim pesaria demais no tick. Confira a fonte de relogio em"
                     + " /sys/devices/system/clocksource/clocksource0/current_clocksource (tsc ou kvm-clock sao"
@@ -658,6 +701,9 @@ public final class Medidor {
             }
             return msg;
         }
+        double[] quadro = calibrarQuadro();
+        ultimaCalibracao = String.format(Locale.ROOT, "nanoTime %.0f ns por chamada; quadro vazio %.0f ns (%.0f ns dentro"
+                + " do tempo medido)", nano, quadro[0], quadro[1]);
         Coleta c = new Coleta(segundos);
         c.calibNanoNs = nano;
         c.calibQuadroNs = quadro[0];
@@ -666,6 +712,7 @@ public final class Medidor {
         int nRef = Math.min(refN, JANELA);
         c.refAmostras = nRef;
         c.refMedianaNs = nRef >= REF_MIN ? mediana(refTicks, nRef) : 0L;
+        c.limiteCustoNs = limiteCusto(c.refMedianaNs);
         refN = 0;
         janN = 0;
         threadPrincipal = Thread.currentThread();
@@ -674,7 +721,10 @@ public final class Medidor {
         c.inicioNano = agora;
         c.inicioMs = System.currentTimeMillis();
         fimPrevistoNano = agora + segundos * 1000000000L;
-        contarEsteTick = false; // o tick corrente esta pela metade (e teve a calibracao): nao conta
+        // O tick corrente conta so do inicio da medicao (depois da calibracao) ao fim do tick: todo quadro medido
+        // neste tick cai dentro desse trecho, e a parte medida nunca passa de 100% do tick contado.
+        inicioTickNano = agora;
+        contarEsteTick = true;
         erroInterno = null;
         erroLogado = false;
         resumoAutoteste = null;
@@ -687,11 +737,14 @@ public final class Medidor {
                 + (c.forcado ? " (ACIMA DO LIMITE, forcado)" : "") + ". Tick antes de ligar: "
                 + (c.refMedianaNs > 0 ? String.format(Locale.ROOT, "mediana %.1f ms em %d ticks", c.refMedianaNs / 1e6, nRef)
                         : "sem referencia (poucos ticks vistos); a valvula usa so o custo estimado")
+                + String.format(Locale.ROOT, "; limite do custo estimado %.1f ms por tick", c.limiteCustoNs / 1e6)
                 + ".";
         LOG.info(linha);
         if (resposta != null) {
             resposta.add(linha.substring(P.length()));
         }
+        // o trecho contado do tick corrente comeca depois da linha do log (que e do medidor, nao do tick)
+        inicioTickNano = System.nanoTime();
         return null;
     }
 
@@ -706,11 +759,18 @@ public final class Medidor {
         coleta = null;
         limparPilha();
         andamento = null;
+        long agoraParar = System.nanoTime();
+        if (contarEsteTick && c != null) {
+            // Parada no meio de um tick (comando): os quadros deste tick ja estao nos totais, entao o trecho
+            // do tick ate aqui tambem conta (fora da janela da valvula, que nao avalia mais).
+            c.ticksServidor++;
+            c.nsTickServidor += Math.max(0L, agoraParar - inicioTickNano);
+        }
         contarEsteTick = false; // tick pela metade, com parte medida: nao vai para a referencia
         if (c == null) {
             return null;
         }
-        c.fimNano = System.nanoTime();
+        c.fimNano = agoraParar;
         c.fimMs = System.currentTimeMillis();
         c.motivoParada = motivo;
         // Sempre refeito no fim: o veredito do tick 100 pode ter sido tirado com o servidor
@@ -882,11 +942,16 @@ public final class Medidor {
 
     private static String textoAndamento(Coleta c, long agora) {
         long dec = Math.max(0L, (agora - c.inicioNano) / 1000000000L);
-        String valvula = c.janelas == 0 ? "valvula: primeira janela de " + JANELA + " ticks ainda nao fechou"
+        String valvula = c.janelas == 0
+                ? String.format(Locale.ROOT, "valvula: primeira janela de %d ticks ainda nao fechou (limite do custo"
+                        + " estimado nesta medicao: %.1f ms por tick, comparado com o custo x%.0f)", JANELA,
+                        c.limiteCustoNs / 1e6, VALVULA_CUSTO_FATOR)
                 : String.format(Locale.ROOT, "valvula: mediana do tick na ultima janela %.1f ms (antes de ligar: %s),"
-                        + " custo estimado do medidor %.2f ms por tick", c.ultimaMedianaJanelaNs / 1e6,
+                        + " custo estimado do medidor %.2f ms por tick (x%.0f = %.2f ms; limite %.1f ms)",
+                        c.ultimaMedianaJanelaNs / 1e6,
                         c.refMedianaNs > 0 ? String.format(Locale.ROOT, "%.1f ms", c.refMedianaNs / 1e6) : "sem referencia",
-                        c.ultimoCustoEstNsPorTick / 1e6);
+                        c.ultimoCustoEstNsPorTick / 1e6, VALVULA_CUSTO_FATOR,
+                        c.ultimoCustoEstNsPorTick * VALVULA_CUSTO_FATOR / 1e6, c.limiteCustoNs / 1e6);
         return String.format(Locale.ROOT,
                 "Medicao em andamento: %d de %d s, %d ticks do servidor; ticks medidos: %d de tile entity"
                         + " (vanilla %d, firewall %d), %d de entidade; %s.",
@@ -963,6 +1028,10 @@ public final class Medidor {
         if ("NENHUM".equals(Ganchos.resumoTE())) {
             r.add("ATENCAO: o tempo de tile entities NAO esta ligado. Uma medicao mostraria zero que nao e dado.");
         }
+        String metades = Ganchos.metades();
+        if (metades != null) {
+            r.add("ATENCAO: gancho pela metade (" + metades + "). Esse par conta como NAO ligado.");
+        }
         String and = andamento;
         boolean pedida;
         synchronized (TRAVA) {
@@ -980,7 +1049,9 @@ public final class Medidor {
                 : "ainda nao rodou (roda no inicio de cada medicao)") + ". Valvula de sobrecarga: para sozinha se a"
                 + " mediana do tick, em " + VALVULA_JANELAS + " janelas seguidas de " + JANELA + " ticks, passar a de antes"
                 + " de ligar em mais de " + Math.round((VALVULA_FATOR - 1) * 100) + "% e de " + VALVULA_NS / 1000000L
-                + " ms, ou se o custo estimado do medidor passar de " + VALVULA_CUSTO_NS / 1000000L + " ms por tick.");
+                + " ms, ou se o custo estimado do medidor, com margem de " + Math.round(VALVULA_CUSTO_FATOR) + "x, passar de "
+                + VALVULA_CUSTO_PCT_REF + "% do tick de antes de ligar (no minimo " + VALVULA_CUSTO_NS / 1000000L
+                + " ms e no maximo " + VALVULA_CUSTO_MAX_NS / 1000000L + " ms por tick).");
         String a = resumoAutoteste;
         if (a != null) {
             r.add("Ultimo " + a + ".");

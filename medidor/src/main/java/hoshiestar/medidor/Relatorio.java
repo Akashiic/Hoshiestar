@@ -23,8 +23,12 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.UserPrincipal;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,6 +60,8 @@ final class Relatorio implements Runnable {
     private final Coleta c;
     private final File pasta;
     private final Coleta.Autoteste a;
+    /** Por que a pasta principal falhou (null = nao falhou). So a thread de gravacao escreve. */
+    private String falhaPastaPrincipal;
 
     Relatorio(Coleta c, File pasta) {
         this.c = c;
@@ -102,8 +108,14 @@ final class Relatorio implements Runnable {
             String msg = "Arquivos gravados: " + arqs[0].getPath() + " e " + arqs[1].getName() + " (autoteste: "
                     + (semDados() ? "sem dados uteis" : naoLigado() || a.problema ? "COM PROBLEMA, veja o .txt"
                     : coberturaBaixa() ? "laco rodou em poucos ticks, veja o .txt" : "ok")
-                    + (c.valvulaDisparou ? "; parada pela valvula de sobrecarga" : "") + ").";
-            Medidor.LOG.info(Medidor.P + msg);
+                    + (c.valvulaDisparou ? "; parada pela valvula de sobrecarga" : "") + ")."
+                    + (falhaPastaPrincipal != null ? " ATENCAO: a pasta " + pasta.getPath() + " falhou ("
+                    + falhaPastaPrincipal + "); os arquivos foram para a pasta reserva acima." : "");
+            if (falhaPastaPrincipal != null) {
+                Medidor.LOG.warn(Medidor.P + msg);
+            } else {
+                Medidor.LOG.info(Medidor.P + msg);
+            }
             Medidor.registrarResultado(msg);
         } catch (Throwable t) {
             Medidor.LOG.error(Medidor.P + "Falha ao gravar os arquivos da medicao.", t);
@@ -111,9 +123,104 @@ final class Relatorio implements Runnable {
         }
     }
 
+    /**
+     * Pasta reserva, se a principal falhar: &lt;java.io.tmpdir&gt;/hoshiestar-&lt;usuario&gt; (null se nao houver).
+     * Uma por usuario da maquina; o nome do usuario fica so com letras, numeros, '_' e '-'.
+     */
+    static File pastaReserva() {
+        String tmp = System.getProperty("java.io.tmpdir");
+        return tmp == null || tmp.isEmpty() ? null
+                : new File(tmp, "hoshiestar-" + nomeSeguro(System.getProperty("user.name"))).getAbsoluteFile();
+    }
+
+    /** Troca todo caractere fora de [A-Za-z0-9_-] por '_' (no maximo 64); vazio ou null vira "desconhecido". */
+    static String nomeSeguro(String s) {
+        StringBuilder b = new StringBuilder();
+        if (s != null) {
+            for (int i = 0; i < s.length() && b.length() < 64; i++) {
+                char ch = s.charAt(i);
+                boolean ok = (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')
+                        || ch == '_' || ch == '-';
+                b.append(ok ? ch : '_');
+            }
+        }
+        return b.length() == 0 ? "desconhecido" : b.toString();
+    }
+
+    /**
+     * Prepara a pasta reserva (pasta compartilhada da maquina, como /tmp) sem seguir link simbolico: cria a pasta
+     * se nao existe e recusa (IOException) se o caminho e um link simbolico, se nao e uma pasta ou, quando o
+     * sistema de arquivos sabe dizer o dono, se o dono nao e o usuario deste processo. So depois disso a pasta e
+     * fechada para o dono e recebe arquivos. Roda so na thread de gravacao.
+     */
+    static void prepararReserva(File dir) throws IOException {
+        Path p = dir.toPath();
+        try {
+            try {
+                Files.createDirectory(p); // nao segue link: se o nome ja existe (pasta, arquivo ou link), falha
+            } catch (FileAlreadyExistsException jaExiste) {
+                // ja existe: conferido abaixo
+            }
+            if (Files.isSymbolicLink(p)) {
+                throw new IOException("a pasta reserva " + dir + " e um link simbolico; recusada");
+            }
+            if (!Files.isDirectory(p, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IOException("a pasta reserva " + dir + " existe e nao e uma pasta; recusada");
+            }
+            UserPrincipal dono;
+            try {
+                dono = Files.getOwner(p, LinkOption.NOFOLLOW_LINKS);
+            } catch (UnsupportedOperationException semDono) {
+                dono = null; // sistema de arquivos sem dono: nao da para conferir
+            }
+            if (dono != null && !dono.equals(donoDoProcesso(dir.getParentFile()))) {
+                throw new IOException("a pasta reserva " + dir + " pertence a outro usuario (" + dono.getName()
+                        + "); recusada");
+            }
+        } catch (RuntimeException e) {
+            throw new IOException("erro ao conferir a pasta reserva " + dir + ": " + e, e);
+        }
+    }
+
+    /** Usuario deste processo: o dono de um arquivo temporario novo (nome aleatorio, criado de forma exclusiva). */
+    private static UserPrincipal donoDoProcesso(File pastaTmp) throws IOException {
+        File sonda = File.createTempFile("hoshiestar-", ".dono", pastaTmp);
+        try {
+            return Files.getOwner(sonda.toPath(), LinkOption.NOFOLLOW_LINKS);
+        } finally {
+            sonda.delete();
+        }
+    }
+
+    /**
+     * Monta o conteudo uma vez e grava na pasta principal; se ela falhar (sem permissao, disco cheio), tenta a
+     * pasta reserva. Devolve os arquivos gravados (o caminho diz a pasta que valeu).
+     */
     File[] gravar() throws IOException {
-        File dir = pasta;
-        if (!dir.isDirectory() && !dir.mkdirs()) {
+        String[] conteudo = montarConteudo();
+        try {
+            return gravarEm(pasta, conteudo, false);
+        } catch (IOException e) {
+            File reserva = pastaReserva();
+            if (reserva == null || reserva.equals(pasta)) {
+                throw e;
+            }
+            falhaPastaPrincipal = String.valueOf(e.getMessage());
+            try {
+                return gravarEm(reserva, conteudo, true);
+            } catch (IOException e2) {
+                throw new IOException("a pasta " + pasta + " falhou (" + e.getMessage() + ") e a pasta reserva " + reserva
+                        + " tambem (" + e2.getMessage() + ")", e2);
+            }
+        }
+    }
+
+    /** @param soDono pasta reserva (compartilhada, como /tmp): pasta e arquivos so para o dono */
+    private File[] gravarEm(File dir, String[] conteudo, boolean soDono) throws IOException {
+        if (soDono) {
+            prepararReserva(dir); // antes de qualquer chmod ou escrita: recusa link simbolico e pasta de outro dono
+            soDono(dir);
+        } else if (!dir.isDirectory() && !dir.mkdirs()) {
             throw new IOException("nao consegui criar a pasta " + dir);
         }
         String base = "medicao-" + new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(new Date(c.inicioMs));
@@ -139,7 +246,8 @@ final class Relatorio implements Runnable {
         }
         boolean ok = false;
         try {
-            gravarConteudo(json, txt);
+            escrever(json, conteudo[0], soDono);
+            escrever(txt, conteudo[1], soDono);
             ok = true;
         } finally {
             if (!ok) {
@@ -150,7 +258,8 @@ final class Relatorio implements Runnable {
         return new File[] {json, txt};
     }
 
-    private void gravarConteudo(File json, File txt) throws IOException {
+    /** Monta o texto dos dois arquivos: {json, txt}. */
+    private String[] montarConteudo() {
 
         List<Linha> secoes = linhasDe(c.secoes);
         List<Linha> chunks = linhasDe(c.chunks);
@@ -166,14 +275,19 @@ final class Relatorio implements Runnable {
         Collections.sort(dims, POR_NS);
         double[] conc = concentracao(secoes);
 
-        escrever(json, json(topSecoes, topChunks, topClasses, dims, conc, secoes.size(), chunks.size(), classes.size()));
-        escrever(txt, txt(topSecoes, topChunks, topClasses, dims, conc, secoes.size(), chunks.size()));
+        return new String[] {
+            json(topSecoes, topChunks, topClasses, dims, conc, secoes.size(), chunks.size(), classes.size()),
+            txt(topSecoes, topChunks, topClasses, dims, conc, secoes.size(), chunks.size())
+        };
     }
 
     /** Escreve num temporario de nome unico e troca pelo arquivo reservado; o temporario nunca fica para tras. */
-    private static void escrever(File f, String conteudo) throws IOException {
+    private static void escrever(File f, String conteudo, boolean soDono) throws IOException {
         File tmp = File.createTempFile(f.getName() + ".", ".tmp", f.getParentFile());
         try {
+            if (soDono) {
+                soDono(tmp); // antes de escrever: o arquivo final e este temporario, com as mesmas permissoes
+            }
             Writer w = new OutputStreamWriter(new FileOutputStream(tmp), UTF8);
             try {
                 w.write(conteudo);
@@ -185,6 +299,18 @@ final class Relatorio implements Runnable {
             if (tmp.exists()) {
                 tmp.delete();
             }
+        }
+    }
+
+    /** Tira leitura, escrita e execucao de grupo e outros (o resultado e ignorado: pode nao ser o dono). */
+    private static void soDono(File f) {
+        f.setReadable(false, false);
+        f.setReadable(true, true);
+        f.setWritable(false, false);
+        f.setWritable(true, true);
+        if (f.isDirectory()) {
+            f.setExecutable(false, false);
+            f.setExecutable(true, true);
         }
     }
 
@@ -498,8 +624,8 @@ final class Relatorio implements Runnable {
         b.append(",\"calibracao\":{\"nanotime_ns\":").append(num(c.calibNanoNs))
                 .append(",\"limite_nanotime_ns\":").append(num(Medidor.LIMITE_NANOTIME_NS))
                 .append(",\"forcado\":").append(c.forcado)
-                .append(",\"custo_quadro_ns\":").append(num(c.calibQuadroNs))
-                .append(",\"custo_quadro_vazio_ns\":").append(num(c.calibArtefatoNs)).append('}');
+                .append(",\"custo_quadro_total_ns\":").append(num(c.calibQuadroNs))
+                .append(",\"artefato_dentro_do_quadro_ns\":").append(num(c.calibArtefatoNs)).append('}');
         b.append(",\"custo_estimado_do_medidor_ns_por_tick_medido\":").append(num(c.calibQuadroNs));
         b.append(",\"custo_estimado_do_medidor_ms_por_tick\":").append(num(msPorTick(custoEstimadoNs())));
         b.append(",\"valvula\":{\"disparou\":").append(c.valvulaDisparou)
@@ -513,7 +639,11 @@ final class Relatorio implements Runnable {
                 .append(",\"limite_pct\":").append(Math.round((Medidor.VALVULA_FATOR - 1) * 100))
                 .append(",\"limite_ms\":").append(Medidor.VALVULA_NS / 1000000L)
                 .append(",\"janelas_seguidas\":").append(Medidor.VALVULA_JANELAS)
-                .append(",\"limite_custo_estimado_ms_por_tick\":").append(Medidor.VALVULA_CUSTO_NS / 1000000L).append('}');
+                .append(",\"limite_custo_estimado_ms_por_tick\":").append(num(c.limiteCustoNs / 1e6))
+                .append(",\"limite_custo_regra\":").append(esc(Medidor.VALVULA_CUSTO_PCT_REF + "% do tick antes de ligar, no"
+                        + " minimo " + Medidor.VALVULA_CUSTO_NS / 1000000L + " ms e no maximo "
+                        + Medidor.VALVULA_CUSTO_MAX_NS / 1000000L + " ms"))
+                .append(",\"margem_custo_estimado\":").append(num(Medidor.VALVULA_CUSTO_FATOR)).append('}');
         b.append(",\"quadros_descartados\":").append(c.quadrosDescartados);
         b.append(",\"quadros_pulados\":").append(c.quadrosPulados);
         b.append(",\"secoes_distintas\":").append(nSecoes);
@@ -533,9 +663,13 @@ final class Relatorio implements Runnable {
                 + "\"ticks\":\"chamadas do laco medidas (inclui ticks bloqueados pelo Akashic-World-Firewall e ticks"
                 + " inativos do Spigot, de custo quase zero)\",\"tick_pela_rede\":\"classe com sufixo '(tick pela rede)':"
                 + " EntityPlayerMP.onUpdateEntity, uma vez por pacote de movimento; a classe sem sufixo e o tick do"
-                + " jogador pelo laco do mundo\",\"autoteste\":\"refeito no fim da medicao; autoteste_no_tick_100 e a foto"
-                + " do inicio\",\"total_ns_sem_artefato_est\":\"total_ns menos ticks x calibracao.custo_quadro_vazio_ns"
-                + " (parte do custo do proprio medidor que cai dentro de cada tick medido); estimativa\"}");
+                + " jogador pelo laco do mundo e tambem o updateEntity que o caminho da rede chama, depois do"
+                + " onUpdateEntity, para jogador montado ou dormindo (sem contar tempo duas vezes)\",\"autoteste\":\"refeito no fim da medicao; autoteste_no_tick_100 e a foto"
+                + " do inicio\",\"total_ns_sem_artefato_est\":\"total_ns menos ticks x calibracao.artefato_dentro_do_quadro_ns"
+                + " (parte do custo do proprio medidor que cai dentro de cada tick medido); estimativa\","
+                + "\"calibracao.custo_quadro_total_ns\":\"custo total de um tick medido vazio (abrir, ler o relogio, fechar,"
+                + " somar), melhor caso, sem a parte do gancho\",\"calibracao.artefato_dentro_do_quadro_ns\":\"a parte"
+                + " desse custo que cai DENTRO do tempo medido de cada tick\"}");
         b.append("},\n\"limites\":{");
         outrosJson(b, "chunks", c.chunks);
         b.append(',');
@@ -714,7 +848,16 @@ final class Relatorio implements Runnable {
         b.append("maior mediana numa janela de ").append(Medidor.JANELA).append(" ticks medidos ")
                 .append(br(c.maiorMedianaJanelaNs / 1e6, 1)).append(" ms; maior custo estimado ")
                 .append(br(c.maiorCustoEstNsPorTick / 1e6, 2)).append(" ms por tick; ")
-                .append(c.valvulaDisparou ? "DISPAROU." : "nao disparou.").append(nl).append(nl);
+                .append(c.valvulaDisparou ? "DISPAROU." : "nao disparou.").append(nl);
+        b.append("    (para sozinha se a mediana do tick passar a de antes de ligar em mais de ")
+                .append(Math.round((Medidor.VALVULA_FATOR - 1) * 100)).append("% e de ").append(Medidor.VALVULA_NS / 1000000L)
+                .append(" ms em ").append(Medidor.VALVULA_JANELAS).append(" janelas seguidas, ou se o custo estimado,")
+                .append(nl);
+        b.append("    vezes ").append(br(Medidor.VALVULA_CUSTO_FATOR, 0)).append(" de margem, passar de ")
+                .append(br(c.limiteCustoNs / 1e6, 1))
+                .append(" ms por tick (").append(Medidor.VALVULA_CUSTO_PCT_REF).append("% do tick antes de ligar, entre ")
+                .append(Medidor.VALVULA_CUSTO_NS / 1000000L).append(" e ").append(Medidor.VALVULA_CUSTO_MAX_NS / 1000000L)
+                .append(" ms): a calibracao e o melhor caso e nao inclui a parte do gancho.)").append(nl).append(nl);
 
         b.append("CONCENTRACAO").append(nl);
         b.append("  As 1, 3, 5, 10 e 20 secoes mais pesadas concentram ");
@@ -813,10 +956,13 @@ final class Relatorio implements Runnable {
         b.append("'ticks' conta as chamadas do laco medidas: inclui ticks bloqueados pelo Akashic-World-Firewall e")
                 .append(nl);
         b.append("ticks inativos do Spigot (custo quase zero); o tempo e que diz onde esta o peso.").append(nl);
-        b.append("Jogador: a classe EntityPlayerMP e o tick pelo laco do mundo; 'EntityPlayerMP (tick pela rede)' e o")
+        b.append("Jogador: 'EntityPlayerMP (tick pela rede)' e o tick pela rede (onUpdateEntity), que roda uma vez por")
                 .append(nl);
-        b.append("tick pela rede, que roda uma vez por pacote de movimento (perto de 1 por tick, as vezes mais).")
+        b.append("pacote de movimento (perto de 1 por tick, as vezes mais). A classe EntityPlayerMP sem sufixo e o tick")
                 .append(nl);
+        b.append("pelo laco do mundo e tambem o updateEntity que o caminho da rede chama, logo depois, para jogador")
+                .append(nl);
+        b.append("montado ou dormindo. Nenhum tempo e contado duas vezes.").append(nl);
         b.append("Os dados completos (300 secoes, 300 chunks, 150 classes) estao no arquivo .json de mesmo nome.")
                 .append(nl);
         return b.toString();

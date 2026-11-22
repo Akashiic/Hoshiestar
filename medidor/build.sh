@@ -100,6 +100,16 @@ CP="$WORK/servidor-srg.jar:$LAUNCHWRAPPER:$UNIMIXINS:$VANILLA"
 "${J8[@]}" "$JAVAC" -encoding UTF-8 -source 1.8 -target 1.8 -proc:none -Xlint:-options -nowarn \
   -cp "$CP" -d "$WORK/classes" @"$WORK/fontes.txt"
 cp "$AQUI/src/main/resources/"* "$WORK/classes/"
+# Versao: a unica fonte e Medidor.VERSAO (que tambem vai no @Mod). O mcmod.info do codigo traz
+# "${version}" e recebe o numero aqui; o manifesto (abaixo) tambem. A conferencia falha o build se
+# sobrar outro numero.
+[[ "$VERSAO" =~ ^[0-9][0-9A-Za-z.+-]*$ ]] || { echo "ERRO: VERSAO com formato estranho: $VERSAO" >&2; exit 1; }
+grep -q '"version": "${version}"' "$WORK/classes/mcmod.info" \
+  || { echo "ERRO: mcmod.info precisa ter \"version\": \"\${version}\" (a versao vem de Medidor.VERSAO)" >&2; exit 1; }
+sed -i 's/"version": "${version}"/"version": "'"$VERSAO"'"/' "$WORK/classes/mcmod.info"
+[[ "$(grep -c '"version":' "$WORK/classes/mcmod.info")" == "1" ]] \
+  && grep -q "\"version\": \"$VERSAO\"" "$WORK/classes/mcmod.info" \
+  || { echo "ERRO: a versao do mcmod.info nao ficou igual a $VERSAO" >&2; exit 1; }
 
 # 4. empacotar
 cat > "$WORK/MANIFEST.MF" <<EOF
@@ -112,6 +122,15 @@ EOF
 NOME="Hoshiestar-Medidor-$VERSAO-serveronly.jar"
 rm -f "$OUT/$NOME"
 "${J8[@]}" "$JAR" cfm "$OUT/$NOME" "$WORK/MANIFEST.MF" -C "$WORK/classes" .
+
+# conferencia: a versao e a mesma no manifesto, no mcmod.info e na constante do @Mod
+unzip -p "$OUT/$NOME" META-INF/MANIFEST.MF | tr -d '\r' | grep -qx "Implementation-Version: $VERSAO" \
+  || { echo "ERRO: o manifesto do jar nao diz $VERSAO" >&2; exit 1; }
+unzip -p "$OUT/$NOME" mcmod.info | grep -q "\"version\": \"$VERSAO\"" \
+  || { echo "ERRO: o mcmod.info do jar nao diz $VERSAO" >&2; exit 1; }
+"${J8[@]}" "$JAVAP" -constants -cp "$WORK/classes" hoshiestar.medidor.Medidor | grep -q "String VERSAO = \"$VERSAO\"" \
+  || { echo "ERRO: Medidor.VERSAO compilado nao e $VERSAO" >&2; exit 1; }
+echo "[build] versao $VERSAO no manifesto, no mcmod.info e no @Mod (Medidor.VERSAO)"
 
 # conferencia: todo .class com versao 52 (Java 8)
 ( cd "$WORK/classes"

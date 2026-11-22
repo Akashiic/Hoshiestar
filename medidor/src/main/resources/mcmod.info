@@ -2,8 +2,8 @@
 {
   "modid": "hoshiestar_medidor",
   "name": "Hoshiestar-Medidor",
-  "description": "Somente servidor e somente leitura: mede onde, no mapa, vai o tempo de tick de tile entities e entidades (por dimensao, secao de 16x16 chunks, chunk e classe). Desligado por padrao; liga com 'hoshie medir <segundos>' e grava em <pasta do servidor>/hoshiestar/. Nao envia nada pela rede.",
-  "version": "1.0.1",
+  "description": "Somente servidor e somente leitura: mede onde, no mapa, vai o tempo de tick de tile entities e entidades (por dimensao, secao de 16x16 chunks, chunk e classe). Desligado por padrao; liga com 'hoshie medir <segundos>' e grava em <pasta do servidor>/hoshiestar/ (reserva: <java.io.tmpdir>/hoshiestar/). Nao envia nada pela rede.",
+  "version": "${version}",
   "mcversion": "1.7.10",
   "authorList": ["Projeto Hoshiestar"],
   "credits": "Licenca GPLv3",

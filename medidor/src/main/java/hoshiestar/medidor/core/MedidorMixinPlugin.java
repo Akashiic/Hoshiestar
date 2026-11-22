@@ -79,8 +79,11 @@ public class MedidorMixinPlugin implements IMixinConfigPlugin {
                 Ganchos.mundoAplicado = true;
                 for (MethodNode m : targetClass.methods) {
                     if ("func_72939_s".equals(m.name) && "()V".equals(m.desc)) {
-                        Ganchos.teVanilla = chama(m, "hoshiestar$teFimVanilla");
-                        Ganchos.teFirewall = chama(m, "hoshiestar$teFimFirewall");
+                        // Os dois lados de cada par: inicio (@ModifyReceiver / @ModifyArg) e fim (@Inject).
+                        Ganchos.teInicioVanilla = chama(m, "hoshiestar$teInicioVanilla");
+                        Ganchos.teFimVanilla = chama(m, "hoshiestar$teFimVanilla");
+                        Ganchos.teInicioFirewall = chama(m, "hoshiestar$teInicioFirewall");
+                        Ganchos.teFimFirewall = chama(m, "hoshiestar$teFimFirewall");
                         Ganchos.firewallJaPresenteNoMixin = chamaDono(m, FIREWALL_OWNER);
                         Ganchos.lacoMundo = chama(m, "hoshiestar$lacoInicio");
                     } else if ("func_72866_a".equals(m.name) && "(Lnet/minecraft/entity/Entity;Z)V".equals(m.desc)) {
@@ -92,9 +95,10 @@ public class MedidorMixinPlugin implements IMixinConfigPlugin {
                         + (Ganchos.firewallJaPresenteNoMixin ? " (a chamada do Akashic-World-Firewall ja estava no bytecode)"
                                 : " (a chamada original ainda estava no bytecode)")
                         + "; entidades: " + (Ganchos.entidadesOk() ? "sim" : "NAO") + ".");
+                avisarMetades(Ganchos.metades(true, false));
                 if ("NENHUM".equals(Ganchos.resumoTE())) {
-                    LOG.warn("[Hoshiestar-Medidor] ATENCAO: nenhum gancho de tile entity ficou no bytecode de World.func_72939_s."
-                            + " A medicao de tile entities vai aparecer como NAO LIGADA.");
+                    LOG.warn("[Hoshiestar-Medidor] ATENCAO: nenhum par completo de ganchos de tile entity ficou no bytecode"
+                            + " de World.func_72939_s. A medicao de tile entities vai aparecer como NAO LIGADA.");
                 }
             } else if (PLAYER.equals(targetClassName)) {
                 Ganchos.jogadorAplicado = true;
@@ -106,10 +110,18 @@ public class MedidorMixinPlugin implements IMixinConfigPlugin {
                 }
                 LOG.info("[Hoshiestar-Medidor] Mixin em EntityPlayerMP aplicado. Tick de jogador pela rede: "
                         + (Ganchos.jogadoresOk() ? "sim" : "NAO") + ".");
+                avisarMetades(Ganchos.metades(false, true));
             }
         } catch (Throwable t) {
             // so diagnostico: nunca derruba o carregamento
             LOG.warn("[Hoshiestar-Medidor] Nao consegui inspecionar o bytecode depois do mixin: " + t);
+        }
+    }
+
+    /** Par com uma metade so: o par conta como NAO ligado; avisa no log com o que falta. */
+    private static void avisarMetades(String m) {
+        if (m != null) {
+            LOG.warn("[Hoshiestar-Medidor] ATENCAO: gancho pela metade (" + m + "). Esse par conta como NAO ligado.");
         }
     }
 

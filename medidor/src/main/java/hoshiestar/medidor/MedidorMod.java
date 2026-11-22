@@ -58,8 +58,10 @@ public class MedidorMod {
         String linha = Medidor.P + "Pronto (desligado). Ganchos: tile entities=" + te + ", entidades="
                 + (Ganchos.entidadesOk() ? "sim" : "NAO") + ", jogadores pela rede=" + (Ganchos.jogadoresOk() ? "sim" : "NAO")
                 + ". Use 'hoshie medir <segundos>'.";
-        if ("NENHUM".equals(te) || !Ganchos.entidadesOk()) {
-            Medidor.LOG.warn(linha + " ATENCAO: parte da medicao nao esta ligada; veja 'hoshie status'.");
+        String metades = Ganchos.metades();
+        if ("NENHUM".equals(te) || !Ganchos.entidadesOk() || metades != null) {
+            Medidor.LOG.warn(linha + " ATENCAO: parte da medicao nao esta ligada"
+                    + (metades != null ? " (gancho pela metade: " + metades + ")" : "") + "; veja 'hoshie status'.");
         } else {
             Medidor.LOG.info(linha);
         }

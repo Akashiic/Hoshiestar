@@ -46,10 +46,15 @@ public final class Ganchos {
     /** O mixin de EntityPlayerMP chegou a ser aplicado. */
     public static volatile boolean jogadorAplicado;
 
-    /** Ganchos em volta da chamada original {@code TileEntity.func_145845_h()} dentro de func_72939_s. */
-    public static volatile boolean teVanilla;
-    /** Ganchos em volta de {@code WorldMutationGuard.runTileEntityUpdate(...)} (Akashic-World-Firewall). */
-    public static volatile boolean teFirewall;
+    /**
+     * Metades do par de ganchos em volta da chamada original {@code TileEntity.func_145845_h()} dentro de
+     * func_72939_s: inicio (@ModifyReceiver) e fim (@Inject AFTER). O par so vale com as duas.
+     */
+    public static volatile boolean teInicioVanilla;
+    public static volatile boolean teFimVanilla;
+    /** Idem, em volta de {@code WorldMutationGuard.runTileEntityUpdate(...)} (Akashic-World-Firewall; inicio = @ModifyArg). */
+    public static volatile boolean teInicioFirewall;
+    public static volatile boolean teFimFirewall;
     /** Na hora em que o Mixin rodou, func_72939_s ja tinha a chamada do firewall. */
     public static volatile boolean firewallJaPresenteNoMixin;
     /** Gancho no inicio de World.func_72939_s (usado so pelo autoteste). */
@@ -64,8 +69,52 @@ public final class Ganchos {
     /** O jar do Akashic-World-Firewall estava no classpath no boot. */
     public static volatile boolean firewallInstalado;
 
-    /** Resumo legivel do gancho de tile entity aplicado no carregamento. */
+    /** Par vanilla completo (inicio e fim no bytecode). */
+    public static boolean teVanilla() {
+        return teInicioVanilla && teFimVanilla;
+    }
+
+    /** Par do firewall completo (inicio e fim no bytecode). */
+    public static boolean teFirewall() {
+        return teInicioFirewall && teFimFirewall;
+    }
+
+    /**
+     * Pares com so uma metade no bytecode (um injetor aplicou e o outro nao). Esse par NAO conta como
+     * ligado: sem o inicio nada e medido; sem o fim os quadros nunca fecham. Devolve null se nao houver.
+     */
+    public static String metades() {
+        return metades(true, true);
+    }
+
+    /** Idem, so para os ganchos de World ({@code mundo}) e/ou de EntityPlayerMP ({@code jogador}). */
+    public static String metades(boolean mundo, boolean jogador) {
+        StringBuilder b = new StringBuilder();
+        if (mundo) {
+            metade(b, "tile entity vanilla", teInicioVanilla, teFimVanilla);
+            metade(b, "tile entity firewall", teInicioFirewall, teFimFirewall);
+            metade(b, "entidades", entidadeInicio, entidadeFim);
+        }
+        if (jogador) {
+            metade(b, "jogadores pela rede", jogadorInicio, jogadorFim);
+        }
+        return b.length() == 0 ? null : b.toString();
+    }
+
+    private static void metade(StringBuilder b, String par, boolean inicio, boolean fim) {
+        if (inicio != fim) {
+            if (b.length() > 0) {
+                b.append("; ");
+            }
+            b.append("par ").append(par).append(": so o gancho de ").append(inicio ? "inicio" : "fim")
+                    .append(" ficou no bytecode, falta o de ").append(inicio ? "fim" : "inicio");
+        }
+    }
+
+    /** Resumo legivel do gancho de tile entity aplicado no carregamento (so pares completos). */
     public static String resumoTE() {
+        boolean teVanilla = teVanilla();
+        boolean teFirewall = teFirewall();
         if (teVanilla && teFirewall) {
             return "vanilla+firewall";
         }
