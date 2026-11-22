@@ -25,7 +25,7 @@ ambiente de teste que qualquer sessão consegue montar de novo.
 - Medida em mundo novo: 3,1 ms por tick, 61 dimensões (`DIAGNOSTICO.md` §4).
 - Ressalva: mundo novo contamina o perfil (D-10). Refazer quando houver cópia do mundo real.
 
-### 0.4 Perfil sob carga real 🧑 **a medida mais importante do projeto**
+### 0.4 Perfil sob carga real ✅ (um perfil de 8 jogadores; resultado em `DIAGNOSTICO.md` §6)
 O que preciso saber: em horário de pico, quanto do tick é
 (a) tile entities e entidades por dimensão, (b) handlers globais de mods,
 (c) plugins, (d) rede, salvamento e chunk.
@@ -43,12 +43,15 @@ Roteiro para o admin (só leitura; não muda nada no servidor):
 6. Me diga: número de jogadores na hora, núcleos e RAM da máquina, flags da JVM.
 
 Pronto quando: `DIAGNOSTICO.md` tiver a tabela "onde vai o tick em produção"
-com esses números.
+com esses números. **Feito** com o relatório do spark enviado em 2026-11-21.
+Ainda ajudaria: a saída de `/forge tps` no pico (dá o tempo por dimensão, que o spark não dá)
+e um segundo perfil com mais jogadores.
 
-### 0.5 Mundo de teste com carga 🧑
+### 0.5 Mundo de teste com carga 🧑 (o mundo tem 150 GB e não pode ser copiado)
 - Preciso de uma cópia do mundo (ou só das regiões `.mca` de 3 a 5 bases pesadas mais `level.dat` e a pasta `data/`).
 - Com isso o servidor de teste carrega bases reais e o perfil passa a significar algo.
 - Alternativa sem o mundo: construir bases sintéticas por comando. Mais fraco, mas possível.
+- Alternativa leve: só os arquivos de região de 3 a 5 bases (`region/r.<X÷512>.<Z÷512>.mca`, poucos MB cada) e o `level.dat`.
 
 ### 0.6 Bots de teste ⏳ (sonnet)
 - Validar `minecraft-protocol` + `minecraft-protocol-forge` contra o servidor de teste na 1.7.10. **Não verificado** que funcione com o handshake FML dessa versão e com 292 mods.
@@ -56,26 +59,60 @@ com esses números.
 - Pronto quando: 20 bots ficam conectados 10 minutos sem serem expulsos. Se não der, registrar o motivo e o plano alternativo (cliente real sem tela, ou bots só para carga de chunk).
 - Risco: alto de não funcionar de primeira. Não bloqueia a Etapa 1.
 
-### 0.7 Compilar a base do zero ⏳ (sonnet; opus se o build quebrar)
+### 0.7 Compilar a base do zero ✅ (passos em `docs/pesquisa/crucible-build.md`)
 - Clonar o Crucible, fazer checkout de `67b53034`, instalar JDK 8, `./gradlew setupCrucible buildPackages`.
-- Pronto quando: o jar gerado liga o servidor de teste e chega a "Done" igual ao jar de produção.
+- Pronto quando: o jar gerado liga o servidor de teste e chega a "Done" igual ao jar de produção. **Verificado**: 5.317 de 5.318 entradas idênticas ao jar de produção; ligou com 292 mods e parou limpo.
 - Risco: médio (dependências em repositório pessoal). Se uma dependência sumir, espelhar.
 - Não é necessário para as Etapas 1 e 2, mas tem que estar provado antes da Etapa 3.
 
-### 0.8 Conferir as estruturas hostis a threads no código decompilado ⏳ (opus)
+### 0.8 Conferir as estruturas hostis a threads no código decompilado 🔄 (opus)
+- Parcial: tick, threads existentes, estado estático e campos públicos já mapeados com arquivo e linha (`docs/pesquisa/crucible-tick-e-threads.md` e `crucible-arquitetura-patches.md`). Falta a lista vanilla item a item.
 - A lista de `docs/pesquisa/arte-previa.md` §4 é conhecimento geral. Conferir cada item no código do workspace gerado em 0.7.
 - Entrega: tabela "estrutura, onde é usada, quem acessa de fora, tratamento previsto".
 
+### 0.9 Medidor de carga por região 🔄 (novo; opus, com revisão e teste por agentes diferentes)
+O perfil do spark diz **quanto** o tick custa, mas não **onde no mapa**. Sem isso não dá
+para saber se o orçamento por região (Degrau A) ajuda. Como o mundo não pode ser copiado,
+a medida tem que ser feita em produção, por um mod pequeno e só de leitura:
+- `Hoshiestar-Medidor`: mede o tempo de tick de tile entities e entidades e agrupa por dimensão, por seção de 16×16 chunks e por chunk.
+- Desligado por padrão. Ligado por comando, por tempo limitado. Grava um arquivo local; não envia nada para fora.
+- Não muda comportamento. Tem que conviver com o mixin do `Akashic-World-Firewall`, que já envolve o tick de tile entity.
+- Pronto quando: sobe com o modpack real; desligado, não altera o tick; ligado, aponta corretamente blocos de teste colocados por comando; revisado por outro agente.
+- Entrega: jar para o admin e roteiro de uma página.
+
 ### Critério de saída da Etapa 0
 1. Ambiente reproduzível ✅
-2. Tabela "onde vai o tick em produção" preenchida (0.4)
-3. Lista das 10 maiores fontes de custo, com dono (mod/plugin)
-4. Base compilável do zero (0.7)
-5. `DIAGNOSTICO.md` atualizado e `PROGRESSO.md` sem pendência da etapa
+2. Tabela "onde vai o tick em produção" preenchida ✅
+3. Lista das maiores fontes de custo, com dono ✅ (`DIAGNOSTICO.md` D-16 e `docs/pesquisa/perfil-producao.md` §4)
+4. Base compilável do zero ✅
+5. Distribuição da carga pelo mapa medida em produção (0.9) ⏳
+6. `DIAGNOSTICO.md` atualizado e `PROGRESSO.md` sem pendência da etapa
 
 ---
 
-## Etapa 1: Tirar da thread principal o que é independente
+## Etapa 1 (revista): ganhos baratos medidos, o "Degrau 0"
+
+**Mudança de rumo, decidida com os dados de produção.** O plano original desta etapa
+(tirar disco, luz e geração da thread principal) ataca 2,9% do tick. O perfil mostrou
+cerca de 20% em quatro pontos que não precisam de threads. A etapa passa a ser esta lista,
+em ordem de retorno. Cada item é um mixin pequeno com interruptor, do mesmo tipo dos mods
+`Akashic-*Relief`.
+
+| # | Item | % do tick | Risco | Observação |
+|---|---|---:|---|---|
+| 1.A | `dontSleepOnThreadedIO=false` no `hodgepodge.cfg` | devolve 1 núcleo | baixo | **só config**; verificado no teste (D-18). O admin pode aplicar já. |
+| 1.B | Teto de volume e de tempo na habilidade de mover área do ChromatiCraft | evita stall de 30 s | baixo | D-21 |
+| 1.C | Leitura de energia da matriz de indução do Mekanism | até 8,3 | médio | cache por tick; conferir que energia não é criada nem perdida (teste de conservação) |
+| 1.D | BetterQuesting no tick do servidor | até 4,6 | médio | já existe o `Akashic-BQRelief`; ver por que ainda custa |
+| 1.E | `ChunkBlockHashMap` do Crucible | até 3,6 | médio | é da base; candidato a pull request ao upstream |
+| 1.F | Handler do Ars Magica 2 em toda entidade viva | até 3,6 | médio | |
+| 1.G | Correção do desligamento (D-24) | não é desempenho | baixo | candidato a pull request ao upstream |
+| 1.H | Vigia que nomeia jogador, posição e mod quando um tick passa de 2 s | diagnóstico | baixo | |
+
+Os itens do plano original (abaixo) ficam como **reserva**: só entram se um perfil
+futuro mostrar que pesam.
+
+## Etapa 1, plano original (reserva): tirar da thread principal o que é independente
 
 Regra: **só atacar o que a Etapa 0 mostrar que pesa.** Se o salvamento já custa
 1 ms, não se mexe nele. Cada item tem interruptor no config, desligado por padrão.

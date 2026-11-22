@@ -20,6 +20,9 @@ Sou administrador de um servidor survival com mods na 1.7.10 (Forge + plugins Bu
 - Já existem mods próprios que tiram trabalho da thread principal ou limitam carga: `SaveRelief` (salvamento em thread de I/O), `PlayerChunkAsync`, `TickRelief`, `MekThrottle`, `BQRelief`. A Etapa 1 começa auditando esses, não refazendo.
 - O pacote do servidor **não traz**: mundo, `server.properties`, `bukkit.yml`, `spigot.yml`, `cauldron.yml`, `Crucible.yml` de produção, nem o script de inicialização (flags da JVM e `-javaagent`).
 - Cliente: modpack TEOF 6.3. O Hoshiestar não pode exigir mudança no cliente.
+- **Máquina de produção**: 7 vCores e 17 GB de RAM (heap de 14 GB, G1). "Muitos núcleos sobrando" são, na prática, 3 a 4 núcleos para threads de região.
+- **Perfil de produção medido** (8 jogadores): 11,8 TPS, 84 ms por tick, thread principal sem nunca dormir. Do tick, 67% é trabalho local de região, 18% handlers globais de mods, 10% rede, 5% plugins, 3% disco e chunks. Detalhes em `DIAGNOSTICO.md` §6.
+- A base foi reconstruída do zero e bate com o jar de produção (`docs/pesquisa/crucible-build.md`).
 
 ## Objetivo final
 - Lag isolado: uma base pesada laga só a região dela; o resto do servidor fica liso.
@@ -69,7 +72,7 @@ Se alguma meta se mostrar impossível, diga o motivo com evidência.
 - **Etapa 0 – Medição**: perfilar o servidor com o modpack real e listar o que mais pesa.
   **[novo]** Inclui: ambiente de teste reproduzível, inventário estático dos mods, linha de base ociosa, compilar o Crucible do zero (provar que a base é reconstruível) e validar bots de teste.
 - **Etapa 1 – Tirar da thread principal o que é independente**: geração de chunks, salvamento em disco, cálculo de luz, carregamento de dados/chunks no login.
-  **[novo]** Primeiro auditar o que `SaveRelief`, `PlayerChunkAsync` e o próprio Crucible já fazem. Só atacar o que aparecer no perfil da Etapa 0.
+  **[novo]** Revista com o perfil de produção: disco, luz e geração somam 2,9% do tick. A etapa passa a ser "ganhos baratos medidos" (Degrau 0): os pontos que o perfil mostrou valer até ~20% do tick sem threads. O plano original fica como reserva (`docs/03-plano-etapa-0-1.md`).
 - **Etapa 2 – Núcleo do Mixin em modo "observador"**: só registra quais mods mexem fora da própria área, sem mudar comportamento. Gera a lista de mods que vão precisar de módulo.
 - **[novo] Portão "vai / não vai"**: com os dados da Etapa 2, decidir com o admin se segue para regiões em paralelo, se fica no Plano B, ou um misto por dimensão.
 - **[novo] Etapa 2.5 – Orçamento de tick por região** (thread única) e avaliação de threads por dimensão.

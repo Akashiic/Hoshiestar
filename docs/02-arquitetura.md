@@ -1,6 +1,7 @@
 # Hoshiestar: desenho da arquitetura
 
-Estado: proposta para aprovação. Nenhum código de região foi escrito ainda.
+Estado: base e ordem em degraus **aprovadas pelo admin** (2026-11-21). Revisado em 2026-11-22 com o perfil
+de produção e o estudo do código do Crucible. Nenhum código de região foi escrito ainda.
 Termos técnicos são explicados na primeira vez que aparecem.
 
 ## 1. O problema, em uma frase
@@ -18,7 +19,10 @@ Queremos que a base pesada pague sozinha pelo próprio peso.
 | MCMT (1.15+) paralelizou por tipo de tick e **perdeu 20–50% de TPS** | README do projeto (§2.2) | Trocar listas por versões concorrentes não resolve; precisa de dono por região. |
 | AE2 quebra até com uma thread por dimensão | DimensionalThreading (§2.3) | Redes de mod são o caso difícil. O pack tem AE2, IC2, EnderIO, Mekanism, RotaryCraft. |
 | 55 jars usam `ServerTickEvent`, 41 `WorldTickEvent`, 34 `WorldSavedData` | inventário estático (`docs/dados/inventario-mods.csv`) | Muito código de mod roda "uma vez por tick do servidor/mundo" e guarda estado global. Esse código não tem região. |
-| Servidor ocioso (0 players, 61 dimensões): tick médio 3,1 ms, dos quais 2,6 ms são o tick das dimensões | `/forge tps` no ambiente de teste (`DIAGNOSTICO.md`) | Sem carga não há gargalo. Quanto do tick de produção é "de mundo" (paralelizável) e quanto é global (handlers, plugins, rede) **só se sabe com perfil sob carga real**. É a medida mais importante da Etapa 0. |
+| Produção, 8 jogadores: 11,8 TPS, 84 ms por tick, thread principal sem nunca dormir, processo usando menos de 3 dos 7 núcleos | perfil do spark (`DIAGNOSTICO.md` §6) | A premissa está confirmada por medida: o gargalo é uma thread e sobram núcleos. |
+| Do tick de produção, 67% é trabalho local de região, 18% handlers globais de mods, 10% rede, 5% plugins | idem | Teto de ganho: o paralelismo leva de 84 ms para perto de 50 ms com 4 threads. Chega a 20 TPS, sem folga. |
+| Um único clique (habilidade do ChromatiCraft sem limite) travou o servidor 30 s, dentro da fase de rede | stall report (`DIAGNOSTICO.md` §7) | Orçamento e fase paralela não evitam isso. Só regiões independentes isolam; antes delas, limites pontuais. |
+| Eventos de plugin já passam por uma trava global; 63 jars de mod leem listas do mundo por campo público | estudo do Crucible (`docs/04-estudo-crucible.md`) | Plugins ficam em fila sozinhos; interceptar métodos não basta. |
 | A base não tem checagem de thread (`AsyncCatcher` ausente) | avaliação da base §1.7 | Precisamos criar as checagens de dono. |
 | Mixins early/late sobre o Crucible já rodam em produção (mods `Akashic-*`) | jars do servidor | O mecanismo de interceptação está provado neste ambiente. |
 
@@ -27,13 +31,36 @@ não é alcançável de uma vez, e para alguns mods talvez nunca. O desenho abai
 ao objetivo nº 1 (lag isolado) cedo e por um caminho seguro, e trata o paralelismo
 como ganho progressivo, liberado mod a mod e dimensão a dimensão.
 
-## 3. Ideia central: três degraus, todos com interruptor
+## 3. Ideia central: degraus, todos com interruptor
 
 ```
-Degrau A  Orçamento de tick por região      (1 thread)          -> isola o lag
-Degrau B  Fase paralela sincronizada        (N threads, em passo) -> usa os núcleos
-Degrau C  Regiões independentes estilo Folia (N threads, soltas)  -> isola e escala
+Degrau 0  Ganhos baratos medidos             (1 thread)            -> ~20% do tick, sem risco de concorrência
+Degrau A  Orçamento de tick por região       (1 thread)            -> isola a base pesada
+Degrau B  Fase paralela sincronizada         (3-4 threads, em passo) -> usa os núcleos
+Degrau C  Regiões independentes estilo Folia (3-4 threads, soltas)  -> isola e escala
 ```
+
+O que o perfil de produção diz sobre cada um (contas em `DIAGNOSTICO.md`, D-14 a D-16):
+
+| Degrau | Tick estimado (hoje: 84 ms) | Chega a 50 ms? |
+|---|---|---|
+| 0 sozinho, no melhor caso (os quatro pontos eliminados por inteiro) | ~67 ms | não |
+| A sozinho, se uma base tiver metade da carga | 56 a 70 ms | não |
+| B com 4 threads, carga espalhada | 42 a 53 ms | no limite |
+| 0 + B, no melhor caso do Degrau 0 | ~37 a 45 ms | sim, com alguma folga |
+| 0 + A + B, com uma base pesada | depende de como a carga se distribui | **falta medir** |
+
+Todas as linhas são estimativas feitas sobre um perfil de 8 jogadores, não medidas.
+Nenhum degrau resolve sozinho. A combinação resolve. E a medida que falta é a
+distribuição da carga pelo mapa.
+
+### Degrau 0: ganhos baratos medidos (novo)
+Quatro pontos somam cerca de 20% do tick (é o teto; o ganho real depende de quanto de cada um dá para cortar) e não precisam de threads: a leitura de
+energia da matriz de indução do Mekanism (8,3%), o BetterQuesting (4,6%), o mapa de
+chunks do Crucible (3,6%) e o handler do Ars Magica 2 (3,6%). Mais duas correções
+pontuais: a opção do Hodgepodge que queima um núcleo (D-18, verificada) e um teto
+na habilidade do ChromatiCraft que causou o stall de 30 s (D-21). São mudanças
+pequenas, do mesmo tipo dos mods `Akashic-*Relief` que a rede já mantém.
 
 ### Degrau A: orçamento de tick por região (Plano B do prompt)
 O servidor continua com uma thread. O mundo já é dividido em regiões (mesma
@@ -45,6 +72,9 @@ as máquinas daquela base andam mais devagar, o resto do servidor fica a 20 TPS.
 - É o mesmo efeito do lag de hoje, só que restrito a quem causa.
 - Já dá o alerta ao admin ("região X, base em tal coordenada, 140 ms").
 - Limite: não usa os núcleos sobrando. A soma de todas as bases ainda cabe em uma thread.
+- **Limite medido**: neste perfil, tirar do tick uma base com metade da carga ainda deixa 56 ms. O Degrau A isola a base pesada, mas não leva o servidor a 20 TPS sozinho.
+- O Crucible já tem um mecanismo parecido por **tipo** de máquina (`tileentities.yml`), que não serve para isolar uma base (D-25). O Degrau A é o mesmo efeito por **lugar**, escalonado para não fazer pico.
+- Não protege contra uma chamada única muito longa (o caso do stall): orçamento age entre ticks, não interrompe.
 
 ### Degrau B: fase paralela sincronizada
 Cada tick do servidor vira três fases:
@@ -59,6 +89,9 @@ Cada tick do servidor vira três fases:
 - Mods e plugins que rodam "uma vez por tick" continuam em série, como hoje. Compatibilidade alta.
 - Usa os núcleos. Combinado com o Degrau A, a região pesada não segura as outras (ela pula ticks).
 - Limite: o tick ainda é comum. O teto é a fase em série mais a região mais lenta permitida pelo orçamento.
+- Threads: um grupo de **3 a 4** atendendo uma fila de regiões, não uma thread por região. A máquina tem 7 vCores e a thread principal, a coleta de lixo, a rede e o I/O já usam parte.
+- Eventos de plugin disparados na fase paralela caem na trava global do Bukkit (D-26): seguro, mas é ponto de espera.
+- As listas públicas do mundo não podem mudar de tamanho durante a fase paralela: adições e remoções ficam para a fase em série, como o jogo já faz com tile entities novas.
 
 ### Degrau C: regiões independentes (estilo Folia)
 Cada região tem o próprio relógio de tick. Só para dimensões e mods **liberados**
@@ -67,8 +100,9 @@ depois de passarem pelo observador (Etapa 2) e pelos testes. O resto fica no Deg
 - É o que escala para 100–200 players espalhados.
 - É onde moram os riscos: eventos globais disparados em paralelo, plugins, redes de mod.
 - Pode nunca cobrir 100% do pack. Tudo bem: cada dimensão usa o degrau mais alto que aguenta.
+- É o único degrau que teria isolado o stall de 30 s, e só com os pacotes tratados na região do jogador.
 
-Mapa para as etapas do prompt: Degrau A = Etapa 2.5; Degrau B = primeira metade
+Mapa para as etapas do prompt: Degrau 0 = Etapa 1 (revista); Degrau A = Etapa 2.5; Degrau B = primeira metade
 da Etapa 3; Degrau C = segunda metade da Etapa 3 mais Etapas 4 e 5.
 
 ## 4. Componentes
@@ -173,16 +207,23 @@ mostrar só parte da história.
 ## 6. Riscos e o que não dá para prometer
 
 1. **Mods com estado global** podem obrigar dimensões inteiras a ficar no Degrau B. O ganho real só aparece com os dados da Etapa 2.
-2. **Parte do tick não é de mundo** (handlers globais, plugins, rede). Essa parte não paraleliza com regiões; se ela for grande em produção, o teto de ganho é baixo. Medir na Etapa 0 com carga real.
+2. **Um terço do tick não é de região** (handlers globais 18%, rede 10%, plugins 5%). Medido em produção. É o teto do paralelismo; o Degrau 0 ataca justamente parte desse terço.
 3. **Plugins** no Degrau C são o problema menos resolvido. Folia resolveu proibindo.
 4. **Erros de concorrência são raros e silenciosos**: um dupe pode aparecer uma vez por semana. Por isso o teste de conservação e o teste de 24 h são obrigatórios, e por isso o padrão é sempre o lado seguro.
 5. **Manutenção**: fork de uma base com poucos mantenedores e build frágil. Mitigar com espelho das dependências e build automatizado.
 6. **Máquina de teste**: aqui há 4 núcleos. Ganho de escala só se mede na máquina real.
 7. Não existe "zero lag". Uma base que gasta 300 ms continuará lenta para o dono dela.
 
-## 7. Decisões que precisam do admin
+## 7. Decisões
 
-1. Aprovar o Crucible `staging` em `67b53034` como base do fork.
-2. Aprovar a ordem em degraus (A antes de B antes de C), com o portão "vai / não vai" depois da Etapa 2.
-3. Aceitar que base pesada tenha máquinas mais lentas (Degrau A) como forma de isolar o lag.
-4. Licença GPLv3 e repositório só com patches e código próprio.
+Aprovadas pelo admin em 2026-11-21:
+1. Base: Crucible `staging` em `67b53034`.
+2. Ordem em degraus.
+
+Tomadas pelo coordenador em 2026-11-22 (reversíveis; ver `PROGRESSO.md`):
+3. Incluir o Degrau 0 e trocar o foco da Etapa 1: de "tirar I/O da thread principal" (vale 2,9% do tick) para "ganhos baratos medidos" (~20%).
+4. Grupo de 3 a 4 threads de região, não uma thread por região.
+
+Ainda dependem do admin:
+5. Aceitar que base pesada tenha máquinas mais lentas (Degrau A) como forma de isolar o lag.
+6. Rodar em produção um medidor de carga por região (só leitura), já que o mundo não pode ser copiado.

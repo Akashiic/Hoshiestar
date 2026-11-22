@@ -40,8 +40,8 @@ alcança classes do Minecraft já alteradas pelo Crucible?": alcança.
 | `Akashic-MekThrottle` 1.1.0 | sem descrição; pelo nome, limitador do Mekanism (não verificado) |
 | `Akashic-BQRelief` 2.0.0 | caches para o BetterQuesting |
 
-O Crucible também já tem thread de iluminação por mundo (estilo PaperSpigot) e o
-`ChunkIOExecutor` do Forge (`docs/pesquisa/avaliacao-base.md` §1.7).
+O Crucible também tem uma thread de iluminação por mundo (estilo PaperSpigot), que vem
+**desligada** por padrão (`use-async-lighting: false`), e o `ChunkIOExecutor` do Forge (`docs/pesquisa/avaliacao-base.md` §1.7).
 **A Etapa 1 começa por auditar isso, não por reescrever.**
 
 **D-04. O pacote tem segredos.** Arquivos de config com credenciais de banco,
@@ -157,9 +157,170 @@ produção é escolha dele (o roteiro avisa).
 - **DimensionalThreading**: AE2 quebra até com uma thread por dimensão.
 - **Não verificado**: bots com handshake do Forge em 1.7.10; valores numéricos do regionizador do Folia; a lista de estruturas hostis a threads da 1.7.10 (é conhecimento geral, falta conferir no código decompilado); Ultramine.
 
-## 6. O que NÃO foi medido
+## 6. Perfil de produção (relatório do spark enviado pelo admin)
 
-- Perfil sob carga real (com jogadores e bases). Depende do admin.
+Fonte: relatório exportado do spark, 10 minutos, lido offline com `tools/spark_report.py`.
+Análise completa e revisão independente em `docs/pesquisa/perfil-producao.md`.
+Os números abaixo foram recalculados pelo revisor a partir do arquivo bruto.
+
+| Medida | Valor |
+|---|---|
+| Duração / ticks | 602 s / 7.113 ticks |
+| Jogadores | **8** |
+| TPS médio | **11,8** |
+| Tempo por tick da thread principal | **84,2 ms** (o alvo é 50) |
+| A thread principal dorme? | não, nunca: está sempre no limite |
+| Chunks carregados / dimensões | 4.100 a 4.800 / 60 |
+| CPU do processo | cerca de 40% de 7 vCores (2,8 núcleos) |
+| Heap | 10,3 de 14 GB; pausas de coleta de lixo: ~0,3% do tempo |
+
+### Onde vai o tick
+
+| Fase | % do tick | ms por tick |
+|---|---:|---:|
+| Tile entities | 26,4 | 22,3 |
+| Entidades | 20,7 | 17,4 |
+| Tick de mundo (blocos, spawn de mobs, envio de chunks) | 13,8 | 11,6 |
+| Rede (pacotes; 7,2 pontos são o tick do próprio jogador) | 10,3 | 8,7 |
+| Handlers globais de mods depois do tick do servidor | 7,9 | 6,7 |
+| Handlers de fim de tick de mundo | 5,5 | 4,6 |
+| Handlers globais de mods antes do tick do servidor | 4,3 | 3,6 |
+| Laço das listas, rastreador de entidades, outros | 6,2 | 5,2 |
+| Agendador de plugins | 1,9 | 1,6 |
+| Salvamento, descarga e fim de carga de chunk | 0,5 | 0,4 |
+| Fora do tick (não lido pelo profiler, coleta de lixo) | 1,3 | 1,1 |
+
+### Por tipo de trabalho
+
+| Tipo | % | O que é |
+|---|---:|---|
+| Local de região, "puro" | 56,7 | entidades, blocos, spawn, tile entities sem rede de mod |
+| Local de região, mas toca estado global de mod | 10,6 a 12 | matriz de indução, Entangloporter e cabos do Mekanism, conduítes do EnderIO, EnderStorage |
+| Handlers globais (sem região) | 18,4 | BetterQuesting, redes do Mekanism, AE2, EnderIO, IC2/Uncomplication |
+| Rede por jogador | 10,3 | no Folia isso roda na região do jogador |
+| Plugins Bukkit | ~5 | agendador 1,9; ProtocolLib ~2,2 (dentro do envio de pacotes); listeners 0,65 |
+| Disco, carga e geração de chunk, luz | 2,9 | já quase todo fora do tick |
+
+### Achados
+
+**D-12. O gargalo é uma thread só, e sobram núcleos.** Com 8 jogadores o servidor já
+está a 11,8 TPS. A thread principal gasta 84 ms por tick sem nunca dormir, enquanto o
+processo usa menos de 3 dos 7 núcleos. A premissa do projeto está confirmada por medida.
+
+**D-13. Dois terços do tick são trabalho de região.** É a parte que regiões em paralelo
+podem dividir. O outro terço (handlers globais, rede, plugins) é o teto.
+
+**D-14. Estimativa de ganho (conta, não medida).** Lei de Amdahl: tempo = parte em série +
+parte paralela ÷ número de threads.
+
+| Cenário | 3 threads | 4 threads | 5 threads | Metade da carga numa base só |
+|---|---|---|---|---|
+| Conservador (o que toca estado global fica em série) | 52 ms | 48 ms | 46 ms | 60 ms |
+| Otimista | 46 ms | 42 ms | 39 ms | 56 ms |
+| Com rede por região (Degrau C) | 42 ms | 37 ms | 33 ms | 53 ms |
+
+Com perda de 30% por concorrência (o MCMT perdeu de 20 a 50%), o conservador com 4 threads
+vira 53 ms. Ou seja: o paralelismo leva este perfil de 84 ms para perto de 50 ms. **Chega
+a 20 TPS, mas sem folga.**
+
+**D-15. O orçamento por região sozinho (Degrau A) não chega a 20 TPS neste perfil.**
+Mesmo tirando do tick uma base que concentrasse metade do trabalho de região, sobram
+56 ms. Só chegaria a 50 ms se uma única região tivesse 60% ou mais do trabalho.
+**O perfil não diz como a carga se distribui pelo mapa.** Essa é a medida que falta.
+
+**D-16. Há cerca de 20% do tick em quatro pontos baratos de atacar, sem threads.**
+
+| Ponto | % do tick | O que é |
+|---|---:|---|
+| Leitura de energia da matriz de indução do Mekanism | 8,3 | `SynchronizedMatrixData`: 6,0 vêm das tile entities e 2,2 da rede de energia do Uncomplication lendo a matriz todo tick |
+| BetterQuesting | 4,6 | handler de tick do servidor (antes e depois) |
+| `ChunkBlockHashMap.get` do Crucible | 3,6 | mapa de chunks herdado do Thermos |
+| Ars Magica 2 | 3,6 | handler em toda atualização de entidade viva |
+
+20% de 84 ms são 17 ms. Somado ao paralelismo, é o que dá folga.
+
+**D-17. A Etapa 1 do plano original vale pouco aqui.** Disco, carga, geração, luz e
+salvamento somam 2,9% do tick. `SaveRelief`, o Hodgepodge e o Crucible já tiraram quase
+tudo da thread principal. Só interessam os picos.
+
+**D-18. A "File IO Thread" queima um núcleo inteiro parada. Verificado e com correção.**
+No perfil de produção ela passa 95% do tempo em `Thread.yield` (um laço que gira sem
+dormir), por causa da opção `B:dontSleepOnThreadedIO=true` do `hodgepodge.cfg` combinada
+com um patch do Crucible. Medido no servidor de teste, ocioso, depois de um `save-all`:
+
+| `dontSleepOnThreadedIO` | CPU da "File IO Thread" |
+|---|---|
+| `true` (produção hoje) | **101,4% de um núcleo** |
+| `false` | 0,1% de um núcleo |
+
+Nos dois casos o servidor salvou e parou limpo. Não muda o TPS de hoje (a thread principal
+não disputa esse núcleo), mas devolve 1 dos 7 núcleos, que as threads de região vão precisar.
+Ressalva: testado só com servidor ocioso; em produção, aplicar num reinício e observar o salvamento.
+
+**D-19. Os picos.** O pior tick do período (5.219 ms) cai na mesma janela de um minuto em
+que há 7,2 s de crafting em massa num terminal do AE2 (`SlotCraftingTerm.craftItem`).
+Que seja o mesmo tick não foi verificado: o spark só guarda janelas de um minuto.
+
+**D-20. Plugins custam pouco.** Cerca de 5% do tick, e quase metade é o ProtocolLib
+interceptando pacotes enviados.
+
+## 7. O stall de 30 segundos (relatório enviado pelo admin)
+
+Análise completa em `docs/pesquisa/stall-report.md`.
+
+**D-21. Um clique de um jogador parou o servidor inteiro.** A thread principal estava
+dentro da habilidade de mover área do ChromatiCraft (`AbilityCalls.shiftArea`), chamada
+por um clique direito, durante a fase de rede do tick. A habilidade percorre uma caixa
+inteira de blocos e **não tem limite de tamanho nem de tempo**; o custo para o jogador só
+é conferido depois do laço. Das 411 threads, só essa estava trabalhando. Uma thread de
+rede ficou bloqueada esperando a mesma trava (logins e conexões daquela thread pararam).
+
+O que isso ensina:
+- Orçamento por região (A) e fase paralela sincronizada (B) **não teriam evitado**: o pacote é tratado na parte em série e nenhum orçamento interrompe uma chamada em curso.
+- Só regiões independentes (C), com o pacote tratado na região do jogador, isolariam.
+- Correção barata e imediata: um mixin com teto de volume e de tempo nessa habilidade, e um vigia que diga **quem** clicou e **onde** (o relatório de hoje não diz).
+
+**D-22. Metade das threads é do Distant Horizons.** 208 das 411 (3 por dimensão, 64
+dimensões), todas dormindo. Não disputam CPU, mas mostram que "uma thread por dimensão"
+não é modelo: o que cabe em 7 núcleos é um grupo de 3 a 4 threads de região atendendo
+uma fila.
+
+## 8. A base Crucible (estudo do código)
+
+Síntese em `docs/04-estudo-crucible.md`.
+
+**D-23. A base é reconstruível.** O jar compilado aqui a partir de `67b53034` tem o mesmo
+manifesto e as mesmas 5.318 entradas do jar de produção; 5.317 idênticas (a diferença é
+um arquivo de patches binários que muda a cada build). O jar reconstruído ligou o servidor
+de teste com 292 mods e parou limpo. Precisa de JDK 8 e JDK 17.
+
+**D-24. Causa do D-07 encontrada.** O gancho de desligamento chama `stopServer()` sem parar
+o laço de tick; o Forge remove a dimensão de `worldTickTimes` enquanto o tick ainda a usa.
+Ainda existe na ponta do upstream. Depois do erro, `stopServer()` roda uma segunda vez em paralelo.
+
+**D-25. `tileentities.yml` e `entities.yml` já desaceleram por tipo, mas não por lugar.**
+O cache é por classe e fixa o primeiro mundo; não há granularidade por chunk; todas as
+instâncias ticam juntas. Não serve para isolar uma base.
+
+**D-26. Eventos de plugin passam por uma trava global** (`SimplePluginManager.callEvent`).
+
+**D-27. Mods leem campos públicos do mundo direto**: `playerEntities` em 63 jars,
+`loadedEntityList` em 34, `loadedTileEntityList` em 26.
+
+**D-28. O agente `Akashic-nChat-ChainColor` se desliga no boot** ("Target SHA mismatch;
+disabled"): espera o nChat 2.0.4 e o servidor tem o 2.0.5. Provavelmente igual em produção.
+
+## 9. A máquina de produção
+
+7 vCores e 17 GB de RAM, com heap de 14 GB (`-Xms14336M -Xmx14336M`). Sobram cerca de 3 GB
+para tudo que não é heap (código, pilhas de mais de 400 threads, buffers de rede, sistema).
+É apertado, mas o perfil não mostra problema de memória. Para threads: a principal, a
+coleta de lixo, a rede e o I/O já ocupam parte dos 7; sobram 3 a 4 para regiões.
+
+## 10. O que NÃO foi medido
+
+- **Como a carga se distribui pelo mapa** (por região e por dimensão). Decide se o Degrau A ajuda. Precisa de um medidor próprio rodando em produção (o mundo de 150 GB não pode ser copiado).
+- Pico de jogadores: o perfil é de 8 jogadores. Com 30 ou 100, a parte de rede e de entidades cresce.
 - TPS com 100–200 players. Depende de bots (a validar) e da máquina real.
-- Compilar o Crucible do zero. Planejado na Etapa 0 (precisa de JDK 8).
-- Comportamento com os `-javaagent` de produção. Falta o script de inicialização.
+- Valores de produção de `spigot.yml`, `cauldron.yml`, `Crucible.yml`, `tileentities.yml`, `entities.yml`.
+- Bots com handshake do Forge na 1.7.10.
