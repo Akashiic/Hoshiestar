@@ -113,7 +113,7 @@ da Etapa 3; Degrau C = segunda metade da Etapa 3 mais Etapas 4 e 5.
 +----------------------------+---------------------------------------+
 |  (7) Adapter de plugins    |  (4) Módulos por mod (AE2, IC2, ...)  |
 +----------------------------+---------------------------------------+
-|  (3) Núcleo de roteamento: mixins early/late + checagem de dono    |
+|  (3) Núcleo de roteamento: patches no fork + checagem de dono      |
 +--------------------------------------------------------------------+
 |  (2) Regionizador   (5) Thread global   (6) Correio   (9) Vigia    |
 +--------------------------------------------------------------------+
@@ -123,9 +123,15 @@ da Etapa 3; Degrau C = segunda metade da Etapa 3 mais Etapas 4 e 5.
 
 ### (1) Base
 Fork do Crucible `staging` a partir de `67b53034` (igual à produção). Detalhes em
-`docs/01-avaliacao-base.md`. As Etapas 0 a 2 **não precisam do fork**: saem como
-um mod comum com mixins, que roda no `server.jar` atual. O fork só é necessário
-quando mexermos no laço de tick (Degrau B em diante). Isso adia a decisão cara.
+`docs/01-avaliacao-base.md`.
+
+**Correção do admin (2026-11-22):** o Hoshiestar é o próprio `server.jar`, desde a Etapa 1.
+Não entregamos mods. O texto anterior desta seção ("as Etapas 0 a 2 saem como um mod comum
+com mixins") está revogado. Como fica:
+- Classe do servidor (Minecraft, Forge, CraftBukkit, Crucible): patch no fork, com a marcação `// Hoshiestar`, no estilo do upstream.
+- Classe de mod de terceiros: correção embutida no jar, aplicada por um transformador do próprio servidor quando o mod está presente e a trava de versão (SHA-256 da classe original) confere.
+- Config em `hoshiestar.yml` (estilo `Crucible.yml`), um interruptor por recurso; desligado = comportamento original.
+- O código fica em `servidor/`: patches sobre `staging@67b53034`, arquivos novos e script de build.
 
 ### (2) Regionizador
 Estrutura que diz "este chunk pertence a esta região".
@@ -137,7 +143,7 @@ Estrutura que diz "este chunk pertence a esta região".
 - Cada dimensão tem o próprio regionizador.
 
 ### (3) Núcleo de roteamento
-Mixins nos pontos por onde todo mod passa: `World.setBlock`, `getTileEntity`,
+Patches no fork nos pontos por onde todo mod passa: `World.setBlock`, `getTileEntity`,
 adicionar/remover entidade e tile entity, acesso a inventário via `IInventory`,
 agendamento de tick de bloco, carregamento de chunk.
 
@@ -148,7 +154,7 @@ Três modos, trocados no config:
 
 Ponto técnico importante: em 1.7.10 muitos mods leem os campos públicos
 `world.loadedTileEntityList` e `world.loadedEntityList` direto, sem passar por método.
-Mixin não intercepta leitura de campo de fora. A saída prevista é trocar o **objeto**
+Um patch no método não intercepta leitura de campo feita de fora. A saída prevista é trocar o **objeto**
 da lista por uma lista própria que entrega a visão da região da thread atual.
 A confirmar em protótipo na Etapa 2 (não verificado).
 

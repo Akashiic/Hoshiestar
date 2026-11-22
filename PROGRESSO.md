@@ -1,6 +1,6 @@
 # PROGRESSO: etapas, pendências e decisões
 
-Atualizado em 2026-11-22 (Etapa 1: desenho conferido, implementação em andamento). Leia este arquivo antes de continuar o trabalho.
+Atualizado em 2026-11-22 (correção de rumo do admin: o Hoshiestar é um `server.jar`, não um mod). Leia este arquivo antes de continuar o trabalho.
 
 ## Onde estamos
 
@@ -8,7 +8,7 @@ Atualizado em 2026-11-22 (Etapa 1: desenho conferido, implementação em andamen
 |---|---|
 | Entrega inicial: (a) avaliação da base, (b) arquitetura, (c) plano das Etapas 0 e 1 | ✅ **aprovada pelo admin** (base e ordem em degraus, 2026-11-21) |
 | Etapa 0 – Medição | 🔄 falta só o admin rodar o medidor em produção (0.9) |
-| Etapa 1 (revista) – Ganhos baratos medidos, "Degrau 0" | 🔄 **liberada pelo admin em 2026-11-22** sem esperar a medição de produção; desenho dos itens 1.B a 1.H feito e conferido (`docs/pesquisa/etapa1/`); mod `Hoshiestar-Core` em implementação |
+| Etapa 1 (revista) – Ganhos baratos medidos, "Degrau 0" | 🔄 desenho dos itens 1.B a 1.H feito e conferido (`docs/pesquisa/etapa1/`). **Formato corrigido pelo admin em 2026-11-22: a entrega é o `server.jar` do Hoshiestar (fork do Crucible), não um mod.** Base do fork em construção em `servidor/` |
 | Etapa 2 – Observador | ⏳ |
 | Portão "vai / não vai" | ⏳ |
 | Etapa 2.5 – Orçamento de tick por região | ⏳ |
@@ -19,6 +19,19 @@ Atualizado em 2026-11-22 (Etapa 1: desenho conferido, implementação em andamen
 Orientação do admin (2026-11-22): seguir em frente até um jar refinado; os bugs que aparecerem em produção serão relatados depois, como em qualquer projeto. Por isso a Etapa 1 começa com a Etapa 0 ainda aguardando a medição do admin (critério 5). Nenhum código das Etapas 2 em diante foi escrito.
 
 Segunda orientação do admin (2026-11-22): controle total dos ambientes de teste é do projeto, inclusive mandar SIGTERM em cópia de teste. A pergunta "como a produção é parada (comando `stop` ou SIGTERM)?" ficou sem resposta; por isso o 1.G segue desligado por padrão.
+
+**Correção de rumo do admin (2026-11-22, decisão 23):** o Hoshiestar é um software híbrido, um `server.jar` próprio (fork do Crucible `staging@67b53034`) que carrega tudo sozinho. Não entregamos mods. Pedidos da mesma mensagem: empacotar no jar o que já foi desenhado; medidor dentro do jar; interruptores em `hoshiestar.yml`; estudo Folia x NeoFolia com conferência antes de desenhar as Etapas 2 e 3. Critério de pronto: `server.jar` que liga no modpack de teste (292 mods) sem nenhum mod nosso, com os recursos da Etapa 1 embutidos e desligáveis, testado e com parada limpa; mais o relatório Folia x NeoFolia conferido.
+
+### O que foi aproveitado e o que foi descartado na correção de rumo
+
+| Trabalho | Destino |
+|---|---|
+| Relatórios de desenho e conferência dos itens 1.B a 1.H (`docs/pesquisa/etapa1/`) | **aproveitados inteiros**: causa, lógica da correção, argumentos de segurança e números não dependem do formato. Só a seção "alvos de mixin" de cada um vira "ponto do patch" |
+| Programas de teste isolado ("harness") feitos no desenho | **aproveitados**: entram em `servidor/` junto com cada recurso |
+| Medidor 1.0.4 (`medidor/`) | **lógica aproveitada** (coleta, relatório, válvula de sobrecarga, comandos `hoshie medir/parar/status`); os ganchos por Mixin viram patch direto em `World`/`EntityPlayerMP`. A pasta `medidor/` sai do repositório quando o porte terminar. O jar de mod já entregue fica sem efeito: a medição em produção passa a ser feita com o `server.jar` |
+| Base comum do mod `Hoshiestar-Core` (estava em construção: 3.756 linhas, já ligava no modpack de teste) | **parada e retirada do repositório.** Aproveitados como código dentro do fork: trava de versão por SHA-256 (provada no servidor real), relógio de tick, referência à thread do servidor, log com limitador, registro de recursos. **Descartados**: carregador de mixins early/late, coremod, `mcmod.info`, leitor de config próprio (o fork usa o mesmo mecanismo do `Crucible.yml`), build "SRG direto" |
+| Roteiro dos sete recursos em formato de mod (não chegou a rodar) | **redirecionado**: mesma divisão (um agente escreve, outro revisa), agora escrevendo dentro do fork |
+| Regras de trabalho, ambiente de teste, perfil de produção, estudo das estruturas hostis | sem mudança |
 
 ## Etapa 0
 
@@ -73,13 +86,17 @@ Segunda orientação do admin (2026-11-22): controle total dos ambientes de test
 | 13 | Medidor: a válvula de custo usa 10% do tick de antes de ligar, com piso de 5 ms e teto de 10 ms, e margem de 2x sobre o custo calibrado | decisão do implementador depois que o revisor mostrou que 5 ms fixos parariam a medição de pico; são constantes, fácil de mudar |
 | 14 | Medidor entregue na versão 1.0.4 com achados menores em aberto | corrigi-los mudaria o jar já testado; nenhum afeta a segurança do tick |
 | 15 | O Degrau B começa só com tile entities e entidades; ticks de bloco ficam em série no início | é onde está o custo (47% contra 14% do tick) e tira dez estruturas de risco do primeiro passo; estimativa cai para ~54 a 57 ms com 4 threads (conta, não medição) |
-| 16 | Etapa 1 sai como um único mod `Hoshiestar-Core`, só do servidor, com um interruptor por recurso em `config/hoshiestar.cfg`; tudo que muda comportamento vem desligado, o vigia (só leitura) vem ligado | regra do prompt (interruptor por recurso) e segurança: o admin liga um de cada vez |
+| 16 | ~~Etapa 1 sai como um único mod `Hoshiestar-Core`~~ **Revogada pelo admin em 2026-11-22 (decisão 23)** | o Hoshiestar é um `server.jar`, não um mod |
 | 17 | Cada item da Etapa 1 é implementado a partir do par desenho + conferência; onde os dois divergem, vale a conferência | os cinco desenhos foram aprovados "com correções" por um agente independente que refez assinaturas, números e tentou quebrar cada correção |
-| 18 | No `Hoshiestar-Core` 1.0 todos os recursos vêm desligados, inclusive os que são exatos por desenho (filtro do BetterQuesting, atalhos do Ars Magica 2, cache de células do Mekanism, cache do mapa de chunks); só o vigia de tick lento vem ligado | segurança antes de desempenho: o admin liga um por vez, e o filtro do BetterQuesting tem modo "verificar" para rodar antes de ligar de verdade |
+| 18 | No Hoshiestar 1.0 (o `server.jar`) todos os recursos vêm desligados, inclusive os que são exatos por desenho (filtro do BetterQuesting, atalhos do Ars Magica 2, cache de células do Mekanism, cache do mapa de chunks); só o vigia de tick lento vem ligado | segurança antes de desempenho: o admin liga um por vez, e o filtro do BetterQuesting tem modo "verificar" para rodar antes de ligar de verdade |
 | 19 | 1.B (ChromatiCraft) na versão do conferente: uma recusa só no início da chamada (intervalo mínimo por jogador de 1 s, distância 0 a 24, volume até 4.096 blocos provisório, destino dentro de y 0 a 255, todos os chunks já carregados), sem orçamento de tempo dentro do laço | a versão original não limitava a frequência, podia cortar pelo meio e deixava aberta uma perda de blocos acima de y 255 que já existe hoje; subir o volume depois é só config |
 | 20 | 1.G (parada por SIGTERM, D-24) entra no jar, desligado, com revisão de concorrência por agente diferente; a pergunta "como a produção é parada" vai para o admin sem bloquear | se o painel já manda `stop` e espera, o recurso fica só como proteção opcional |
 | 21 | Novo item 1.I (o `hasWorldObj` do coremod do Ars Magica 2, até 0,66%) fica fora do jar 1.0 | apareceu na conferência e ainda precisa de conferência própria da ordem dos transformadores |
 | 22 | `kill` em cópia de teste passa a ser permitido em dois casos: teste da parada por SIGTERM (1.G) e cópia travada depois de dois thread dumps; `stop` continua sendo o jeito normal (regra nova no `CLAUDE.md`) | o admin deu controle total dos ambientes de teste em 2026-11-22 ("acesso total"); o servidor real continua fora de alcance |
+| 23 | **Decisão do admin (2026-11-22): o Hoshiestar é um `server.jar` híbrido, fork do Crucible `staging@67b53034`; não entregamos mods.** Classe do servidor = patch no fork com `// Hoshiestar`; mod de terceiros = correção embutida, aplicada pelo servidor com trava SHA-256; medidor e vigia dentro do jar; interruptores em `hoshiestar.yml`; padrão tudo desligado menos o vigia | correção de rumo do admin; revoga a decisão 16 e a frase "as Etapas 0 a 2 não precisam do fork" de `docs/02-arquitetura.md` |
+| 24 | O fork mora em `servidor/` como **patches sobre o commit do upstream + arquivos novos + script de build**, e não como cópia inteira da árvore do Crucible | mantém o repositório pequeno, deixa claro o que é nosso e é fácil de desfazer (copiar a árvore inteira depois continua possível; o contrário exigiria reescrever o histórico) |
+| 25 | Correções em mods de terceiros são aplicadas por um transformador de bytecode do próprio servidor (ASM), e não por Mixin | o servidor não pode depender de um mod (UniMixins) para se corrigir; com a trava SHA-256 o bytecode alvo é conhecido byte a byte |
+| 26 | O jar continua se identificando como Crucible para mods e plugins (nome e versão que eles consultam); a identificação Hoshiestar vai no nome do arquivo, no log de boot e no comando `hoshie` | mods e plugins do pacote testam o nome da base para ligar compatibilidades; trocar a marca é risco sem ganho |
 | 11 | Seguir os hábitos do upstream (patch gerado, `// Hoshiestar`, opções em `Crucible.yml`, JDK 8) e mandar correções genéricas como pull request ao Crucible | manter o fork fácil de atualizar (`docs/04-estudo-crucible.md` §5) |
 
 ## Plugins desligados na cópia de teste

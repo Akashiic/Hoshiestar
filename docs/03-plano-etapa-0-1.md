@@ -81,6 +81,7 @@ a medida tem que ser feita em produção, por um mod pequeno e só de leitura:
 - Não muda comportamento. Tem que conviver com o mixin do `Akashic-World-Firewall`, que já envolve o tick de tile entity.
 - Pronto quando: sobe com o modpack real; desligado, não altera o tick; ligado, aponta corretamente blocos de teste colocados por comando; revisado por outro agente.
 - Entrega: jar para o admin e roteiro de uma página.
+- **Mudança (2026-11-22, correção do admin):** o medidor deixa de ser mod separado e passa a ser parte do `server.jar`, com os mesmos comandos. A versão em mod abaixo fica só como histórico até o porte terminar.
 - **Feito** (2026-11-22): versão 1.0.4 em `medidor/`, roteiro em `medidor/ROTEIRO-ADMIN.md`. Teste independente no modpack real aprovado, com e sem o `Akashic-World-Firewall`. O custo com o medidor desligado não pôde ser separado do ruído do servidor ocioso (não verificado numericamente; conferido no bytecode: uma leitura de variável por gancho).
 
 ### Critério de saída da Etapa 0
@@ -98,8 +99,18 @@ a medida tem que ser feita em produção, por um mod pequeno e só de leitura:
 **Mudança de rumo, decidida com os dados de produção.** O plano original desta etapa
 (tirar disco, luz e geração da thread principal) ataca 2,9% do tick. O perfil mostrou
 cerca de 20% em quatro pontos que não precisam de threads. A etapa passa a ser esta lista,
-em ordem de retorno. Cada item é um mixin pequeno com interruptor, do mesmo tipo dos mods
-`Akashic-*Relief`.
+em ordem de retorno.
+
+**Formato de entrega (correção do admin, 2026-11-22):** o `server.jar` do Hoshiestar, fork
+do Crucible `staging@67b53034`. Nenhum mod nosso em `mods/`. Itens em classes do servidor
+(1.E, 1.G, 1.H, o medidor da tarefa 0.9, relógio de tick) são patches no fork com a marcação
+`// Hoshiestar`. Itens em mods de terceiros (1.B, 1.C, 1.D, 1.F) vão embutidos no jar e são
+aplicados pelo servidor quando o mod está presente e a trava de versão (SHA-256) confere.
+Um interruptor por item em `hoshiestar.yml`; tudo desligado por padrão, menos o vigia.
+O código do fork fica em `servidor/` (patches sobre o upstream, arquivos novos e script de build).
+
+**Critério de pronto da etapa:** o `server.jar` liga no modpack de teste (292 mods) sem
+nenhum mod nosso, com os recursos embutidos e desligáveis pelo config, testado e com parada limpa.
 
 | # | Item | % do tick | Risco | Observação |
 |---|---|---:|---|---|
@@ -120,8 +131,7 @@ futuro mostrar que pesam.
 Regra: **só atacar o que a Etapa 0 mostrar que pesa.** Se o salvamento já custa
 1 ms, não se mexe nele. Cada item tem interruptor no config, desligado por padrão.
 
-Formato de entrega: um mod `Hoshiestar-Core` com mixins "early", que roda no
-`server.jar` atual. Não precisa do fork.
+Formato de entrega: patches no fork (o `server.jar` do Hoshiestar), como no resto da etapa.
 
 ### 1.0 Auditoria do que já existe ⏳ (opus; leitura de código)
 Antes de escrever qualquer coisa, ler e documentar:

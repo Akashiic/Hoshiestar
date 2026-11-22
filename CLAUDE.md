@@ -6,6 +6,7 @@ Antes de qualquer coisa, leia nesta ordem:
 3. `DIAGNOSTICO.md` (o que já foi medido; não meça de novo sem motivo)
 
 Regras duras (resumo; o texto completo está em `PROMPT.md`):
+- **O Hoshiestar é um `server.jar` híbrido (fork do Crucible), não um mod. Não entregamos mods:** nenhum jar nosso em `mods/` ou `plugins/`. Correção em classe do servidor = patch no fork (`servidor/`, marcação `// Hoshiestar`); correção em mod de terceiros = embutida no jar, com trava de versão (SHA-256). Um interruptor por recurso em `hoshiestar.yml`; desligado = comportamento original.
 - Nunca mexer no servidor real. Trabalhar só na cópia criada por `scripts/prepare-test-env.sh`.
 - Nunca commitar, colar em conversa ou enviar para fora: jars, mundo, configs de produção, senhas e tokens.
 - O profiler do spark publica o resultado em site externo. No projeto use Java Flight Recorder (`jcmd <pid> JFR.start ... filename=...`).

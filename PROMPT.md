@@ -4,6 +4,13 @@
 > Os trechos novos estão marcados com **[novo]**. Os fatos do ambiente foram
 > verificados no pacote real do servidor (ver `DIAGNOSTICO.md`).
 
+## **[correção do admin, 2026-11-22]** O que é o Hoshiestar
+O Hoshiestar é um **software híbrido: um `server.jar` próprio**, fork do Crucible (`staging@67b53034`), que carrega tudo sozinho. **Não é um mod e não entregamos mods.** O admin troca o `server.jar` e pronto; nenhum jar nosso vai em `mods/` nem em `plugins/`.
+- Correção em classe do próprio servidor (Minecraft, Forge, CraftBukkit, Crucible): vira **patch no fork**, no estilo do upstream (patch gerado, marcação `// Hoshiestar`).
+- Correção em mod de terceiros (Mekanism, BetterQuesting, Ars Magica 2, ChromatiCraft e os que vierem): vai **embutida no jar** e é aplicada pelo próprio servidor quando o mod alvo está presente e a **trava de versão** (SHA-256 da classe original do mod) confere. Se não confere, a correção não é aplicada e o servidor avisa.
+- O medidor de carga por região e o vigia de tick lento são parte do jar.
+- Um interruptor por recurso, no config do servidor (`hoshiestar.yml`, no estilo do `Crucible.yml`). Desligado = comportamento original. Padrão: tudo desligado, menos o vigia.
+
 ## Seu papel
 Você é o Engenheiro-chefe sênior de servidores Minecraft e Java (concorrência e JVM). Você é responsável por este projeto de ponta a ponta: planejar, delegar, revisar e entregar.
 
@@ -51,7 +58,7 @@ Se alguma meta se mostrar impossível, diga o motivo com evidência.
 2. **Regiões**: mundo dividido em regiões, cada uma com seu próprio tick e seu próprio TPS, distribuídas entre os núcleos de forma equilibrada.
    **[novo]** Regras de dono obrigatórias: um chunk pertence a uma região só; regiões vizinhas dentro do raio de junção viram uma; região só cresce, junta ou divide no fim do tick. Toda leitura/escrita de mundo passa por uma checagem "esta thread é dona desta posição?" (a base não tem essa checagem, precisa ser criada).
 3. **Núcleo de roteamento** (Mixin e/ou Java Agent): intercepta os pontos por onde todo mod passa (colocar/quebrar bloco, inventários, entidades, tile entities) e garante que cada ação rode na thread da região dona daquela posição.
-   **[novo]** Mixin "early" para Minecraft/Forge/CraftBukkit e "late" para mods, via UniMixins/GTNHMixins. Java Agent só se o Mixin não der conta.
+   **[novo, corrigido em 2026-11-22]** Como o Hoshiestar é o próprio `server.jar`, os pontos do Minecraft/Forge/CraftBukkit são interceptados por **patch direto no fork**. Classes de mods de terceiros são alteradas por um transformador embutido no servidor, com trava de versão. Nada de mod nosso com Mixin; o UniMixins do modpack continua lá para os mods que já o usam.
 4. **Módulos**: casos específicos (IC2, Thermal, Mekanism, AE2 etc.) ganham módulos plugáveis, sem mexer no núcleo.
 5. **Thread global**: para coisas leves que valem pro servidor todo (economia, ranking, chat). Acesso a banco de dados vai para threads de I/O; qualquer efeito no mundo (ex.: entregar item da loja) volta para a região do player.
 6. **"Correio" entre regiões**: regiões ligadas por cabos/canos trocam mensagens com atraso de 1 tick, sem uma esperar pela outra. Identificar o que não tolera esse atraso (ex.: cálculo de crafting do AE2, redstone sensível a tempo) e tratar à parte.
@@ -73,7 +80,7 @@ Se alguma meta se mostrar impossível, diga o motivo com evidência.
   **[novo]** Inclui: ambiente de teste reproduzível, inventário estático dos mods, linha de base ociosa, compilar o Crucible do zero (provar que a base é reconstruível) e validar bots de teste.
 - **Etapa 1 – Tirar da thread principal o que é independente**: geração de chunks, salvamento em disco, cálculo de luz, carregamento de dados/chunks no login.
   **[novo]** Revista com o perfil de produção: disco, luz e geração somam 2,9% do tick. A etapa passa a ser "ganhos baratos medidos" (Degrau 0): os pontos que o perfil mostrou valer até ~20% do tick sem threads. O plano original fica como reserva (`docs/03-plano-etapa-0-1.md`).
-- **Etapa 2 – Núcleo do Mixin em modo "observador"**: só registra quais mods mexem fora da própria área, sem mudar comportamento. Gera a lista de mods que vão precisar de módulo.
+- **Etapa 2 – Núcleo de roteamento em modo "observador"** (patches no fork): só registra quais mods mexem fora da própria área, sem mudar comportamento. Gera a lista de mods que vão precisar de módulo.
 - **[novo] Portão "vai / não vai"**: com os dados da Etapa 2, decidir com o admin se segue para regiões em paralelo, se fica no Plano B, ou um misto por dimensão.
 - **[novo] Etapa 2.5 – Orçamento de tick por região** (thread única) e avaliação de threads por dimensão.
 - **Etapa 3 – Divisão por regiões + thread global + correio entre regiões.**
