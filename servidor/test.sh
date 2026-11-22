@@ -11,7 +11,10 @@
 # O que roda:
 #   1. compila a classe de exemplo (src/test/amostras) tres vezes: Java 6, 7 e 8;
 #   2. compila as fontes e os testes com o JDK 8;
-#   3. roda cada teste (classe hoshiestar.teste.Teste*) no JDK 8 e no JDK 21.
+#   3. roda cada teste (classe hoshiestar.teste.Teste*) no JDK 8 e no JDK 21;
+#   4. com HOSHIE_MODS=<pasta mods/>: os scripts src/test/mods/*.bash (testes de correcoes embutidas com
+#      as classes reais dos mods; precisam do jar construido com --mods). Extensao .bash e nao .sh porque o
+#      .gitignore do upstream ignora *.sh (o script sumiria na exportacao).
 # Saida 0 = tudo passou.
 #
 # Variaveis: JAVA8_HOME (padrao /usr/lib/jvm/java-8-openjdk-amd64), JAVA21_HOME (padrao
@@ -87,4 +90,32 @@ for java in "${JDKS[@]}"; do
   rodar "$java" hoshiestar.teste.TesteCampoPrivado
   rm -rf "$OUT/config"; rodar "$java" hoshiestar.teste.TesteConfig "$OUT/config"
 done
+# 4. testes que precisam dos jars dos mods e do jar construido com --mods (src/test/mods/*.bash); so com
+#    HOSHIE_MODS=<pasta mods/ de um servidor de teste>. Cada script recebe: workspace, saida, classpath, javas.
+#    Nunca passa em silencio: HOSHIE_MODS definido sem nenhum script e falha; script pulado sai no resumo.
+pulados=0
+rodados=0
+for velho in "$W"/src/test/mods/*.sh; do
+  [[ -f "$velho" ]] || continue
+  falhas=$((falhas + 1))
+  echo "[test] FALHOU: $velho tem extensao .sh, que o .gitignore do upstream ignora (sumiria na exportacao); use .bash"
+done
+for extra in "$W"/src/test/mods/*.bash; do
+  [[ -f "$extra" ]] || continue
+  if [[ -z "${HOSHIE_MODS:-}" ]]; then
+    echo "[test] AVISO: $(basename "$extra") pulado (defina HOSHIE_MODS=<pasta mods/ de um servidor de teste>)"
+    pulados=$((pulados + 1))
+    continue
+  fi
+  rodados=$((rodados + 1))
+  if bash "$extra" "$W" "$OUT" "$CP" "${JDKS[@]}"; then :; else falhas=$((falhas + 1)); echo "[test] FALHOU: $extra"; fi
+done
+if [[ -n "${HOSHIE_MODS:-}" && $rodados -eq 0 ]]; then
+  falhas=$((falhas + 1))
+  echo "[test] FALHOU: HOSHIE_MODS definido mas nenhum src/test/mods/*.bash foi encontrado em $W"
+fi
+if [[ $falhas -eq 0 && $pulados -gt 0 ]]; then
+  echo "[test] TODOS OS TESTES RODADOS PASSARAM ($pulados teste(s) com mods PULADOS: defina HOSHIE_MODS)"
+  exit 0
+fi
 if [[ $falhas -eq 0 ]]; then echo "[test] TODOS OS TESTES PASSARAM"; else echo "[test] $falhas teste(s) falharam"; exit 1; fi
