@@ -1,0 +1,11 @@
+{
+  "required": false,
+  "minVersion": "0.8.5-GTNH",
+  "package": "hoshiestar.core.mixins.late",
+  "plugin": "hoshiestar.core.nucleo.CoreMixinPlugin",
+  "target": "@env(DEFAULT)",
+  "compatibilityLevel": "JAVA_8",
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

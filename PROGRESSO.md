@@ -18,6 +18,8 @@ Atualizado em 2026-11-22 (Etapa 1: desenho conferido, implementação em andamen
 
 Orientação do admin (2026-11-22): seguir em frente até um jar refinado; os bugs que aparecerem em produção serão relatados depois, como em qualquer projeto. Por isso a Etapa 1 começa com a Etapa 0 ainda aguardando a medição do admin (critério 5). Nenhum código das Etapas 2 em diante foi escrito.
 
+Segunda orientação do admin (2026-11-22): controle total dos ambientes de teste é do projeto, inclusive mandar SIGTERM em cópia de teste. A pergunta "como a produção é parada (comando `stop` ou SIGTERM)?" ficou sem resposta; por isso o 1.G segue desligado por padrão.
+
 ## Etapa 0
 
 | Tarefa | Estado | Evidência |
@@ -42,7 +44,6 @@ Orientação do admin (2026-11-22): seguir em frente até um jar refinado; os bu
 5. **Aceitar que base pesada tenha máquinas mais lentas** (Degrau A) como forma de isolar o lag.
 6. Opcional: arquivos de região de 3 a 5 bases pesadas e o `level.dat`; código-fonte dos mods `Akashic-*` de desempenho; um segundo perfil do spark com mais jogadores.
 7. Conferir o agente `Akashic-nChat-ChainColor`: ele se desliga no boot por esperar o nChat 2.0.4 (D-28).
-7b. **Regra para servidor de teste que trava antes de ligar** (D-29): hoje a regra é "nunca `kill`". O admin autorizou encerrar um processo travado uma vez (2026-11-22), mas o caso se resolveu sozinho. Proposta para virar regra: se a cópia de teste não chega a "Done" em 12 minutos e o `stop` fica 5 minutos sem efeito, pode-se encerrar o processo, depois de guardar dois dumps de thread. Aguarda resposta do admin.
 
 ### Técnicas
 8. Bots de carga (que andam e carregam chunks): não feito. O handshake do Forge funciona com o bot mínimo (D-30).
@@ -78,6 +79,7 @@ Orientação do admin (2026-11-22): seguir em frente até um jar refinado; os bu
 | 19 | 1.B (ChromatiCraft) na versão do conferente: uma recusa só no início da chamada (intervalo mínimo por jogador de 1 s, distância 0 a 24, volume até 4.096 blocos provisório, destino dentro de y 0 a 255, todos os chunks já carregados), sem orçamento de tempo dentro do laço | a versão original não limitava a frequência, podia cortar pelo meio e deixava aberta uma perda de blocos acima de y 255 que já existe hoje; subir o volume depois é só config |
 | 20 | 1.G (parada por SIGTERM, D-24) entra no jar, desligado, com revisão de concorrência por agente diferente; a pergunta "como a produção é parada" vai para o admin sem bloquear | se o painel já manda `stop` e espera, o recurso fica só como proteção opcional |
 | 21 | Novo item 1.I (o `hasWorldObj` do coremod do Ars Magica 2, até 0,66%) fica fora do jar 1.0 | apareceu na conferência e ainda precisa de conferência própria da ordem dos transformadores |
+| 22 | `kill` em cópia de teste passa a ser permitido em dois casos: teste da parada por SIGTERM (1.G) e cópia travada depois de dois thread dumps; `stop` continua sendo o jeito normal (regra nova no `CLAUDE.md`) | o admin deu controle total dos ambientes de teste em 2026-11-22 ("acesso total"); o servidor real continua fora de alcance |
 | 11 | Seguir os hábitos do upstream (patch gerado, `// Hoshiestar`, opções em `Crucible.yml`, JDK 8) e mandar correções genéricas como pull request ao Crucible | manter o fork fácil de atualizar (`docs/04-estudo-crucible.md` §5) |
 
 ## Plugins desligados na cópia de teste

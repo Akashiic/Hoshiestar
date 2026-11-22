@@ -1,0 +1,12 @@
+[
+{
+  "modid": "hoshiestarcore",
+  "name": "Hoshiestar-Core",
+  "description": "Somente servidor: base comum dos ganhos de desempenho da Etapa 1 do projeto Hoshiestar. Cada recurso tem um interruptor em config/hoshiestar.cfg; recurso desligado nao registra mixin nenhum (as classes do jogo ficam com o bytecode original). Comando: hoshiecore status | hoshiecore hash <classe>.",
+  "version": "${version}",
+  "mcversion": "1.7.10",
+  "authorList": ["Projeto Hoshiestar"],
+  "credits": "Licenca GPLv3",
+  "dependencies": []
+}
+]

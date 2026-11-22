@@ -9,7 +9,7 @@ Regras duras (resumo; o texto completo está em `PROMPT.md`):
 - Nunca mexer no servidor real. Trabalhar só na cópia criada por `scripts/prepare-test-env.sh`.
 - Nunca commitar, colar em conversa ou enviar para fora: jars, mundo, configs de produção, senhas e tokens.
 - O profiler do spark publica o resultado em site externo. No projeto use Java Flight Recorder (`jcmd <pid> JFR.start ... filename=...`).
-- Parar o servidor de teste sempre com `stop` no console (`echo stop >> console.in`), nunca com `kill`.
+- Parar o servidor de teste com `stop` no console (`echo stop >> console.in`) sempre que der: `kill` derruba o laço de tick (D-24) e estraga o teste. O admin deu controle total das cópias de teste (2026-11-22), então `kill` é permitido **só em cópia de teste** em dois casos: (a) teste da própria parada por SIGTERM (item 1.G); (b) cópia travada, que não chegou ao "Done" em 15 min ou ignorou o `stop` por 5 min, e só depois de guardar dois thread dumps (`jcmd <pid> Thread.print`). Registrar cada uso.
 - Não escrever código de etapa futura. Cada etapa passa nos testes dela antes da próxima.
 - Decisão difícil de desfazer: perguntar ao admin. O resto: decidir e registrar em `PROGRESSO.md`.
 - Código de concorrência é sempre revisado por um agente diferente do que escreveu.
