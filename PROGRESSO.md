@@ -57,6 +57,8 @@ Segunda orientação do admin (2026-11-22): controle total dos ambientes de test
 5. **Aceitar que base pesada tenha máquinas mais lentas** (Degrau A) como forma de isolar o lag.
 6. Opcional: arquivos de região de 3 a 5 bases pesadas e o `level.dat`; código-fonte dos mods `Akashic-*` de desempenho; um segundo perfil do spark com mais jogadores.
 7. Conferir o agente `Akashic-nChat-ChainColor`: ele se desliga no boot por esperar o nChat 2.0.4 (D-28).
+7c. **Perguntas do estudo Folia x NeoFolia** (`docs/pesquisa/folia-neofolia.md` §10; não bloqueiam a Etapa 1): **P1** regiões independentes (Degrau C) só nas dimensões em que todos os handlers globais de mods que mexem nela estão liberados, o resto fica na fase paralela sincronizada (Degrau B): concorda? **P2** erro no tick de uma região: parar o servidor de forma limpa (proposta) ou rebaixar a dimensão para série e seguir? **P3** as bases pesadas ficam a mais de 48 a 63 chunks (770 a 1.000 blocos) umas das outras? Mais perto que isso, viram uma região só.
+7d. **Como a produção é parada**: comando `stop` ou encerramento do processo (SIGTERM)? Define o quanto vale ligar o 1.G.
 
 ### Técnicas
 8. Bots de carga (que andam e carregam chunks): não feito. O handshake do Forge funciona com o bot mínimo (D-30).
@@ -67,6 +69,8 @@ Segunda orientação do admin (2026-11-22): controle total dos ambientes de test
 11. Plugin que lê bloco de outra região no modo de regiões independentes: sem solução geral ainda.
 12. O spark 1.10 da 1.7.10 aceita `--save-to-file`? Não verificado.
 13. Itens marcados "não verificado" nos relatórios de `docs/pesquisa/` (cada um tem a lista no fim).
+14. Lacunas de desenho apontadas pela conferência final do estudo Folia x NeoFolia, para resolver no desenho das Etapas 2 e 3: quem é dono de um chunk carregado durante a fase paralela até o ponto de junção; o que é "fase serial" no Degrau C, que não tem barreira; um modo "rebaixar e seguir" precisa liberar ou isolar a região que falhou.
+15. Propostas do estudo que ainda não são decisão (lista no fim de `docs/02-arquitetura.md` §7): confirmar ou descartar no desenho detalhado das Etapas 2 e 3.
 
 ## Decisões tomadas (reversíveis; registradas para não rediscutir)
 
@@ -131,3 +135,4 @@ se ele barrar bots na tarefa 0.6, sai também.
 | 2026-11-22 | Conferência do coordenador | jar confere com o sha256 testado; contém só classes do medidor; nenhum jar no Git; o commit de um subagente com a assinatura errada foi corrigido antes do envio |
 | 2026-11-22 | Estudo das estruturas hostis a threads, tarefa 0.8 (4 mapeadores opus, 4 conferentes opus, redator sonnet) | conferentes: 95 confirmados, 40 corrigidos, 1 refutado, 23 acrescentados; o coordenador conferiu 4 itens no código (cache do mapa de chunks, lista de colisão, ordem do tick, contador de ticks agendados) |
 | 2026-11-22 | Desenho da Etapa 1, itens 1.B a 1.H (5 investigadores opus, 5 conferentes opus diferentes; só leitura, sem servidor) | os cinco: "aprovado com correções". Nenhum descritor de alvo errado. Achados dos conferentes que mudaram o desenho: 1.B não limitava frequência e o teto só cobria a primeira fase; 1.C a verificação por soma não via célula órfã (provado em harness: energia sairia do mundo), trocar por identidade; 1.D custo do filtro subestimado, ganho corrigido para 0,8 a 1,4%; 1.E corrida que deixaria um chunk descarregado preso no cache (provada em harness), gravar só pela thread do servidor; 1.H o vigia não pode gravar texto de pacote de chat no log. Ganhos são estimativas do perfil e de harness, **não medidos em servidor** |
+| 2026-11-22 | Estudo Folia x NeoFolia (1 preparador sonnet; 5 leitores opus; 5 conferentes opus diferentes; síntese opus; conferente final opus) | lido do código em Folia `eca40f9` e NeoFolia `fa76006`. Conferências dos temas: 317 afirmações, 261 confirmadas, 46 corrigidas, 3 refutadas, 7 não verificáveis, 61 acrescentadas. Conferência final da síntese: 74 afirmações, 61 confirmadas, 11 corrigidas direto no texto (ex.: distância de junção é "até 48 chunks sempre junta", não "33 a 63"; troca de dimensão só copia entidade que não é jogador), 0 refutadas. O coordenador renomeou as três perguntas ao admin para P1 a P3 e conciliou a frase do relógio por região. Não verificado: tudo que é do Paper/Moonrise fora do clone do Folia; o NeoFolia nunca foi executado |
