@@ -2,6 +2,8 @@
 
 Estado: base e ordem em degraus **aprovadas pelo admin** (2026-11-21). Revisado em 2026-11-22 com o perfil
 de produção e o estudo do código do Crucible. Nenhum código de região foi escrito ainda.
+Revisado de novo em 2026-11-22 com o estudo comparado Folia x NeoFolia (`docs/pesquisa/folia-neofolia.md`);
+cada mudança vinda dele está marcada "(estudo Folia x NeoFolia, 2026-11-22)".
 Termos técnicos são explicados na primeira vez que aparecem.
 
 ## 1. O problema, em uma frase
@@ -14,7 +16,8 @@ Queremos que a base pesada pague sozinha pelo próprio peso.
 
 | Fato | Fonte | Consequência |
 |---|---|---|
-| Folia só funciona porque **proíbe** plugins não adaptados e reescreveu o sistema de chunks | docs oficiais do Folia (`docs/pesquisa/arte-previa.md` §1) | Não dá para copiar o Folia e manter "nenhum mod/plugin reescrito". Precisamos de um modo de compatibilidade que ele não tem. |
+| Folia só funciona porque **proíbe** plugins não adaptados e reescreveu o sistema de chunks | docs oficiais do Folia (`docs/pesquisa/arte-previa.md` §1); conferido no código do Folia `eca40f9` (estudo Folia x NeoFolia, 2026-11-22, §2 e §5) | Não dá para copiar o Folia e manter "nenhum mod/plugin reescrito". Precisamos de um modo de compatibilidade que ele não tem. |
+| (estudo Folia x NeoFolia, 2026-11-22) O NeoFolia (fork do NeoForge, Minecraft 26.1.2) é o único que junta regiões e carregador de mods, mas tem dois dias de histórico e nenhum teste com mod: sem barreira de tick, sem trava nos ouvintes de mods, sem chave geral nem modo seguro, e responde acesso fora da região com `null`/`false` em silêncio | código do NeoFolia `fa76006` (`docs/pesquisa/folia-neofolia.md` §6) | Não há modelo pronto para mods. Confirma o Degrau B (com barreira) antes do C e mostra o que não copiar. |
 | TickThreading (Forge 1.4–1.6) fez tick paralelo e foi abandonado pelo autor por exigir **patch manual por mod** | README do projeto (§2.1) | Estratégia "um patch por mod" não se sustenta. O padrão tem que ser seguro sem conhecer o mod. |
 | MCMT (1.15+) paralelizou por tipo de tick e **perdeu 20–50% de TPS** | README do projeto (§2.2) | Trocar listas por versões concorrentes não resolve; precisa de dono por região. |
 | AE2 quebra até com uma thread por dimensão | DimensionalThreading (§2.3) | Redes de mod são o caso difícil. O pack tem AE2, IC2, EnderIO, Mekanism, RotaryCraft. |
@@ -105,6 +108,11 @@ depois de passarem pelo observador (Etapa 2) e pelos testes. O resto fica no Deg
 Mapa para as etapas do prompt: Degrau 0 = Etapa 1 (revista); Degrau A = Etapa 2.5; Degrau B = primeira metade
 da Etapa 3; Degrau C = segunda metade da Etapa 3 mais Etapas 4 e 5.
 
+**Onde ficam os dois projetos nesses degraus (estudo Folia x NeoFolia, 2026-11-22).** O Folia é o Degrau C
+puro: a thread principal só liga o servidor e dorme, cada região tem relógio próprio. O NeoFolia fica entre o
+B e o C: thread principal com um grupo de threads de região, mas **sem barreira**; por isso os eventos de tick
+do servidor rodam junto com as regiões e ele não consegue garantir nada aos mods. Isso reforça a ordem B antes de C.
+
 ## 4. Componentes
 
 ```
@@ -139,8 +147,15 @@ Estrutura que diz "este chunk pertence a esta região".
 - Unidade: seção de 16×16 chunks (256×256 blocos). Valor inicial, ajustável no config.
 - Região = conjunto de seções vizinhas com chunks carregados, mais as seções dentro do raio de junção.
 - Regras fixas (copiadas do Folia, verificadas na doc oficial): um chunk tem um dono só; região que está ticando não cresce; junções e divisões só no fim do tick.
+  **Correção (estudo Folia x NeoFolia, 2026-11-22):** conferido no código do Folia. "Não cresce" vale para **seções novas**; uma região que tica ainda ganha chunks dentro das seções que já são dela.
 - Junção forçada: se uma rede de mod liga duas regiões, elas viram uma (ver (6)).
 - Cada dimensão tem o próprio regionizador.
+
+Do estudo Folia x NeoFolia (2026-11-22), detalhes em `docs/pesquisa/folia-neofolia.md` §7 (D1 a D3):
+- **Geometria:** os dois projetos usam a mesma: margem de 1 seção vazia em volta de cada seção com chunk, e seções com chunk a até 3 seções de distância viram uma região. Copiamos. Consequência: a menor região ocupa 3×3 seções (48×48 chunks), e duas áreas carregadas a menos de 33 a 63 chunks viram uma região só (risco 8 da §6).
+- **Gancho:** a 1.7.10 não tem "chunk holder" nem ticket como os servidores modernos. A região só conhece chunks **carregados**: o chunk entra quando é posto no mapa do `ChunkProviderServer` e sai quando é descarregado.
+- **O mapa de regiões só muda no ponto de junção** (fase serial). No Degrau B isso dispensa trava durante a fase paralela; chunk carregado na fase paralela entra no mapa só na junção. No Degrau C, o modelo é o do Folia (estados; junção com região que tica fica para o fim do tick dela). O NeoFolia recalcula as regiões a cada tick com elas rodando e abre uma corrida: não copiar.
+- **Divisão:** só apaga seção sem chunk carregado (o Folia faz assim e não perde dado de máquina). Cada estrutura "por região" (pendentes de tile entity, ticks agendados, block events, FakePlayer) precisa de uma função de juntar e outra de dividir, que não podem bloquear nem lançar erro.
 
 ### (3) Núcleo de roteamento
 Patches no fork nos pontos por onde todo mod passa: `World.setBlock`, `getTileEntity`,
@@ -151,6 +166,11 @@ Três modos, trocados no config:
 1. **Observador** (Etapa 2): só anota "o mod X, a partir da região A, tocou a posição P da região B". Não muda nada.
 2. **Checagem**: além de anotar, avisa ou barra o acesso fora do dono.
 3. **Roteamento**: o acesso fora do dono vira tarefa na fila da região dona.
+
+**Reação a acesso fora do dono (estudo Folia x NeoFolia, 2026-11-22).** O Folia lança exceção (e exceção no
+tick para o servidor); o NeoFolia esconde (`null`, ar, `false`, lista cortada). Nenhum dos dois serve para mods
+1.7.10. No modo checagem, a reação padrão é registrar e rebaixar a dimensão (ver (9)); nunca mentir para o mod.
+A checagem é por seção e, quando tem raio, confere todas as seções da área (como no Folia).
 
 Ponto técnico importante: em 1.7.10 muitos mods leem os campos públicos
 `world.loadedTileEntityList` e `world.loadedEntityList` direto, sem passar por método.
@@ -164,10 +184,23 @@ atraso, o que precisa de junção, quais handlers globais são seguros em parale
 Sem módulo, o mod roda na regra segura (em série / junção). Nada de patch
 obrigatório por mod: essa foi a armadilha do TickThreading.
 
+(estudo Folia x NeoFolia, 2026-11-22) O NeoFolia embrulha a porta única por onde mods modernos trocam itens,
+fluidos e energia (capabilities). A 1.7.10 não tem essa porta (cada mod usa `IInventory`, `IFluidHandler` ou
+API própria), então esse conhecimento continua morando no módulo de cada mod.
+
 ### (5) Thread global
 Relógio do mundo, clima, console, lista de jogadores, economia, chat, ranking.
 Banco de dados e disco ficam em threads de I/O. Efeito no mundo (entregar item,
 teleportar) volta como tarefa para a região do jogador.
+
+**Onde roda (estudo Folia x NeoFolia, 2026-11-22).** A "global" é a thread do servidor (`Server thread`) rodando
+a fase serial, como no NeoFolia, e não uma tarefa no grupo de threads como no Folia: os eventos de tick do Forge,
+o agendador do Bukkit e o processamento de pacotes moram nela. Diferente do NeoFolia, ela só roda com as regiões
+paradas (barreira). A fila de tarefas da global tem teto por tick (no Folia ela é drenada sem teto, e uma tarefa
+que se repõe prende a global). Relógio: um por mundo, avançado na fase serial; no Degrau C a região só copia a
+hora no começo do tick dela (relógio por região visível aos mods não serve: mods guardam prazos em tempo absoluto).
+No Degrau C, ouvintes globais de mods não liberados só podem rodar com as regiões da dimensão paradas: pergunta
+ao admin (§7, item 7).
 
 ### (6) Correio entre regiões
 Fila de mensagens entregues no começo do próximo tick da região destino.
@@ -177,11 +210,20 @@ de energia ou de itens muda comportamento e pode duplicar ou perder recurso.
 Não toleram atraso (hipótese a confirmar por mod): cálculo de crafting do AE2,
 redstone sensível a tempo, canais P2P/Quantum, eixos do RotaryCraft.
 
+Regras do estudo Folia x NeoFolia (2026-11-22), detalhes em `docs/pesquisa/folia-neofolia.md` §7 (D4, D5):
+- Fila FIFO (primeiro a entrar, primeiro a sair) por região, endereçada por (dimensão, seção). Na junção, as tarefas da região que some vão para a **frente** da fila da outra; na divisão, cada tarefa vai para a dona da posição dela (Folia).
+- No começo do tick a região roda só as tarefas que já estavam na fila; o que chegar durante o dreno fica para o próximo (Folia).
+- Uma região nunca espera outra região nem a global (regra do NeoFolia, igual à nossa regra de travas). Quem precisa de resposta recebe por outra tarefa.
+- Posição sem região: o Folia põe um ticket que cria a região; a 1.7.10 não tem como fazer isso sem carregar o chunk. A tarefa roda na fase serial.
+- Junção forçada: o Folia já força junção pondo tickets num caminho entre dois pontos. No nosso regionizador basta um "vínculo" entre duas seções, sem carregar chunk no meio (a confirmar em protótipo).
+- Primeiro uso do correio: o que o estudo das estruturas hostis já manda adiar (teleporte, kick, tarefas de plugin com local), não redes de mod.
+
 ### (7) Adapter de plugins
 - Nos Degraus A e B, plugins rodam exatamente como hoje (fase em série). Compatibilidade total.
 - No Degrau C, código de plugin roda um de cada vez (uma trava para todos os plugins) e só entra em paralelo o plugin da lista de liberados.
 - `Bukkit.getScheduler()` é interceptado: tarefa com alvo conhecido (jogador, local) vai para a região dele; o resto vai para a thread global.
 - **Problema em aberto**: um handler de plugin numa região que lê bloco de outra região (WorldGuard, GriefPrevention, PlotMe fazem isso). Ainda não há solução geral segura. Enquanto não houver, dimensões com muito plugin (spawn, plots) ficam no Degrau B.
+- (estudo Folia x NeoFolia, 2026-11-22) Confirmado no código: o Folia não tem camada de compatibilidade (barra plugin sem `folia-supported: true` e o agendador antigo lança exceção); o NeoFolia não tem Bukkit. O adapter continua sem modelo para copiar. Regra nova: no Hoshiestar o `BukkitScheduler` nunca lança exceção; tarefa sem alvo conhecido vai para a fase serial. Os agendadores novos do Folia são API do Paper e não existem para plugins 1.7.10.
 
 ### (8) Extras
 - Spawn: nunca entra no corte de orçamento; no Degrau C ganha thread com prioridade.
@@ -192,18 +234,25 @@ redstone sensível a tempo, canais P2P/Quantum, eixos do RotaryCraft.
 - Violação de dono em produção: registra e, se configurado, rebaixa a dimensão para o degrau anterior sem derrubar o servidor.
 - Tudo que não foi classificado fica no degrau mais seguro. Lista "só em série" por mod e por dimensão no config.
 
+Do estudo Folia x NeoFolia (2026-11-22), detalhes em `docs/pesquisa/folia-neofolia.md` §7 (D8 a D11):
+- **Chave geral** no `hoshiestar.yml` que desliga tudo de regiões, inclusive pacotes e geração. O NeoFolia não tem: com os interruptores dele desligados, os pacotes ainda vão para as regiões e a geração continua paralela.
+- **Erro dentro de uma região**: nem "para tudo" em qualquer caso (Folia) nem "registra e segue" (NeoFolia, deixa estado pela metade). Proposta: erro em pacote expulsa o jogador; erro em tarefa de plugin vai ao log; erro no tick do mundo de uma região tem padrão a decidir com o admin (§7, item 8).
+- **Parada**: parar de aceitar tarefas, esperar as regiões terminarem, aplicar o correio pendente e só então salvar, numa thread só (como o Folia). O NeoFolia salva com tarefas de região ainda rodando e joga fora as que estavam na fila. Vale também para o recurso 1.G (parada por SIGTERM).
+- **Vigia por região**: o vigia do Spigot no Crucible só olha a thread principal; o Folia tem um vigia que escreve a pilha da região travada a cada 5 s.
+
 ### (10) Medição
 TPS e tempo de tick por região e por dimensão, comando `/hoshie` para o admin,
 perfil por thread no spark. `/forge tps` e Timings assumem tick único e passam a
-mostrar só parte da história.
+mostrar só parte da história. (estudo Folia x NeoFolia, 2026-11-22) TPS e tempo por região legíveis de
+qualquer thread, como o `getRegionTPS` do Folia.
 
 ## 5. Casos de borda que o desenho precisa cobrir
 
 | Caso | Tratamento previsto |
 |---|---|
-| Jogador ou entidade cruza a borda | Regiões vizinhas dentro do raio já são a mesma região; só há travessia real em teleporte. |
-| Teleporte e portal | Sai da região de origem no fim do tick, entra na de destino como tarefa. Enquanto isso a entidade não tica. |
-| Pistão, fluido, explosão, redstone na borda | Cobertos pelo raio de junção (a borda de uma região nunca encosta em chunk ativo de outra). |
+| Jogador ou entidade cruza a borda | Regiões vizinhas dentro do raio já são a mesma região; só há travessia real em teleporte. (estudo Folia x NeoFolia, 2026-11-22) No Folia a entidade não chega à borda: a colisão vira parede até 4 chunks antes e projéteis param; como uma entidade muda de região andando ficou não verificado. |
+| Teleporte e portal | Sai da região de origem no fim do tick, entra na de destino como tarefa. Enquanto isso a entidade não tica. (estudo Folia x NeoFolia, 2026-11-22) O Folia faz o mesmo, mas troca o objeto da entidade por uma cópia. Na 1.7.10 a troca de dimensão já copia a entidade (vanilla); o teleporte no mesmo mundo não copia e não deve passar a copiar, porque mods guardam referência à entidade. |
+| Pistão, fluido, explosão, redstone na borda | Cobertos pelo raio de junção (a borda de uma região nunca encosta em chunk ativo de outra). (estudo Folia x NeoFolia, 2026-11-22) Nos dois projetos a margem não bastou: os dois **cortam** atualização de vizinho e redstone fora da região. Nós não cortamos (corte perde item e energia): o observador mede o alcance real e o que passar da margem vira junção. |
 | Chunk loader longe do dono | É uma região como outra qualquer; entra no orçamento. |
 | FakePlayer (quarry, autonomous activator) | Um por região, não o cache global do Forge. A confirmar. |
 | ~60 dimensões | Cada dimensão é pelo menos uma região. "Uma thread por dimensão" sai de graça no Degrau B. |
@@ -262,6 +311,7 @@ EnderIO, CoFH, BuildCraft) não foram estudados. Ficam para o observador da Etap
 5. **Manutenção**: fork de uma base com poucos mantenedores e build frágil. Mitigar com espelho das dependências e build automatizado.
 6. **Máquina de teste**: aqui há 4 núcleos. Ganho de escala só se mede na máquina real.
 7. Não existe "zero lag". Uma base que gasta 300 ms continuará lenta para o dono dela.
+8. **Tamanho das regiões (estudo Folia x NeoFolia, 2026-11-22).** Com a geometria do Folia, áreas carregadas a menos de 33 a 63 chunks (cerca de 530 a 1.000 blocos) viram uma região só, e uma região usa uma thread por vez. Se as bases pesadas forem próximas, haverá poucas regiões e pouco paralelismo. Depende da distribuição das bases (medidor da tarefa 0.9 e pergunta ao admin, §7 item 9). Seção menor (8×8 chunks) diminui as regiões, mas a margem cai para 8 chunks, pouco para redes de mod.
 
 ## 7. Decisões
 
@@ -278,3 +328,13 @@ Tomadas pelo coordenador em 2026-11-22 (reversíveis; ver `PROGRESSO.md`):
 Ainda dependem do admin:
 5. Aceitar que base pesada tenha máquinas mais lentas (Degrau A) como forma de isolar o lag.
 6. Rodar em produção um medidor de carga por região (só leitura), já que o mundo não pode ser copiado.
+
+Do estudo Folia x NeoFolia (2026-11-22), também com o admin (texto completo em `docs/pesquisa/folia-neofolia.md` §10):
+7. Limitar o Degrau C por dimensão: só onde todos os ouvintes globais de mods (`ServerTickEvent`, `WorldTickEvent`) que mexem naquela dimensão estão liberados; o resto fica no Degrau B.
+8. Padrão para erro no tick do mundo de uma região: parada limpa (proposta, segurança antes de desempenho) ou rebaixar a dimensão para série e seguir (opção no config).
+9. Informação: as bases pesadas ficam a mais de ~33 a 63 chunks umas das outras? (define quantas regiões existirão, risco 8 da §6).
+O item 5 ganha reforço: Folia e NeoFolia também não recuperam ticks perdidos de região atrasada.
+
+Propostas do estudo Folia x NeoFolia (2026-11-22) que não são decisão ainda (reversíveis, a confirmar no desenho
+detalhado das Etapas 2 e 3): regionizador só muda no ponto de junção; global = thread do servidor na fase serial;
+regras do correio em (6); `BukkitScheduler` nunca lança; chave geral; parada que espera as regiões.

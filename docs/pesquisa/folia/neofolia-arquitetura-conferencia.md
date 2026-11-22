@@ -1,0 +1,130 @@
+# Conferência de `neofolia-arquitetura.md` (NeoFolia: o que é, como é montado, o que mudou em relação ao Folia)
+
+- **Conferente:** agente diferente do autor. Só leitura de código. Nada compilado, nenhum servidor ligado, nenhum commit no Hoshiestar.
+- **Clones conferidos:** NeoFolia `fa76006de0c01f5cd0c3290f0994898c39e8441f` (2026-06-04); histórico em `neofolia-hist/hist.git` (22 commits); Folia `eca40f918928e78c2c5f9c944cfb083d7d9851d4` (2026-11-18, `mcVersion=26.3`).
+- **Abreviações (as mesmas do relatório):** `NF-region` = `NeoFolia/src/main/java/net/neoforged/neoforge/server/region/`. `Guard` = `NF-region/RegionizedWorldGuard.java`. `Disp` = `NF-region/RegionizedTaskDispatcher.java`. `Settings` = `NF-region/RegionizedServerSettings.java`. `MS.patch` = `patches/net/minecraft/server/MinecraftServer.java.patch`. `SL.patch` = `patches/net/minecraft/server/level/ServerLevel.java.patch`. `L.patch` = `patches/net/minecraft/world/level/Level.java.patch`. `SGPLI.patch` = `patches/net/minecraft/server/network/ServerGamePacketListenerImpl.java.patch`. A4 = `Folia/folia-server/minecraft-patches/features/0004-Region-Threading-Base.patch`.
+- "Linha N" de um `.patch` = linha dentro do arquivo `.patch`.
+- Termos: **retrato** = o mapa "quadrado fixo → dono" que o NeoFolia refaz a cada tick. **dono** = o quadrado que dá nome a um grupo de quadrados juntos. **raia (lane)** = rótulo de um tipo de tarefa ("entity-ticks"...). **coalescer** = não enfileirar uma tarefa igual a outra ainda pendente. **thread principal** = "Server thread", a que roda o laço de tick do Minecraft.
+
+## Resultado em uma frase
+
+O relatório está **bom e quase sempre certo**: 61 afirmações conferidas, 47 confirmadas, 12 corrigidas (nenhuma muda a conclusão geral), 2 não verificáveis, nenhuma refutada. As correções mais relevantes para nós: (a) a "exceção ao acessar capability de outra região" quase nunca acontece, porque o bloco de outra região já devolve `null` antes; (b) o mapa `REGION_WORLD_DATA` nunca é limpo, nem ao desligar, e é percorrido inteiro a cada tick; (c) o código não entrou num commit só. O que mais faltou: a **parada do servidor não espera as threads de região**, `setBlock` entre regiões vira **escrita adiada silenciosa**, e `PlayerList.getPlayers()` passa a **esconder jogadores de outras regiões**.
+
+---
+
+## 1. Tabela: afirmação → veredito → evidência
+
+| # | Afirmação do relatório | Veredito | Evidência (commit NeoFolia `fa76006d`, salvo indicação) |
+|---|---|---|---|
+| 1 | Fork do NeoForge, Minecraft 26.1.2, Java 25, LGPL 2.1 | Confirmada | `gradle.properties` linhas 17 e 19; `LICENSE.txt` (LGPL 2.1); `README-LICENSE.md` linha 10 (`LGPL-2.1-only`) |
+| 2 | Não tem código do Folia copiado (nenhum `// Folia`, nenhuma classe do Folia) | Confirmada | `git grep -n "// Folia\|Folia start"` = nada; `ThreadedRegionizer`, `TickRegionScheduler`, `RegionizedTaskQueue`, `TickThread` = nada. Só aparece "Folia" num comentário (`RegionizedWorldData.java` linha 18, "Folia-style regional ticks") e em nomes de teste |
+| 3 | 22 commits, 3 e 4 de junho de 2026, 2 autores | Confirmada | `git rev-list --count HEAD` = 22; `git shortlog -sne` = NeoFolia 18, kitovoi111 4 |
+| 4 | "kitovoi111 (4 commits de código)" | **Corrigida** | São 3 commits de código (`b10c794`, `1b4210c`, `d1ff8c7`) e 1 merge (`3c0c161`, que só mexe em `README.md`) |
+| 5 | "O código entrou num commit só ('First release', 6.698 arquivos)" | **Corrigida** | A base entrou em `b10c794`. Mas `d1ff8c7` ("Folia patch porting and bug fixes", 82 arquivos: 12 A, 1 D, 69 M) **adicionou 3 das 9 classes** (`RegionizedWorldData`, `RegionizedChunkExecutors`, `RegionizedLoginLimiter`), a junção de regiões (`RegionizedWorldGuard` de 570 para 1.230 linhas) e os patches de borda (redstone, trilho, tripwire). `git ls-tree b10c794` mostra só 6 arquivos no pacote `region/` |
+| 6 | Tags `neofolia`, `1.0.1`, `1.0.2` (= `3c0c161`), `1.0.3`, `1.0.4` | Confirmada | `git rev-list -n1 <tag>`: 1.0.1 e 1.0.2 = `3c0c161`; 1.0.3 = `6ea7b04`; 1.0.4 = `d1ff8c7`. Acréscimo: a tag `neofolia` = `aa7e3d7` ("Initial commit", sem código) |
+| 7 | 0 issues abertas; releases dizem "Mod Compatibility = 0", "first alpha", "added region merging" | Não verificável | As páginas `/releases` e `/issues` do GitHub devolveram HTTP 403 nesta sessão. O relatório já marca como fonte secundária. O README (linha 34) só confirma a promessa de portar mods "once the core becomes more or less stable" |
+| 8 | 9 classes novas, 3.742 linhas | Confirmada | `wc -l NF-region/*.java` = 3.742 |
+| 9 | "~620 patches de classes do Minecraft" mexidos para regiões | **Corrigida** | 622 é a contagem de patches com a palavra "region" em qualquer caixa, o que pega também código vanilla (ex.: arquivos de região do disco). Patches que citam de fato o código novo (`Regionized`, `RegionKey`, `regionized`): **556** (`grep -rlE "Regionized\|RegionKey\|regionized" patches \| wc -l`) |
+| 10 | "~48 arquivos do NeoForge" (resumo item 3 e §13.8) | **Corrigida** | São **39** arquivos fora do pacote `region/` (o próprio §4 diz 39). 48 = 39 + as 9 classes do pacote. Dos 39, 7 são classes novas do NeoFolia (`Regionized*Handler`, `RegionizedPlayerItemAccess`), não arquivos do NeoForge alterados |
+| 11 | Patches mais carregados: ChunkMap 165, SGPLI 146, ServerLevel 127, ..., MinecraftServer 38 | Confirmada (com ressalva de unidade) | Os números são **linhas** que contêm `Regionized\|RegionKey`, não ocorrências. Ocorrências: ChunkMap 198, SGPLI 172, ServerLevel 159, MinecraftServer 39. A ordem não muda |
+| 12 | Classe de partida `net.neoforged.fml.startup.Server` | Confirmada | `server_files/args.txt` |
+| 13 | `record RegionKey(level, regionX, regionZ)`, `regionX = chunkX >> shift` | Confirmada | `NF-region/RegionKey.java` linhas 16-19 |
+| 14 | `shift` fixo = 4 (16×16 chunks), não configurável | Confirmada | Guard linha 45 (`DEFAULT_REGION_CHUNK_SHIFT = 4`); nenhuma chave de shift em Settings linhas 25-48 |
+| 15 | Quadrado ativo = tem chunk holder (contado em `ChunkMap` 1740-1755, chamado nas linhas 325 e 603) ou tem jogador | Confirmada | `ChunkMap.java.patch` 325 (`new ChunkHolder` → `updateRegionizedChunkHolder(..., true)`), 603 (descarga → `false`), 1740-1755. Detalhe que faltou: o mapa entregue ao regionizador é `fixedRegionizerChunkCountsByRegion` (`MS.patch` 339-346), não o mapa de chunks "visíveis", que só serve para estatística |
+| 16 | Junção entre quadrados ativos a até 3 de distância (Chebyshev); constantes 1, 1, 1×2+1 | Confirmada | Guard 46-48; laço `dx,dz ∈ [-3,3]` com `union`, Guard 1060-1073 |
+| 17 | Dono = menor X, empate menor Z | Confirmada | `canonicalOwner`, Guard 1122-1132; aplicado a cada `union` entre raízes, então o dono final é o mínimo do grupo |
+| 18 | Cada ativo cobre raio 1 com o mesmo dono | Confirmada | Guard 1078-1088 |
+| 19 | Testes: 0 e 3 juntam, 0 e 4 não | Confirmada | `RegionizedWorldGuardTest.java` 24-43 |
+| 20 | Retrato refeito do zero todo tick, logo após `tickCount++` | Confirmada | `MS.patch` 183-187 (`beginServerTick`, `refreshRegionOwnership`), 339-346 |
+| 21 | "Qualquer consulta (`resolve`, `boundsFor`...) refaz o retrato se o tick mudou" | **Corrigida** | Só as consultas que recebem `ServerLevel` chamam `refreshIfNeeded` (Guard 918-921, 947-960). A consulta mais usada pelo despachante, `canonicalRegion` (Disp 797-799) → `ownerForFixedRegion(RegionKey)` (Guard 72-73) → `resolve(dimension, key)` (Guard 879-882), **não** refaz: lê o último retrato |
+| 22 | Retrato guardado em mapas imutáveis em campos `volatile` | Confirmada | Guard 911-916; `Map.copyOf` em 1093 e 976-983 |
+| 23 | Folia tem a mesma distância de junção (3 seções) | Confirmada | A4 4066-4068 (`searchRadius = createRadius + mergeRadius` a partir da seção nova, que acha a margem da outra); conferência irmã `folia-regioes-conferencia.md` item 5 |
+| 24 | Folia: `gridExponent` configurável, padrão 4 (B2 437; A4 5811) | Confirmada | B2 ~437 (`public int gridExponent = 4`); A4 5811 |
+| 25 | Folia: 4 estados de região; junção adiada (`onRegionRelease`) | Confirmada | A4 4437-4440 (`STATE_TRANSIENT/READY/TICKING/DEAD`); A4 4258 |
+| 26 | `REGION_WORLD_DATA` e `regionQueues` só crescem; "só são limpos ao desligar (`close`, linha 952)" | **Corrigida** | `regionQueues` é limpo no `close` (Disp 952). `REGION_WORLD_DATA` é campo **estático** (Guard 52) e **nunca** é limpo, nem no `close` (`git grep "REGION_WORLD_DATA\."`: só `computeIfAbsent` e `forEach`). Pior que memória: `regionWorldDataByOwner` (Guard 108-117) percorre o mapa **inteiro** a cada tick para montar as tarefas de tile entity (`L.patch` ~398-411), então o custo do tick cresce com tudo o que já foi visitado. `regionTimings` também só cresce |
+| 27 | Pool fixo (`newFixedThreadPool`), cada thread em `workerLoop`, threads daemon "NeoForge Region Worker #N" | Confirmada | Disp 82-95, 961-973, 1561-1570 |
+| 28 | `region_threads = 0` → 90% dos núcleos − 1 − threads de chunk, IO, parse e netty | Confirmada | Settings 168-177. Conta que faltou (fórmulas Settings 179-193): 8 núcleos → floor(7,2)=7 − (1+2+1+1+1) = **1 thread de região**; 4 núcleos → 1; 12 → 3; 16 → 4; 32 → 10. Em máquina comum o "automático" dá uma thread só |
+| 29 | Uma fila por região; até 256 tarefas ou 5 ms por vez; o que sobra volta ao fim da fila de prontas | Confirmada | Disp 1451-1513; padrões Settings 58-59. Detalhe: o tempo é conferido **depois** de cada tarefa (Disp 1504-1506), então uma tarefa longa passa dos 5 ms |
+| 30 | Só uma thread por vez por chave; checagem de dono só no começo do lote; repassa se a chave deixou de ser dona | Confirmada | flag `scheduled` (Disp 1461-1466, 1508-1513); `runAvailableTasks` 1468-1473; `redirectPendingTasks` 1516-1531 |
+| 31 | Cada tarefa roda com `ThreadLocal` de região e `RandomSource` da região | Confirmada | `RegionizedTickContext.java` 14-15, 33-53. O `RandomSource` é um por fila (campo `random` de `RegionQueue`, Disp 1455) |
+| 32 | Tabela "quem gera as tarefas" (raias e linhas) | **Corrigida (2 detalhes)** | (a) `ChunkMap.java.patch` 220 é a raia `"chunk-generation-drain"`, não o rastreador; rastreador = 1550 (`"entity-tracker-ticks"`), descarga = 393 (`"chunk-unloads"`). (b) O raio (`tickThunder`) roda dentro de `tickSpawningChunk` (`ServerChunkCache.java.patch` 352), na raia `"spawning-chunk-ticks"`; a raia `"chunk-ticks"` (`tickChunkRegionized`, `SL.patch` 365-410) só faz neve/gelo e tick aleatório. O resto da tabela confere |
+| 33 | Não há barreira por tick; `awaitAll` não é usado fora da classe | Confirmada | `executeCoalescedAll`/`executeAll` só enfileiram (Disp 111-146). `awaitAll` só aparece em `RegionizedTaskDispatcherTest.java` 142 e 156 |
+| 34 | Coalescida: se já existe tarefa da mesma raia **esperando**, a nova é descartada | **Corrigida (detalhe)** | A marca em `coalescedRegionTasks` só sai no `finally`, **depois de a tarefa rodar** (Disp 163-169). A nova é descartada se a anterior está esperando **ou rodando**. Ou seja: enquanto o tick de entidades da região está em execução, o tick seguinte daquela região não é nem enfileirado |
+| 35 | Não há TPS nem relógio por região; ticks agendados usam `getGameTime()` do mundo | Confirmada | `MS.patch` 184; Disp 59 (`currentServerTick`); `SL.patch` 175 |
+| 36 | Global = thread principal; `drainGlobalTasks` no começo de `tickChildren`, limite 1.024 tarefas e 10 ms | Confirmada | `MS.patch` 262-265; Disp 672-709; Settings `DEFAULT_GLOBAL_TASK_MAX_TASKS_PER_TICK = 1024`, `..._MAX_TIME_MS = 10`. Mesmo detalhe do item 29: tempo conferido depois de cada tarefa |
+| 37 | Vão para a global quando chamados de thread de região: salvar, `halt`, dificuldade, lista de quem dorme, portal, attachment do mundo | Confirmada | `MS.patch` 81-115, 413-417, 780; `SL.patch` 483-505; `Entity.java.patch` 894-917; `AttachmentSync.java` 188 |
+| 38 | "A thread principal não é impedida de tocar no mundo" | Confirmada (com ressalva) | `setBlock` e afins só checam se a thread **é** de região (`ensureRegionThreadIfRegionized`, Guard 470-480; `L.patch` 102-108). `isTickThread` aceita a principal (Guard 251-253). Ressalva: as poucas checagens duras `ensureRegionThreadFor` (19 usos; Guard 454-460) **falham** também na principal, mas elas só estão em caminhos que a principal não usa (tick agendado, tick de tile entity, tick de chunk) |
+| 39 | Postar não carrega chunk nem cria ticket; sem dono, cai na fila do próprio quadrado | Confirmada | `enqueueTask` só faz `computeIfAbsent(...).add` (Disp 198-211); `resolve` devolve o próprio quadrado (Guard 924) |
+| 40 | `awaitRegions`: reserva cada região com uma thread parada; > threads → exceção; 1 thread → só a primária; região esperando outra → exceção; tempo limite 60 s | Confirmada | Disp 292-389 (reserva com `CountDownLatch`), 320-336, `awaitPrimaryRegion` 480-499, `ensureSafeBlockingAwait` 573-586, `awaitLatch` 997-1008 |
+| 41 | Lista de usos de `awaitRegions` (SGPLI 1754, 2227, 2349, 2437, 2493; comandos; `ServerEntity` 200; `CommonHooks` 607; `ResourceHandlerUtil` 688; `EnergyHandlerUtil` 178) | **Corrigida (parcial)** | Linhas certas, mas `ServerEntity.java.patch` 200 e `CommonHooks.java` 607 usam `awaitRegionsPaused`, não `awaitRegions`. E faltou dizer **quem chama**: quando o pedido nasce numa thread de região, ele é primeiro jogado para a fila global, e é a **thread principal** que chama `awaitRegions` e fica parada esperando (ex.: ataque, `SGPLI.patch` 2197-2227 `executeGlobalOrCurrent(handleAttackOnGlobal)`; `ServerEntity.java.patch` 190-200; `CommonHooks.java` 598-607) |
+| 42 | Corrida na troca de dono no meio de um lote (§7.3) | Não verificável (plausível) | Leitura confirma que a checagem é só no começo do lote (Disp 1469-1473). Nuance: a thread velha guarda `CURRENT_REGION` = chave velha; depois da troca, `isRegionThreadFor` passa a dar falso nela, então `ensureRegionThreadFor` lança e `setBlock` reagenda. O que continua em paralelo é o código **sem** checagem (corpo do tick de entidade, código de mod). Só um teste em execução confirmaria |
+| 43 | Consultas de entidade cortadas à região (`restrictToCurrentRegion`, `restrictEntityToCurrentRegion`) | Confirmada (com nuance) | Guard 263-307. Nuance: o corte usa o **retângulo envolvente** do grupo (`boundsFor`, Guard 276-281), não o conjunto exato de quadrados; num grupo em "L" o retângulo pode cobrir quadrados de outro dono |
+| 44 | Redstone: `RedStoneWireBlock.java.patch` linhas 213-241 | **Corrigida** | O patch tem só 75 linhas; as checagens `isRegionOwnedAndLoaded` estão nas linhas 15-45. A ideia (vizinho de outra região tratado como ar ou ignorado) confere. Usos: redstone 7, `CollectingNeighborUpdater` 5, `Level` 2, trilhos e tripwire 1 cada |
+| 45 | "Dois donos diferentes ficam separados por pelo menos 2 quadrados (32 chunks) sem chunk holder" | **Corrigida** | Quadrados ativos de donos diferentes estão a ≥ 4 quadrados (Chebyshev), então entre eles há **≥ 3 quadrados (≥ 48 chunks) sem chunk holder** num dos eixos. Entre as **áreas cobertas** fica ≥ 1 quadrado sem dono (teste `keepsActiveSectionsSeparateBeyondFoliaEmptyBridgeDistance`: `assertNull(owners.get(region(2, 0)))`, linha 39). A conclusão do relatório ("vizinho de bloco carregado é do mesmo dono") fica até mais forte |
+| 46 | Tabela de eventos: `ServerTickEvent` e `LevelTickEvent` na principal; `EntityTickEvent`, `PlayerTickEvent`, tile entity, tick aleatório e agendado na região; `enqueueWork` na região do jogador; `PermissionsChangedEvent` esperando a região | Confirmada | `MS.patch` 188, 217, 278, 286; `SL.patch` 604-606; `Entity.java.patch` 628-630; `Player.java.patch` 49, 66; `L.patch` 442-443; `ServerPayloadContext.java` 32-80; `EventHooks.java` 904 |
+| 47 | Funções `fire*` só fazem `EVENT_BUS.post`; barramento (8.0.5) não foi mudado | Confirmada (parte) | `EventHooks.java` ~960-1030; `gradle.properties` 36; o barramento não está no repositório. "Iguais às do NeoForge" não foi verificado (sem clone do NeoForge para comparar) |
+| 48 | 4 interruptores, todos `true`; sem interruptor geral; despachante sempre liga; pacotes e conexão vão para a região mesmo com os 4 `false` | Confirmada | Settings 25-29, 455-470; `MS.patch` 124 (sem condição); `PacketUtils.java.patch` 15-24; `ServerConnectionListener.java.patch` 154-171. `region_threads` mínimo 1 (`Math.max(1, ...)`, Disp 87), não existe "0 = desligado" |
+| 49 | Só capabilities de item, fluido e energia de bloco são embrulhadas | Confirmada | `BlockCapability.java` 227-241 |
+| 50 | "Acesso a capability de outra região, vindo de uma thread de região, lança exceção" (resumo item 9 e §9) | **Corrigida (parcial)** | Só lança se o mod **já tem na mão** o embrulho (ex.: guardado em cache) e o usa de outra região (Guard 632-634). Um pedido novo de capability, de uma thread de região para um bloco de outra região, em geral devolve **`null`**: `Level.getBlockEntity` devolve `null` para posição de outra região (`L.patch` 486) e a busca usa esse tile entity (`BlockCapability.java` 207-213). Para o mod, isso parece "não tem inventário aqui", sem erro |
+| 51 | Rede de mod: `PacketDistributor.sendToPlayer` → região do jogador; envio a quem rastreia uma entidade → região da entidade | Confirmada | `PacketDistributor.java` 40, 81, 100; Guard ~1174-1207 |
+| 52 | Attachments: bloco/chunk/entidade → região dona; mundo → global | Confirmada | `AttachmentSync.java` 118-188 |
+| 53 | Tickers de tile entity saem da lista do `Level` a cada tick (`migrateBlockEntityTickersToRegionData`) | Confirmada | `L.patch` 413-422 (só quando regionizado e o despachante está ligado). Efeito em mods que leem a lista: inferência, como o relatório diz |
+| 54 | Exceção em tarefa de região: só log, servidor segue; resto do lote não roda | Confirmada | `runSafely` Disp 975-983, chamado em 1488; no laço de tile entity (`L.patch` 424-445) e de entidade não há `catch` por item. Acréscimo: erro que no vanilla derrubaria o servidor (`ReportedException` do tick de entidade) aqui vira só uma linha de log |
+| 55 | `region_task_timeout_seconds` (60) só vale para esperas; README diz "server shutdown timeout"; nada desliga o servidor | Confirmada | Disp 257-290, 372-388, 997-1008; Settings `defaultConfigContents` ("0 disables timeout checks for blocking region waits") |
+| 56 | Vigia (`ServerWatchdog`) só olha a thread principal; nenhum vigia de região | Confirmada | `ServerWatchdog.java.patch` 7, 15-16 (`getRunningThread()`); nada de watchdog em `NF-region`. Folia tem `0011-Add-watchdog-thread.patch` e `paper-patches/.../0006-Add-watchdog-thread.patch` |
+| 57 | README tem 7 opções; o código tem bem mais | Confirmada | README 21-29 (7 linhas); Settings 25-48 (23 chaves) |
+| 58 | Build: ModDevGradle 2.0.140, NeoForm `26.1.2-1`, jar universal e instalador | Confirmada | `gradle.properties` 13 e 20; `projects/neoforge/build.gradle` 95-103, 414-530 |
+| 59 | `RegionizedWorldData` usa um subconjunto dos campos do Folia | Confirmada | `RegionizedWorldData.java` 21-30 vs A4 2940-3320 (todos os 9 nomes aparecem lá; o Folia tem também `redstoneTime`, listas de entidades etc.) |
+| 60 | No Folia, falha em região para o servidor (`regionFailed`) | Confirmada | A4 5416-5429 (`scheduler.halt()` + `stopServer()`) |
+| 61 | Junção de regiões não existe em `b10c794` nem em `6ea7b04` (1.0.3); aparece em `d1ff8c7` | Confirmada | `git show <c>:.../RegionizedWorldGuard.java`: 570 linhas e 0 `union(` em `b10c794` e `6ea7b04`; 1.230 linhas e 2 `union(` em `d1ff8c7` |
+
+Contagem: 61 conferidas; 47 confirmadas (algumas com ressalva); 12 corrigidas (itens 4, 5, 9, 10, 21, 26, 32, 34, 41, 44, 45, 50); 2 não verificáveis (7, 42); 0 refutadas.
+
+As opiniões do §13 do relatório não foram "julgadas" como fato. Duas delas ganham força com o que achei abaixo: a barreira por tick (item 1 do §13) e não copiar o "registra e segue" (item 5).
+
+---
+
+## 2. O que faltou (achado pelo conferente, com evidência)
+
+### 2.1 A parada do servidor não espera as threads de região
+- `MS.patch` 147-151: no `finally` do laço, `regionizedTaskDispatcher.close()` e logo depois `stopServer()` (que salva o mundo).
+- `close()` (Disp 929-958) faz `shutdownNow()` (só interrompe as threads, não espera) e **cancela** tudo que está na fila: tarefas de região, tarefas adiadas e **tarefas globais**. Não há `awaitTermination` em lugar nenhum do pacote nem do patch.
+- Consequência (leitura, não testada): uma tarefa de região que já estava rodando pode continuar mexendo no mundo enquanto `stopServer` salva; e escritas que estavam na fila (ex.: um `setBlock` reagendado para outra região, um salvamento pedido por uma thread de região) são jogadas fora.
+- Para nós: a regra do projeto "parar sempre com `stop` e parada limpa" exige o contrário: parar de aceitar tarefas, **esperar** as regiões esvaziarem, e só então salvar.
+
+### 2.2 Escrita entre regiões vira escrita adiada e silenciosa
+- `Level.setBlock` chamado por uma thread de região para um bloco de outra região: reagenda na região dona e **retorna `false`** na hora (`L.patch` 101-108). `setBlockEntity` faz o mesmo (`L.patch` 492 em diante). O mod acha que a escrita falhou, mas ela acontece depois.
+- Leitura entre regiões: `getBlockState`/`getFluidState` de outra região **lê o chunk direto se ele estiver carregado** (sem trava; `L.patch` 280-284 com `shouldLoadChunk`, Guard 247-249) e devolve `VOID_AIR` se não estiver. `getBlockEntity` de outra região devolve `null` (`L.patch` 486).
+- Para nós (1.7.10): máquinas que empurram itens para o vizinho com `world.getTileEntity` cairiam no caso "`null`" na borda; mas pela geometria (item 45) a borda entre donos fica longe de chunks carregados, então isso só aparece com chunk carregado por mod (chunkloader) ou na hora da troca de dono.
+
+### 2.3 Lista de jogadores filtrada por região
+- `PlayerList.getPlayers()` e `getAllPlayers()`, chamados de uma thread de região, devolvem **só os jogadores da região atual**; `getPlayer(uuid)` devolve `null` para jogador de outra região (`PlayerList.java.patch` 990-1015). Só `getPlayersAcrossRegions()` vê todos.
+- Para nós: em 1.7.10 a lista é campo público (`MinecraftServer.getConfigurationManager().playerEntityList`), lido direto por mods e plugins. Não dá para filtrar no "getter" como o NeoFolia faz.
+
+### 2.4 Estilo de proteção: esconder em vez de falhar
+- Contagem de usos (`git grep -ho "RegionizedWorldGuard\.[a-zA-Z]*"` em `patches` e `src/main/java`): `restrictEntityToCurrentRegion` 241, `shouldLoadChunk` 165, `executeOnPlayerRegion` 165, `sendToPlayer` 149, `restrictToCurrentRegion` 112; checagens que lançam exceção: `ensureRegionThreadFor` 19, `ensureRegionThreadIfRegionized` 5.
+- No Folia é o contrário: 224 `ensureTickThread` + 21 `ensureGlobalTickThread` (conferência irmã `folia-global-correio-conferencia.md` item 63), que derrubam a operação com erro.
+- Consequência: no NeoFolia, um acesso errado tende a virar resultado vazio (entidade `null`, lista menor, `VOID_AIR`) em vez de erro visível. É mais difícil de achar o defeito. A tabela do §12 do relatório ("checagem de dono: adaptado") não mostra essa diferença de filosofia.
+
+### 2.5 Operação entre regiões trava a thread principal
+- Ligado ao item 41: o caminho padrão para "mexer em duas regiões" é: thread de região → fila global → **thread principal chama `awaitRegions`/`awaitRegionsPaused`** e fica parada até as duas regiões pararem e a tarefa acabar (até 60 s). Durante esse tempo o laço de tick inteiro (todos os mundos, todos os eventos de tick) fica parado.
+- Inferência (não testada): se dois chamadores fora de região (ex.: thread principal e uma thread de rede/JSON-RPC) reservarem as mesmas duas regiões em ordem diferente, cada um prende uma fila esperando a outra; só o tempo limite desfaz. Não achei trava de ordem entre reservas.
+
+### 2.6 Não há API dedicada para mods
+- O README (linha 9) fala em "native NeoForge API interfaces". No código não há nenhuma `interface` de agendamento (`git grep "interface .*Region"` só acha a interna `RegionTask`, Disp 1036). O que existe: 64 métodos `public static` em `RegionizedWorldGuard`, os métodos públicos do despachante e `MinecraftServer.scheduleRegionTask`/`submitRegionTask` (`MS.patch` 363-378). Nada parecido com os agendadores do Folia (`RegionScheduler`, `EntityScheduler`, `GlobalRegionScheduler`).
+
+### 2.7 Detalhes de montagem que faltaram
+- O despachante só liga **depois** de `handleServerStarted` (`MS.patch` 123-124): carga do mundo, preparação do spawn e `ServerStartedEvent` rodam do jeito antigo, numa thread só.
+- Com o despachante ligado, a thread principal **para de rodar** as tarefas de chunk no tempo livre (`MS.patch` 176: `!this.regionizedTaskDispatcher.isRunning() && ...`) e não faz mais `suspendFlushing`/`sendNextChunks` dos jogadores (`MS.patch` 259-260, 313-318): isso passou para as regiões e para `RegionizedChunkExecutors` (não lido).
+- A pasta `docs/` existe, mas é a do NeoForge original (`docs/README.md` fala de "NeoForge ... 1.21.x"); nenhum arquivo dela fala de regiões (`grep -il "region\|folia" docs/*.md` = nada). Confirma "sem documentação de desenho".
+- Descarga e salvamento de chunk passam a rodar em thread de região (raia `"chunk-unloads"`, `ChunkMap.java.patch` 393).
+
+---
+
+## 3. Não verificado (e por quê)
+
+- **Issues, releases, estrelas:** páginas do GitHub deram HTTP 403 nesta sessão; não conferi "0 issues abertas" nem o texto das notas de versão.
+- **"`fire*` iguais às do NeoForge" e versão base do NeoForge:** não há clone do NeoForge para comparar.
+- **Corrida na troca de dono (item 42), corrida entre thread principal e regiões, impasse entre dois chamadores de `awaitRegions` (2.5), escrita durante o salvamento na parada (2.1):** deduzidos da leitura do código; só execução ou teste de carga confirmaria. Nenhum teste do repositório cobre esses casos (os 4 testes, 1.032 linhas, são de unidade).
+- **`RegionizedChunkExecutors`, `ChunkTaskDispatcher`, `ServerExplosion.java.patch`, `ForcedChunkManager`, pastas `rejects_*`:** não li a fundo (o relatório também não).
+- **Opiniões do §13 do relatório:** são recomendações, não fatos; não foram classificadas.
