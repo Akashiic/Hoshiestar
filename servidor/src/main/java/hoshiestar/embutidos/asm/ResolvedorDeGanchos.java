@@ -30,18 +30,48 @@ import java.util.concurrent.ConcurrentHashMap;
  * meio da transformacao de uma classe de mod poderia puxar a propria classe do mod (circularidade),
  * por isso so os bytes sao lidos.
  *
+ * <p><b>Nomes do Minecraft.</b> No server.jar as nossas classes saem REOFUSCADAS pelo build: um
+ * gancho declarado como {@code (Lnet/minecraft/entity/player/EntityPlayerMP;)Z} fica gravado no
+ * arquivo como {@code (Lmw;)Z}; o DeobfuscationTransformer do FML so traduz de volta quando a classe
+ * e carregada. A classe do mod, ao contrario, ja chega com os nomes do Minecraft "de tempo de
+ * execucao" (MCP). Por isso o descritor lido do arquivo passa pelo {@link Remapeador} antes da
+ * comparacao (no servidor: o FMLDeobfuscatingRemapper; nos testes: identidade ou um mapa de teste).
+ *
  * <p>Seguro entre threads (cache em ConcurrentHashMap).
  */
 public final class ResolvedorDeGanchos {
 
+    /** Traduz um descritor de metodo como esta no ARQUIVO do gancho para os nomes de tempo de execucao. */
+    public interface Remapeador {
+        String descritor(String descritorDoArquivo);
+    }
+
+    /** Nao traduz nada (fora do servidor, ou quando nao ha nomes reofuscados). */
+    public static final Remapeador IDENTIDADE = new Remapeador() {
+        @Override
+        public String descritor(String d) {
+            return d;
+        }
+    };
+
     private static final Set<String> NENHUM = Collections.emptySet();
 
     private final ClassLoader carregador;
+    private final Remapeador remapeador;
     private final ConcurrentHashMap<String, Set<String>> cache = new ConcurrentHashMap<String, Set<String>>();
 
     /** @param carregador onde procurar o .class dos ganchos (no servidor: o class loader dos mods). */
     public ResolvedorDeGanchos(ClassLoader carregador) {
+        this(carregador, IDENTIDADE);
+    }
+
+    /**
+     * @param carregador onde procurar o .class dos ganchos
+     * @param remapeador traduz os descritores lidos do arquivo (null = identidade)
+     */
+    public ResolvedorDeGanchos(ClassLoader carregador, Remapeador remapeador) {
         this.carregador = carregador;
+        this.remapeador = remapeador == null ? IDENTIDADE : remapeador;
     }
 
     /**
@@ -87,7 +117,8 @@ public final class ResolvedorDeGanchos {
                 public MethodVisitor visitMethod(int access, String name, String desc, String signature,
                         String[] exceptions) {
                     if ((access & Opcodes.ACC_PUBLIC) != 0 && (access & Opcodes.ACC_STATIC) != 0) {
-                        s.add(name + desc);
+                        // so o descritor de tempo de execucao: e com ele que a classe do gancho vai existir
+                        s.add(name + traduzir(desc));
                     }
                     return null;
                 }
@@ -96,6 +127,15 @@ public final class ResolvedorDeGanchos {
             return NENHUM;
         }
         return publica[0] ? s : NENHUM;
+    }
+
+    private String traduzir(String desc) {
+        try {
+            String t = remapeador.descritor(desc);
+            return t != null ? t : desc;
+        } catch (Throwable e) {
+            return desc;
+        }
     }
 
     private byte[] ler(String caminho) {

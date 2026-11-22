@@ -133,6 +133,12 @@ presente) e (c) a trava confere. Arquivos de exemplo: `src/main/java/hoshiestar/
    exatos. Gancho que só usa tipos do JDK/Forge/Minecraft (receptor como `Object`) fica em
    `src/main/java`. Gancho que precisa das classes do mod fica em **`src/mods/java`** (compila com
    `--mods`). O utilitário confere o gancho lendo o `.class` dele antes de aplicar.
+   Tipos do Minecraft no gancho (ex.: `EntityPlayerMP`) funcionam: o build reofusca as nossas
+   classes (no arquivo o gancho fica `(Lmw;)Z`), então o conferidor (`ResolvedorDeGanchos`) traduz o
+   descritor do arquivo com o mesmo mapa do FML (`RemapeadorFml` → `FMLDeobfuscatingRemapper`) antes
+   de comparar com a classe do mod. Na classe do mod e nos textos da correção use sempre os nomes de
+   tempo de execução (como o `javap -c` do jar do mod mostra: `net/minecraft/...`, métodos
+   `func_NNN_x`).
 4. **Registro** (só JDK + `hoshiestar.*`; nada do Minecraft: roda na fase de coremod):
 
    ```java
@@ -149,6 +155,12 @@ presente) e (c) a trava confere. Arquivos de exemplo: `src/main/java/hoshiestar/
    }
    ```
    e uma linha em `hoshiestar/Catalogo.java`: `Autoteste.registrar(cfg, correcoes);`
+
+   O autoteste real tem três correções: a de cima (formato 1); uma segunda na **mesma** classe e com
+   a mesma trava, no formato 3 (`Asm.envolverChamada` da chamada
+   `FlimFlamEnchantmentsHandler.deliverKarma(EntityPlayerMP)` dentro de `onPlayerTick`, com o gancho
+   `deveEntregarKarma(EntityPlayerMP)`: tipo do Minecraft, só roda com jogador online); e uma com
+   trava errada de propósito em `bq_standard.handlers.EventHandler`, que tem de ser recusada.
 5. **Interruptor**: um campo em `hoshiestar/config/HoshiestarConfig.java`, padrão desligado, com
    comentário em português: `@Comments({...}) public boolean autoteste_ligado = false;` (vira
    `autoteste: ligado: false` no `hoshiestar.yml`).

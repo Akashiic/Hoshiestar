@@ -12,6 +12,7 @@
 package hoshiestar.embutidos.autoteste;
 
 import cpw.mods.fml.common.gameevent.TickEvent;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -24,6 +25,7 @@ public final class GanchoAutoteste {
 
     private static final AtomicLong CHAMADAS = new AtomicLong();
     private static final AtomicLong NUNCA = new AtomicLong();
+    private static final AtomicLong KARMA = new AtomicLong();
     private static volatile String carregador = "ainda nao conferido (gancho nao foi chamado)";
 
     private GanchoAutoteste() {
@@ -40,6 +42,16 @@ public final class GanchoAutoteste {
         return false;
     }
 
+    /**
+     * Gancho do formato 3 em ServerTickHandler.onPlayerTick: decide se a chamada original
+     * FlimFlamEnchantmentsHandler.deliverKarma(jogador) acontece. Conta e devolve true (sempre
+     * acontece). O parametro e um tipo do Minecraft: no arquivo deste gancho ele fica reofuscado.
+     */
+    public static boolean deveEntregarKarma(EntityPlayerMP jogador) {
+        KARMA.incrementAndGet();
+        return true;
+    }
+
     /** Gancho da correcao com trava errada: nunca deve rodar. */
     public static void nuncaChamado(Object handler, TickEvent.ServerTickEvent evento) {
         NUNCA.incrementAndGet();
@@ -47,6 +59,10 @@ public final class GanchoAutoteste {
 
     public static long chamadas() {
         return CHAMADAS.get();
+    }
+
+    public static long chamadasKarma() {
+        return KARMA.get();
     }
 
     public static long nuncaChamadas() {

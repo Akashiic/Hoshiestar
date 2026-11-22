@@ -30,7 +30,9 @@ public final class TransformadorHoshiestar implements IClassTransformer {
 
     private final Correcoes correcoes = Correcoes.global();
     private final ClassLoader carregador = TransformadorHoshiestar.class.getClassLoader();
-    private final ResolvedorDeGanchos ganchos = new ResolvedorDeGanchos(carregador);
+    // ganchos sao conferidos no arquivo .class, que tem os nomes do Minecraft reofuscados: traduz com
+    // o mapa do FML antes de comparar com a classe do mod (ver ResolvedorDeGanchos)
+    private final ResolvedorDeGanchos ganchos = new ResolvedorDeGanchos(carregador, new RemapeadorFml(carregador));
 
     @Override
     public byte[] transform(String name, String transformedName, byte[] basicClass) {

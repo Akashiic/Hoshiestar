@@ -17,11 +17,18 @@ import hoshiestar.embutidos.asm.Gancho;
 import hoshiestar.embutidos.asm.PadraoNaoEncontrado;
 import hoshiestar.embutidos.asm.ResolvedorDeGanchos;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Files;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
@@ -62,6 +69,11 @@ public final class TesteAsm {
             } catch (Throwable t) {
                 v.erro("Java " + versao + ": erro inesperado", t);
             }
+        }
+        try {
+            remapeador();
+        } catch (Throwable t) {
+            v.erro("remapeador: erro inesperado", t);
         }
         v.fim();
     }
@@ -230,6 +242,58 @@ public final class TesteAsm {
         v.igual(Arrays.<Object>asList(96, -50, 78), Arrays.asList(c.getMethod("laco", int.class).invoke(o, 117),
                 c.getMethod("usaPrivado", int.class).invoke(o, 5), c.getMethod("usaEstatico", int.class).invoke(o, 3)),
                 j + "tres formatos juntos");
+    }
+
+    /**
+     * No server.jar o arquivo .class de um gancho tem os nomes do Minecraft reofuscados (ex.: Lmw;),
+     * mas a classe do mod usa os nomes de tempo de execucao. Simula isso com um gancho gerado cujo
+     * descritor no arquivo usa "Lzz;" e um remapeador que traduz zz para net/minecraft/Coisa.
+     */
+    private static void remapeador() throws Exception {
+        String dono = "hoshiestar/teste/GanchoReofuscado";
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER, dono, null, "java/lang/Object", null);
+        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "deve", "(Lzz;I)Z", null, null);
+        mv.visitCode();
+        mv.visitInsn(Opcodes.ICONST_1);
+        mv.visitInsn(Opcodes.IRETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+        cw.visitEnd();
+        File pasta = Files.createTempDirectory("hoshie-remap").toFile();
+        File arq = new File(pasta, dono + ".class");
+        arq.getParentFile().mkdirs();
+        FileOutputStream fo = new FileOutputStream(arq);
+        try {
+            fo.write(cw.toByteArray());
+        } finally {
+            fo.close();
+        }
+        URLClassLoader cl = new URLClassLoader(new URL[] {pasta.toURI().toURL()}, null);
+        String runtime = "(Lnet/minecraft/Coisa;I)Z";
+
+        ResolvedorDeGanchos semTraducao = new ResolvedorDeGanchos(cl);
+        v.sim(semTraducao.descritorDeclarado(dono, "deve", runtime) == null,
+                "remapeador: sem traducao, o descritor de tempo de execucao NAO casa com o do arquivo");
+
+        ResolvedorDeGanchos comTraducao = new ResolvedorDeGanchos(cl, new ResolvedorDeGanchos.Remapeador() {
+            @Override
+            public String descritor(String d) {
+                return d.replace("Lzz;", "Lnet/minecraft/Coisa;");
+            }
+        });
+        v.igual(runtime, comTraducao.descritorDeclarado(dono, "deve", runtime), "remapeador: com traducao, casa");
+        v.sim(comTraducao.descritorDeclarado(dono, "deve", "(Lzz;I)Z") == null,
+                "remapeador: com traducao, o descritor cru do arquivo nao vale mais");
+
+        ResolvedorDeGanchos quebrado = new ResolvedorDeGanchos(cl, new ResolvedorDeGanchos.Remapeador() {
+            @Override
+            public String descritor(String d) {
+                throw new IllegalStateException("teste");
+            }
+        });
+        v.igual("(Lzz;I)Z", quebrado.descritorDeclarado(dono, "deve", runtime, "(Lzz;I)Z"),
+                "remapeador: se a traducao falha, usa o descritor do arquivo (sem excecao)");
     }
 
     /** Transforma, verifica com o ASM, carrega num class loader novo e devolve a classe (ou null). */

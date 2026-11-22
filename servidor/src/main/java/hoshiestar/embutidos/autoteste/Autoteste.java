@@ -17,6 +17,7 @@ import hoshiestar.config.HoshiestarConfig;
 import hoshiestar.embutidos.Correcao;
 import hoshiestar.embutidos.Correcoes;
 import hoshiestar.embutidos.asm.Asm;
+import hoshiestar.embutidos.asm.Chamada;
 import hoshiestar.embutidos.asm.Gancho;
 
 import java.lang.reflect.Method;
@@ -32,6 +33,13 @@ import java.util.List;
  * chamada a {@link GanchoAutoteste#inicioServerTick}, que conta as chamadas e devolve false (o
  * metodo original roda inteiro). Usa o formato 1 com retorno antecipado, entao tambem exercita o
  * quadro de pilha acrescentado, numa classe compilada para Java 8.</li>
+ * <li>Correcao inofensiva com trava REAL, na mesma classe, com o formato 3 e um gancho que recebe um
+ * tipo do MINECRAFT: em {@code onPlayerTick} a chamada a
+ * {@code FlimFlamEnchantmentsHandler.deliverKarma(EntityPlayerMP)} passa a ir por um metodo-ponte que
+ * pergunta a {@link GanchoAutoteste#deveEntregarKarma} (conta e devolve true: a chamada original
+ * acontece sempre). Prova que o gancho e aceito apesar de o arquivo dele ter os nomes do Minecraft
+ * reofuscados (ver ResolvedorDeGanchos) e que duas correcoes na mesma classe convivem. So roda com
+ * jogador online.</li>
  * <li>Correcao com trava ERRADA de proposito em {@code bq_standard.handlers.EventHandler}
  * (BetterQuesting, classe que tambem recebe mixins do Akashic-BQRelief): tem de ser recusada, e o
  * log mostra o hash visto e se os bytes que chegaram ao transformador sao os do arquivo do jar
@@ -56,6 +64,12 @@ public final class Autoteste {
 
     private static final String DESC_TICK = "(Lcpw/mods/fml/common/gameevent/TickEvent$ServerTickEvent;)V";
 
+    private static final String DESC_PLAYER_TICK = "(Lcpw/mods/fml/common/gameevent/TickEvent$PlayerTickEvent;)V";
+
+    /** A chamada envolvida (nomes de tempo de execucao, como no bytecode do mod; veja com javap -c). */
+    private static final Chamada KARMA = Chamada.de("openblocks/enchantments/FlimFlamEnchantmentsHandler", "deliverKarma",
+            "(Lnet/minecraft/entity/player/EntityPlayerMP;)V");
+
     private Autoteste() {
     }
 
@@ -72,6 +86,10 @@ public final class Autoteste {
                 Trava.de("openblocks.common.ServerTickHandler", SHA_OPENBLOCKS), ligado,
                 (classe, ganchos) -> Asm.ganchoNoInicio(classe, "onServerTick", DESC_TICK,
                         Gancho.de(GANCHO, "inicioServerTick"), null, true, ganchos)));
+        correcoes.adicionar(Correcao.nova(ID, "envolve deliverKarma em ServerTickHandler.onPlayerTick (gancho com tipo do Minecraft)",
+                Trava.de("openblocks.common.ServerTickHandler", SHA_OPENBLOCKS), ligado,
+                (classe, ganchos) -> Asm.envolverChamada(classe, "onPlayerTick", DESC_PLAYER_TICK, KARMA, 0, 1,
+                        Gancho.de(GANCHO, "deveEntregarKarma"), null, ganchos)));
         correcoes.adicionar(Correcao.nova(ID, "trava errada de proposito (tem de ser recusada)",
                 Trava.de(CLASSE_BQ, SHA_ERRADO), ligado,
                 (classe, ganchos) -> Asm.ganchoNoInicio(classe, "onServerTick", DESC_TICK,
@@ -83,6 +101,8 @@ public final class Autoteste {
         StringBuilder sb = new StringBuilder();
         sb.append("chamadas do gancho no OpenBlocks: ").append(GanchoAutoteste.chamadas());
         sb.append("; class loader do gancho = do mod: ").append(GanchoAutoteste.carregador());
+        sb.append("; chamadas do gancho com tipo do Minecraft (deliverKarma, so com jogador online): ")
+                .append(GanchoAutoteste.chamadasKarma());
         if (GanchoAutoteste.nuncaChamadas() > 0) {
             sb.append("; ERRO: o gancho da trava errada foi chamado ").append(GanchoAutoteste.nuncaChamadas()).append(" vez(es)");
         }
