@@ -1,0 +1,11 @@
+{
+  "required": false,
+  "minVersion": "0.8.5-GTNH",
+  "package": "hoshiestar.medidor.mixins.early",
+  "plugin": "hoshiestar.medidor.core.MedidorMixinPlugin",
+  "target": "@env(DEFAULT)",
+  "compatibilityLevel": "JAVA_8",
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
