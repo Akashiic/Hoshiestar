@@ -310,6 +310,25 @@ instâncias ticam juntas. Não serve para isolar uma base.
 **D-28. O agente `Akashic-nChat-ChainColor` se desliga no boot** ("Target SHA mismatch;
 disabled"): espera o nChat 2.0.4 e o servidor tem o 2.0.5. Provavelmente igual em produção.
 
+## 8b. Achados dos testes do medidor (2026-11-22)
+
+**D-29. Mundo novo com semente aleatória pode travar o boot para sempre.**
+Num dos boots de teste o spawn caiu num bioma Magical Forest e a geração de uma
+árvore do Thaumcraft não terminou: a thread do servidor ficou mais de 27 minutos no
+mesmo ponto (`WorldGenBigMagicTree.genTreeLayer:185`), parada em "Preparing spawn
+area: 81%". Verificado por três dumps de thread; não havia código do medidor na
+pilha. Como o servidor ainda não tinha terminado de ligar, o `stop` nunca foi lido.
+- Correção no projeto: `scripts/prepare-test-env.sh` agora fixa a semente do mundo de teste (uma semente que já ligou normalmente). `HOSHIE_SEED` troca.
+- Não verificado: se o laço é infinito ou só muito longo; se o mesmo defeito pode acontecer em produção ao gerar chunk novo nesse bioma (seria outro tipo de stall como o D-21). A semente que travou se perdeu, porque o mundo nunca chegou a salvar.
+- Consequência para as regras: "parar só com `stop`" não cobre servidor que travou antes de ligar. O caso ficou resolvido por um reinício do contêiner; a regra para o próximo caso está nas pendências do `PROGRESSO.md`.
+
+**D-30. Um bot mínimo entra no servidor de teste com o handshake do Forge.**
+`tools/test_bot.py` (Python puro, só conecta em `127.0.0.1`) faz o login offline,
+o handshake FML com a lista de mods do pacote, entra no mundo e manda comandos de
+chat. Verificado no servidor de teste com os 292 mods: o `IronDome` não barrou.
+Serve para manter os mundos ticando e testar comandos como jogador. Não anda, não
+carrega chunks novos e não simula carga: a tarefa 0.6 (bots de carga) continua aberta.
+
 ## 9. A máquina de produção
 
 7 vCores e 17 GB de RAM, com heap de 14 GB (`-Xms14336M -Xmx14336M`). Sobram cerca de 3 GB
@@ -323,4 +342,4 @@ coleta de lixo, a rede e o I/O já ocupam parte dos 7; sobram 3 a 4 para regiõe
 - Pico de jogadores: o perfil é de 8 jogadores. Com 30 ou 100, a parte de rede e de entidades cresce.
 - TPS com 100–200 players. Depende de bots (a validar) e da máquina real.
 - Valores de produção de `spigot.yml`, `cauldron.yml`, `Crucible.yml`, `tileentities.yml`, `entities.yml`.
-- Bots com handshake do Forge na 1.7.10.
+- Bots de carga (que andam e carregam chunks). O handshake do Forge já funciona com um bot mínimo (D-30).
