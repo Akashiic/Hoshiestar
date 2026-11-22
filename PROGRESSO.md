@@ -8,7 +8,7 @@ Atualizado em 2026-11-22 (depois da entrega do medidor). Leia este arquivo antes
 |---|---|
 | Entrega inicial: (a) avaliação da base, (b) arquitetura, (c) plano das Etapas 0 e 1 | ✅ **aprovada pelo admin** (base e ordem em degraus, 2026-11-21) |
 | Etapa 0 – Medição | 🔄 falta só o admin rodar o medidor em produção (0.9) |
-| Etapa 1 (revista) – Ganhos baratos medidos, "Degrau 0" | ⏳ não iniciada |
+| Etapa 1 (revista) – Ganhos baratos medidos, "Degrau 0" | 🔄 **liberada pelo admin em 2026-11-22** sem esperar a medição de produção; em desenho (investigação de cada item com conferência independente) |
 | Etapa 2 – Observador | ⏳ |
 | Portão "vai / não vai" | ⏳ |
 | Etapa 2.5 – Orçamento de tick por região | ⏳ |
@@ -16,7 +16,7 @@ Atualizado em 2026-11-22 (depois da entrega do medidor). Leia este arquivo antes
 | Etapa 4 – Adapter de plugins | ⏳ |
 | Etapa 5 – Módulos por mod | ⏳ |
 
-Nenhum código de etapa futura foi escrito.
+Orientação do admin (2026-11-22): seguir em frente até um jar refinado; os bugs que aparecerem em produção serão relatados depois, como em qualquer projeto. Por isso a Etapa 1 começa com a Etapa 0 ainda aguardando a medição do admin (critério 5). Nenhum código das Etapas 2 em diante foi escrito.
 
 ## Etapa 0
 
@@ -72,6 +72,7 @@ Nenhum código de etapa futura foi escrito.
 | 13 | Medidor: a válvula de custo usa 10% do tick de antes de ligar, com piso de 5 ms e teto de 10 ms, e margem de 2x sobre o custo calibrado | decisão do implementador depois que o revisor mostrou que 5 ms fixos parariam a medição de pico; são constantes, fácil de mudar |
 | 14 | Medidor entregue na versão 1.0.4 com achados menores em aberto | corrigi-los mudaria o jar já testado; nenhum afeta a segurança do tick |
 | 15 | O Degrau B começa só com tile entities e entidades; ticks de bloco ficam em série no início | é onde está o custo (47% contra 14% do tick) e tira dez estruturas de risco do primeiro passo; estimativa cai para ~54 a 57 ms com 4 threads (conta, não medição) |
+| 16 | Etapa 1 sai como um único mod `Hoshiestar-Core`, só do servidor, com um interruptor por recurso em `config/hoshiestar.cfg`; tudo que muda comportamento vem desligado, o vigia (só leitura) vem ligado | regra do prompt (interruptor por recurso) e segurança: o admin liga um de cada vez |
 | 11 | Seguir os hábitos do upstream (patch gerado, `// Hoshiestar`, opções em `Crucible.yml`, JDK 8) e mandar correções genéricas como pull request ao Crucible | manter o fork fácil de atualizar (`docs/04-estudo-crucible.md` §5) |
 
 ## Plugins desligados na cópia de teste
