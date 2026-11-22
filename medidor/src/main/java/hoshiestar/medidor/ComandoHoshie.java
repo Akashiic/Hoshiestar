@@ -20,10 +20,11 @@ package hoshiestar.medidor;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommand;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.command.server.CommandBlockLogic;
-import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.rcon.RConConsoleSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
+import net.minecraftforge.common.util.FakePlayer;
 
 import java.util.List;
 
@@ -32,8 +33,13 @@ import java.util.List;
  *
  * No Crucible o CommandHandler desliga a checagem de nivel do jogo ("true ||") e deixa a
  * permissao para o Bukkit (no "hoshiestar.medidor.ComandoHoshie", padrao "op", sem nivel).
- * Um plugin de permissoes com "*" daria o comando a quem nao e op 3. Por isso o nivel e
- * conferido aqui dentro tambem, para jogadores e blocos de comando.
+ * Um plugin de permissoes com "*" daria o comando a quem nao e op 3, e um ICommandSender de mod
+ * que chama CommandHandler.executeCommand direto nao passa pelo Bukkit. Por isso a permissao e
+ * conferida aqui dentro, por lista de permitidos: o console (MinecraftServer, que e o que o
+ * Crucible entrega para o console, ver VanillaCommandWrapper.getListener e
+ * CraftSimpleCommandMap.dispatch), o RCON (RConConsoleSource) e jogador de verdade
+ * (EntityPlayerMP que nao e FakePlayer) com nivel de op 3 ou mais. Todo o resto e recusado
+ * (blocos de comando, computadores de mod, FakePlayer...).
  */
 public class ComandoHoshie extends CommandBase {
 
@@ -47,7 +53,7 @@ public class ComandoHoshie extends CommandBase {
     @Override
     public String func_71518_a(ICommandSender sender) {
         return "/hoshie medir [segundos " + Medidor.SEG_MIN + "-" + Medidor.SEG_MAX + ", padrao " + Medidor.SEG_PADRAO
-                + "] | /hoshie parar | /hoshie status";
+                + "] [forcar] | /hoshie parar | /hoshie status";
     }
 
     @Override
@@ -66,9 +72,8 @@ public class ComandoHoshie extends CommandBase {
     @Override
     public void func_71515_b(ICommandSender sender, String[] args) {
         try {
-            if ((sender instanceof EntityPlayer || sender instanceof CommandBlockLogic)
-                    && !sender.func_70003_b(NIVEL, func_71517_b())) {
-                enviar(sender, "Sem permissao: o comando hoshie e so para o console e operadores de nivel " + NIVEL
+            if (!permitido(sender)) {
+                enviar(sender, "Sem permissao: o comando hoshie e so para o console, o RCON e operadores de nivel " + NIVEL
                         + " ou mais.");
                 return;
             }
@@ -78,7 +83,13 @@ public class ComandoHoshie extends CommandBase {
             String sub = args.length == 0 ? "status" : args[0].toLowerCase(java.util.Locale.ROOT);
             if ("medir".equals(sub)) {
                 int seg = Medidor.SEG_PADRAO;
-                if (args.length >= 2) {
+                boolean forcar = false;
+                int nArgs = args.length;
+                if (nArgs >= 2 && "forcar".equalsIgnoreCase(args[nArgs - 1].trim())) {
+                    forcar = true;
+                    nArgs--;
+                }
+                if (nArgs >= 2) {
                     try {
                         seg = Integer.parseInt(args[1].trim());
                     } catch (NumberFormatException e) {
@@ -91,7 +102,7 @@ public class ComandoHoshie extends CommandBase {
                         return;
                     }
                 }
-                List<String> r = Medidor.comandoMedir(seg);
+                List<String> r = Medidor.comandoMedir(seg, forcar);
                 // a linha de inicio ja saiu no console pelo log; ao console nao se repete
                 if (!(sender instanceof MinecraftServer)) {
                     for (String s : r) {
@@ -124,6 +135,15 @@ public class ComandoHoshie extends CommandBase {
                 // nada
             }
         }
+    }
+
+    /** Lista de permitidos (ver o comentario da classe). */
+    static boolean permitido(ICommandSender sender) {
+        if (sender instanceof MinecraftServer || sender instanceof RConConsoleSource) {
+            return true;
+        }
+        return sender instanceof EntityPlayerMP && !(sender instanceof FakePlayer)
+                && sender.func_70003_b(NIVEL, "hoshie");
     }
 
     /** ICommand estende Comparable cru; ordena por nome, como o CommandBase do jogo. */

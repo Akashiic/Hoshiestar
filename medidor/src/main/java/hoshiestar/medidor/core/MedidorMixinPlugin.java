@@ -18,7 +18,6 @@
 package hoshiestar.medidor.core;
 
 import hoshiestar.medidor.Ganchos;
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.lib.tree.AbstractInsnNode;
 import org.spongepowered.asm.lib.tree.ClassNode;
@@ -40,7 +39,7 @@ import java.util.Set;
  */
 public class MedidorMixinPlugin implements IMixinConfigPlugin {
 
-    private static final Logger LOG = LogManager.getLogger("Hoshiestar-Medidor");
+    private static final Logger LOG = Ganchos.LOG;
 
     private static final String WORLD = "net.minecraft.world.World";
     private static final String PLAYER = "net.minecraft.entity.player.EntityPlayerMP";

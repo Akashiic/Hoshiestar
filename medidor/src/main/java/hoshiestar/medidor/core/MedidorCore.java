@@ -20,7 +20,6 @@ package hoshiestar.medidor.core;
 import com.gtnewhorizon.gtnhmixins.IEarlyMixinLoader;
 import cpw.mods.fml.relauncher.IFMLLoadingPlugin;
 import hoshiestar.medidor.Ganchos;
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
@@ -36,7 +35,7 @@ import java.util.Set;
 @IFMLLoadingPlugin.Name("HoshiestarMedidorCore")
 public class MedidorCore implements IFMLLoadingPlugin, IEarlyMixinLoader {
 
-    private static final Logger LOG = LogManager.getLogger("Hoshiestar-Medidor");
+    private static final Logger LOG = Ganchos.LOG;
 
     @Override
     public String getMixinConfig() {

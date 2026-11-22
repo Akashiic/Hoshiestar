@@ -28,8 +28,12 @@ import java.util.IdentityHashMap;
  * no fim, o objeto inteiro e entregue a thread de gravacao e nunca mais tocado pela
  * thread principal.
  *
- * Memoria limitada: no pior caso (todos os limites cheios) as tabelas ocupam por volta
- * de 40 MB; numa medicao normal, poucos MB.
+ * Memoria limitada. Com limiar de carga 0,5, as capacidades maximas sao 524.288 posicoes
+ * (chunks e secao/classe) e 262.144 (secoes), a 41 bytes por posicao (chave 8 + usado 1 +
+ * 4 contadores x 8): pior caso por volta de 54 MB fixos (21,5 + 21,5 + 10,7 MB), so durante a
+ * medicao. Na ultima expansao de uma tabela grande, a thread do tick aloca de uma vez a tabela
+ * nova (21,5 MB) com a velha (10,7 MB) ainda viva, ~65 MB no pico, e reespalha 131 mil chaves
+ * (uma pausa unica de poucos ms). Numa medicao normal (producao: ~4.500 chunks), poucos MB.
  */
 final class Coleta {
 
@@ -57,6 +61,23 @@ final class Coleta {
 
     long ticksServidor;
     long nsTickServidor;
+
+    // calibracao (feita no inicio, na propria maquina) e valvula de sobrecarga
+    double calibNanoNs;        // custo de uma chamada de System.nanoTime
+    double calibQuadroNs;      // custo total de um quadro vazio (abrir, relogio, fechar, somar)
+    double calibArtefatoNs;    // parte desse custo que cai dentro do tempo medido de cada quadro
+    boolean forcado;           // nanoTime acima do limite e o admin pediu "forcar"
+    int refAmostras;           // ticks sem medicao usados na referencia
+    long refMedianaNs;         // mediana do tick do servidor antes de ligar (0 = sem referencia)
+    long janelas;
+    int janelasAcima;
+    long ultimaMedianaJanelaNs;
+    long ultimoCustoEstNsPorTick;
+    long maiorMedianaJanelaNs;
+    long maiorCustoEstNsPorTick;
+    long quadrosAteUltimaJanela;
+    boolean valvulaDisparou;
+    String motivoValvula;
 
     long teNsTotal;
     long entNsTotal;
@@ -96,6 +117,8 @@ final class Coleta {
         long teViaFirewall;
         long ticksComLaco;
         long tickSeq;
+        /** Algum NAO_LIGADO ou dimensao com problema. */
+        boolean problema;
         /** Avisos por dimensao (dimensao que devia tickar e nao foi medida); vazio se nada. */
         final java.util.List<String> dimsSemMedicao = new java.util.ArrayList<String>();
     }

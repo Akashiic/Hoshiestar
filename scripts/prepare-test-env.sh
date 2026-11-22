@@ -119,6 +119,9 @@ fi
 echo "Agentes Java NAO carregados no teste: Akashic-RGB-Transport (depende do proxy Velocity)." >> "$REPORT"
 
 # server.properties de teste: offline (bots), preso ao loopback, mundo separado.
+# A semente do mundo e fixa para os boots serem repetiveis: com semente aleatoria,
+# um boot ja travou gerando uma arvore do Thaumcraft no spawn (DIAGNOSTICO.md D-29).
+# Outra semente: HOSHIE_SEED=<numero>.
 if [[ ! -f "$DEST/server.properties" ]]; then
   cat > "$DEST/server.properties" <<EOF
 # Gerado por scripts/prepare-test-env.sh - SOMENTE TESTE
@@ -126,6 +129,7 @@ server-ip=127.0.0.1
 server-port=$PORT
 online-mode=false
 level-name=world-test
+level-seed=${HOSHIE_SEED:--8447269374814014699}
 motd=Hoshiestar TEST
 max-players=250
 view-distance=8

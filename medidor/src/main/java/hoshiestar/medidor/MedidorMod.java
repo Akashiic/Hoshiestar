@@ -70,22 +70,35 @@ public class MedidorMod {
         Medidor.pararNoDesligamento();
     }
 
-    /** Registra no log a posicao do firewall e do Mixin na lista de transformadores (diagnostico). */
+    /**
+     * Registra no log a posicao do firewall e do Mixin na lista de transformadores (diagnostico).
+     *
+     * O Mixin pode ter varios "Proxy" na lista: cada Proxy novo desliga todos os anteriores
+     * (org.spongepowered.asm.mixin.transformer.Proxy, campo isActive), e o que trabalha e o
+     * ULTIMO. Por isso a posicao que vale e a do ultimo Proxy; os outros ficam na lista sem fazer
+     * nada. A prova de verdade e a linha "Gancho de tile entity: ..." que sai quando o Mixin aplica
+     * em World: ela diz o que o bytecode tinha naquela hora.
+     */
     private static void registrarOrdemDosTransformadores() {
         List<IClassTransformer> lista = Launch.classLoader.getTransformers();
         int fw = -1;
-        int mixin = -1;
+        int mixinAtivo = -1;
+        int mixinInativos = 0;
         for (int i = 0; i < lista.size(); i++) {
             String n = lista.get(i).getClass().getName();
             if (fw < 0 && n.startsWith("com.akashic.worldfirewall.")) {
                 fw = i;
             }
-            if (mixin < 0 && n.startsWith("org.spongepowered.asm.")) {
-                mixin = i;
+            if (n.equals("org.spongepowered.asm.mixin.transformer.Proxy")) {
+                if (mixinAtivo >= 0) {
+                    mixinInativos++;
+                }
+                mixinAtivo = i;
             }
         }
-        Medidor.LOG.info(Medidor.P + "Transformadores: " + lista.size() + " no total; primeiro do Akashic-World-Firewall na posicao "
-                + fw + ", Mixin na posicao " + mixin + " (-1 = ausente). Gancho de tile entity aplicado: "
+        Medidor.LOG.info(Medidor.P + "Transformadores: " + lista.size() + " no total; primeiro do Akashic-World-Firewall na"
+                + " posicao " + fw + "; Proxy ativo do Mixin (o ultimo da lista) na posicao " + mixinAtivo + ", mais "
+                + mixinInativos + " Proxy(s) antigo(s) desligado(s) (-1 = ausente). Gancho de tile entity aplicado: "
                 + Ganchos.resumoTE() + ".");
     }
 

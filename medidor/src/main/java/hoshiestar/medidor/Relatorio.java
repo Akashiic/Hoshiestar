@@ -53,14 +53,6 @@ final class Relatorio implements Runnable {
     private static final Locale BR = new Locale("pt", "BR");
     private static final Charset UTF8 = Charset.forName("UTF-8");
 
-    /**
-     * Custo estimado do proprio medidor por tick medido (2 nanoTime, checagens de thread,
-     * busca da classe e 3 somas em tabela). Medido em microbenchmark (Java 21, G1) com o codigo
-     * do medidor: cerca de 0,10 a 0,11 microssegundo. E uma estimativa, para o admin saber a
-     * ordem de grandeza; o tempo de cada tick medido ja inclui parte disso.
-     */
-    static final double CUSTO_NS_POR_TICK_MEDIDO = 110.0;
-
     private final Coleta c;
     private final File pasta;
     private final Coleta.Autoteste a;
@@ -107,7 +99,10 @@ final class Relatorio implements Runnable {
     public void run() {
         try {
             File[] arqs = gravar();
-            String msg = "Arquivos gravados: " + arqs[0].getPath() + " e " + arqs[1].getName();
+            String msg = "Arquivos gravados: " + arqs[0].getPath() + " e " + arqs[1].getName() + " (autoteste: "
+                    + (semDados() ? "sem dados uteis" : naoLigado() || a.problema ? "COM PROBLEMA, veja o .txt"
+                    : coberturaBaixa() ? "laco rodou em poucos ticks, veja o .txt" : "ok")
+                    + (c.valvulaDisparou ? "; parada pela valvula de sobrecarga" : "") + ").";
             Medidor.LOG.info(Medidor.P + msg);
             Medidor.registrarResultado(msg);
         } catch (Throwable t) {
@@ -325,9 +320,14 @@ final class Relatorio implements Runnable {
         return "NAO_LIGADO".equals(a.te) || "NAO_LIGADO".equals(a.ent);
     }
 
-    /** Custo estimado do medidor, em ns no total da medicao. */
+    /** Custo estimado do medidor, em ns no total da medicao (quadros x custo calibrado de um quadro vazio). */
     private long custoEstimadoNs() {
-        return (long) ((c.teTicksTotal + c.entTicksTotal) * CUSTO_NS_POR_TICK_MEDIDO);
+        return (long) ((c.teTicksTotal + c.entTicksTotal) * c.calibQuadroNs);
+    }
+
+    /** Tempo da linha menos o artefato estimado (ticks x parte do custo do medidor que cai dentro de cada quadro). */
+    private long semArtefato(Linha l) {
+        return Math.max(0L, l.ns() - (long) ((l.teTicks + l.entTicks) * c.calibArtefatoNs));
     }
 
     private static void autotesteJson(StringBuilder b, Coleta.Autoteste t) {
@@ -435,7 +435,8 @@ final class Relatorio implements Runnable {
                 .append(",\"ent_ticks\":").append(l.entTicks)
                 .append(",\"total_ns\":").append(l.ns())
                 .append(",\"pct_do_medido\":").append(num(pct(l.ns())))
-                .append(",\"ms_por_tick\":").append(num(msPorTick(l.ns())));
+                .append(",\"ms_por_tick\":").append(num(msPorTick(l.ns())))
+                .append(",\"total_ns_sem_artefato_est\":").append(semArtefato(l));
     }
 
     private static void outrosJson(StringBuilder b, String nome, TabelaLong t) {
@@ -494,8 +495,25 @@ final class Relatorio implements Runnable {
         b.append(",\"ticks_iniciados\":").append(c.tickSeq);
         b.append(",\"cobertura_laco_pct\":").append(cobertura() < 0 ? "null" : num(100.0 * cobertura()));
         b.append(",\"dados_validos\":").append(!semDados() && !naoLigado() && !coberturaBaixa());
-        b.append(",\"custo_estimado_do_medidor_ns_por_tick_medido\":").append(num(CUSTO_NS_POR_TICK_MEDIDO));
+        b.append(",\"calibracao\":{\"nanotime_ns\":").append(num(c.calibNanoNs))
+                .append(",\"limite_nanotime_ns\":").append(num(Medidor.LIMITE_NANOTIME_NS))
+                .append(",\"forcado\":").append(c.forcado)
+                .append(",\"custo_quadro_ns\":").append(num(c.calibQuadroNs))
+                .append(",\"custo_quadro_vazio_ns\":").append(num(c.calibArtefatoNs)).append('}');
+        b.append(",\"custo_estimado_do_medidor_ns_por_tick_medido\":").append(num(c.calibQuadroNs));
         b.append(",\"custo_estimado_do_medidor_ms_por_tick\":").append(num(msPorTick(custoEstimadoNs())));
+        b.append(",\"valvula\":{\"disparou\":").append(c.valvulaDisparou)
+                .append(",\"motivo\":").append(c.motivoValvula == null ? "null" : esc(c.motivoValvula))
+                .append(",\"tick_antes_de_ligar_mediana_ms\":").append(c.refMedianaNs > 0 ? num(c.refMedianaNs / 1e6) : "null")
+                .append(",\"tick_antes_de_ligar_amostras\":").append(c.refAmostras)
+                .append(",\"janelas\":").append(c.janelas)
+                .append(",\"ticks_por_janela\":").append(Medidor.JANELA)
+                .append(",\"maior_mediana_janela_ms\":").append(num(c.maiorMedianaJanelaNs / 1e6))
+                .append(",\"maior_custo_estimado_ms_por_tick\":").append(num(c.maiorCustoEstNsPorTick / 1e6))
+                .append(",\"limite_pct\":").append(Math.round((Medidor.VALVULA_FATOR - 1) * 100))
+                .append(",\"limite_ms\":").append(Medidor.VALVULA_NS / 1000000L)
+                .append(",\"janelas_seguidas\":").append(Medidor.VALVULA_JANELAS)
+                .append(",\"limite_custo_estimado_ms_por_tick\":").append(Medidor.VALVULA_CUSTO_NS / 1000000L).append('}');
         b.append(",\"quadros_descartados\":").append(c.quadrosDescartados);
         b.append(",\"quadros_pulados\":").append(c.quadrosPulados);
         b.append(",\"secoes_distintas\":").append(nSecoes);
@@ -516,7 +534,8 @@ final class Relatorio implements Runnable {
                 + " inativos do Spigot, de custo quase zero)\",\"tick_pela_rede\":\"classe com sufixo '(tick pela rede)':"
                 + " EntityPlayerMP.onUpdateEntity, uma vez por pacote de movimento; a classe sem sufixo e o tick do"
                 + " jogador pelo laco do mundo\",\"autoteste\":\"refeito no fim da medicao; autoteste_no_tick_100 e a foto"
-                + " do inicio\"}");
+                + " do inicio\",\"total_ns_sem_artefato_est\":\"total_ns menos ticks x calibracao.custo_quadro_vazio_ns"
+                + " (parte do custo do proprio medidor que cai dentro de cada tick medido); estimativa\"}");
         b.append("},\n\"limites\":{");
         outrosJson(b, "chunks", c.chunks);
         b.append(',');
@@ -624,6 +643,11 @@ final class Relatorio implements Runnable {
             b.append("!!! ATENCAO: ").append(a.dimsSemMedicao.size())
                     .append(" dimensao(oes) podem nao estar medidas (veja AUTOTESTE).").append(nl).append(nl);
         }
+        if (c.valvulaDisparou) {
+            b.append("!!! A MEDICAO FOI PARADA ANTES DO TEMPO PELA VALVULA DE SOBRECARGA: ").append(c.motivoValvula)
+                    .append('.').append(nl);
+            b.append("    Os numeros abaixo valem para o trecho medido.").append(nl).append(nl);
+        }
 
         b.append("AUTOTESTE (os ganchos estavam mesmo ligados? conferido de novo no fim da medicao)").append(nl);
         b.append("  Tile entities: ").append(textoAutoteste(a.te)).append("  [gancho no carregamento: ")
@@ -672,11 +696,25 @@ final class Relatorio implements Runnable {
                 .append(br(msPorTick(c.nsTickServidor), 2)).append(" ms por tick; a parte medida e ")
                 .append(br(c.nsTickServidor > 0 ? 100.0 * total / c.nsTickServidor : 0.0, 1)).append("% dele.")
                 .append(nl);
-        b.append("  Custo do proprio medidor enquanto liga (estimativa: ~")
-                .append(br(CUSTO_NS_POR_TICK_MEDIDO / 1000.0, 2)).append(" microssegundo por tick medido): ~")
+        b.append("  Custo do proprio medidor enquanto liga (calibrado no inicio, melhor caso: ")
+                .append(br(c.calibQuadroNs, 0)).append(" ns por tick medido): ~")
                 .append(br(msPorTick(custoEstimadoNs()), 2))
-                .append(" ms por tick do servidor, ja dentro do 'tick inteiro'. Desligado, o custo e zero.").append(nl)
-                .append(nl);
+                .append(" ms por tick do servidor, ja dentro do 'tick inteiro'. Desligado, o custo e zero.").append(nl);
+        b.append("  Calibracao: System.nanoTime custa ").append(br(c.calibNanoNs, 0)).append(" ns por chamada (limite ")
+                .append(br(Medidor.LIMITE_NANOTIME_NS, 0)).append(" ns").append(c.forcado ? "; ACIMA DO LIMITE, medicao forcada" : "")
+                .append("); de cada tick medido, ~").append(br(c.calibArtefatoNs, 0))
+                .append(" ns sao do proprio medidor (artefato).").append(nl);
+        b.append("  Valvula de sobrecarga: ");
+        if (c.refMedianaNs > 0) {
+            b.append("tick antes de ligar (mediana de ").append(c.refAmostras).append(" ticks) ")
+                    .append(br(c.refMedianaNs / 1e6, 1)).append(" ms; ");
+        } else {
+            b.append("sem referencia de tick antes de ligar; ");
+        }
+        b.append("maior mediana numa janela de ").append(Medidor.JANELA).append(" ticks medidos ")
+                .append(br(c.maiorMedianaJanelaNs / 1e6, 1)).append(" ms; maior custo estimado ")
+                .append(br(c.maiorCustoEstNsPorTick / 1e6, 2)).append(" ms por tick; ")
+                .append(c.valvulaDisparou ? "DISPAROU." : "nao disparou.").append(nl).append(nl);
 
         b.append("CONCENTRACAO").append(nl);
         b.append("  As 1, 3, 5, 10 e 20 secoes mais pesadas concentram ");
@@ -727,14 +765,20 @@ final class Relatorio implements Runnable {
         b.append(nl);
 
         b.append("TOP ").append(TOP_TXT).append(" CLASSES").append(nl);
-        b.append(String.format(Locale.ROOT, "  %3s %-9s %8s %9s %12s  %s%n", "#", "tipo", "%medido", "ms/tick", "ticks",
-                "classe"));
+        b.append(String.format(Locale.ROOT, "  %3s %-9s %8s %9s %11s %12s  %s%n", "#", "tipo", "%medido", "ms/tick",
+                "s/artef.", "ticks", "classe"));
         for (int i = 0; i < Math.min(TOP_TXT, classes.size()); i++) {
             Linha l = classes.get(i);
-            b.append(String.format(Locale.ROOT, "  %3d %-9s %8s %9s %12d  %s%n", i + 1,
+            b.append(String.format(Locale.ROOT, "  %3d %-9s %8s %9s %11s %12d  %s%n", i + 1,
                     l.tileEntity ? "TE" : (l.entTicks == 0 && l.teTicks > 0 ? "TE" : "entidade"), br(pct(l.ns()), 1) + "%",
-                    br(msPorTick(l.ns()), 2), l.teTicks + l.entTicks, l.classe));
+                    br(msPorTick(l.ns()), 2), br(msPorTick(semArtefato(l)), 2), l.teTicks + l.entTicks, l.classe));
         }
+        b.append("  's/artef.' = ms/tick menos ticks x ").append(br(c.calibArtefatoNs, 0))
+                .append(" ns (a parte do custo do medidor que cai dentro de cada tick medido; estimativa). Classes com")
+                .append(nl);
+        b.append("  muitos ticks baratos (funis parados, TEs bloqueadas pelo firewall, entidades inativas) carregam ate")
+                .append(nl);
+        b.append("  ticks x esse valor de artefato na coluna ms/tick.").append(nl);
         b.append(nl);
 
         b.append("POR DIMENSAO").append(nl);

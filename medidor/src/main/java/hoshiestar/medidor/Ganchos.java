@@ -17,6 +17,9 @@
  */
 package hoshiestar.medidor;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * O que se sabe, no carregamento das classes, sobre quais ganchos ficaram no bytecode.
  *
@@ -31,6 +34,12 @@ public final class Ganchos {
 
     private Ganchos() {
     }
+
+    /**
+     * O unico logger do mod, pedido uma vez so. Pedir o mesmo nome de novo em outra classe faz o
+     * log4j avisar que o logger foi criado com outro message factory (o FoamFix troca o factory).
+     */
+    public static final Logger LOG = LogManager.getLogger("Hoshiestar-Medidor");
 
     /** O mixin de World chegou a ser aplicado. */
     public static volatile boolean mundoAplicado;
