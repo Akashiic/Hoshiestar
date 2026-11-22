@@ -1,6 +1,6 @@
 # PROGRESSO: etapas, pendências e decisões
 
-Atualizado em 2026-11-22 (depois da entrega do medidor). Leia este arquivo antes de continuar o trabalho.
+Atualizado em 2026-11-22 (Etapa 1: desenho conferido, implementação em andamento). Leia este arquivo antes de continuar o trabalho.
 
 ## Onde estamos
 
@@ -8,7 +8,7 @@ Atualizado em 2026-11-22 (depois da entrega do medidor). Leia este arquivo antes
 |---|---|
 | Entrega inicial: (a) avaliação da base, (b) arquitetura, (c) plano das Etapas 0 e 1 | ✅ **aprovada pelo admin** (base e ordem em degraus, 2026-11-21) |
 | Etapa 0 – Medição | 🔄 falta só o admin rodar o medidor em produção (0.9) |
-| Etapa 1 (revista) – Ganhos baratos medidos, "Degrau 0" | 🔄 **liberada pelo admin em 2026-11-22** sem esperar a medição de produção; em desenho (investigação de cada item com conferência independente) |
+| Etapa 1 (revista) – Ganhos baratos medidos, "Degrau 0" | 🔄 **liberada pelo admin em 2026-11-22** sem esperar a medição de produção; desenho dos itens 1.B a 1.H feito e conferido (`docs/pesquisa/etapa1/`); mod `Hoshiestar-Core` em implementação |
 | Etapa 2 – Observador | ⏳ |
 | Portão "vai / não vai" | ⏳ |
 | Etapa 2.5 – Orçamento de tick por região | ⏳ |
@@ -73,6 +73,11 @@ Orientação do admin (2026-11-22): seguir em frente até um jar refinado; os bu
 | 14 | Medidor entregue na versão 1.0.4 com achados menores em aberto | corrigi-los mudaria o jar já testado; nenhum afeta a segurança do tick |
 | 15 | O Degrau B começa só com tile entities e entidades; ticks de bloco ficam em série no início | é onde está o custo (47% contra 14% do tick) e tira dez estruturas de risco do primeiro passo; estimativa cai para ~54 a 57 ms com 4 threads (conta, não medição) |
 | 16 | Etapa 1 sai como um único mod `Hoshiestar-Core`, só do servidor, com um interruptor por recurso em `config/hoshiestar.cfg`; tudo que muda comportamento vem desligado, o vigia (só leitura) vem ligado | regra do prompt (interruptor por recurso) e segurança: o admin liga um de cada vez |
+| 17 | Cada item da Etapa 1 é implementado a partir do par desenho + conferência; onde os dois divergem, vale a conferência | os cinco desenhos foram aprovados "com correções" por um agente independente que refez assinaturas, números e tentou quebrar cada correção |
+| 18 | No `Hoshiestar-Core` 1.0 todos os recursos vêm desligados, inclusive os que são exatos por desenho (filtro do BetterQuesting, atalhos do Ars Magica 2, cache de células do Mekanism, cache do mapa de chunks); só o vigia de tick lento vem ligado | segurança antes de desempenho: o admin liga um por vez, e o filtro do BetterQuesting tem modo "verificar" para rodar antes de ligar de verdade |
+| 19 | 1.B (ChromatiCraft) na versão do conferente: uma recusa só no início da chamada (intervalo mínimo por jogador de 1 s, distância 0 a 24, volume até 4.096 blocos provisório, destino dentro de y 0 a 255, todos os chunks já carregados), sem orçamento de tempo dentro do laço | a versão original não limitava a frequência, podia cortar pelo meio e deixava aberta uma perda de blocos acima de y 255 que já existe hoje; subir o volume depois é só config |
+| 20 | 1.G (parada por SIGTERM, D-24) entra no jar, desligado, com revisão de concorrência por agente diferente; a pergunta "como a produção é parada" vai para o admin sem bloquear | se o painel já manda `stop` e espera, o recurso fica só como proteção opcional |
+| 21 | Novo item 1.I (o `hasWorldObj` do coremod do Ars Magica 2, até 0,66%) fica fora do jar 1.0 | apareceu na conferência e ainda precisa de conferência própria da ordem dos transformadores |
 | 11 | Seguir os hábitos do upstream (patch gerado, `// Hoshiestar`, opções em `Crucible.yml`, JDK 8) e mandar correções genéricas como pull request ao Crucible | manter o fork fácil de atualizar (`docs/04-estudo-crucible.md` §5) |
 
 ## Plugins desligados na cópia de teste
@@ -106,3 +111,4 @@ se ele barrar bots na tarefa 0.6, sai também.
 | 2026-11-22 | Medidor 1.0.4 (3 ajustes fora do caminho quente) | revisão: aprovado com ressalvas menores. Teste independente no modpack real: **aprovado**, T1 a T6 passaram: boot com e sem o firewall, 104 funis contados exatos (62.504 = 104 × 601 ticks), nenhum nome/UUID/IP nos arquivos, parada e desligamento no meio gravam os arquivos, custo ligado dentro do ruído com 2.088 funis e 400 porcos (estimado 0,21 ms por tick) |
 | 2026-11-22 | Conferência do coordenador | jar confere com o sha256 testado; contém só classes do medidor; nenhum jar no Git; o commit de um subagente com a assinatura errada foi corrigido antes do envio |
 | 2026-11-22 | Estudo das estruturas hostis a threads, tarefa 0.8 (4 mapeadores opus, 4 conferentes opus, redator sonnet) | conferentes: 95 confirmados, 40 corrigidos, 1 refutado, 23 acrescentados; o coordenador conferiu 4 itens no código (cache do mapa de chunks, lista de colisão, ordem do tick, contador de ticks agendados) |
+| 2026-11-22 | Desenho da Etapa 1, itens 1.B a 1.H (5 investigadores opus, 5 conferentes opus diferentes; só leitura, sem servidor) | os cinco: "aprovado com correções". Nenhum descritor de alvo errado. Achados dos conferentes que mudaram o desenho: 1.B não limitava frequência e o teto só cobria a primeira fase; 1.C a verificação por soma não via célula órfã (provado em harness: energia sairia do mundo), trocar por identidade; 1.D custo do filtro subestimado, ganho corrigido para 0,8 a 1,4%; 1.E corrida que deixaria um chunk descarregado preso no cache (provada em harness), gravar só pela thread do servidor; 1.H o vigia não pode gravar texto de pacote de chat no log. Ganhos são estimativas do perfil e de harness, **não medidos em servidor** |
