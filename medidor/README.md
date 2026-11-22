@@ -96,6 +96,25 @@ medido até ali) e avise. O `.txt` e o `.json` trazem a calibração, a
 estimativa de custo, o limite usado e o que a válvula viu. Desligado, o custo é zero na prática (ver
 garantias).
 
+**Primeira medição depois do boot.** No teste com o modpack real, a primeira medição depois de
+cada boot calibrou o tick medido bem mais caro (143 e 400 ns, contra 77 a 96 ns nas seguintes),
+porque o Java ainda não tinha otimizado o código do medidor. Em produção, com ~30 mil ticks medidos
+por tick do servidor, 400 ns × 2 de margem daria 24 ms e a regra de custo pararia a medição na
+primeira janela. Por isso o roteiro manda rodar antes um `hoshie medir 10` de aquecimento.
+
+**Horário de pouca carga.** O limite da regra de custo é 10% do tick de antes de ligar, com piso de
+5 ms. Com tick abaixo de 50 ms o limite é o piso, e os 4 a 6 ms estimados (2 a 3 ms vezes 2) já
+podem parar a medição cedo. Não causa dano: mande os arquivos mesmo assim.
+
+**Limites conhecidos da versão 1.0.4** (achados menores da última revisão e do último teste, que
+ficaram para uma próxima versão para não mudar o jar já testado):
+- `hoshie medir 30 xyz` aceita e ignora a palavra desconhecida; só `forcar` tem efeito.
+- Se a pasta reserva também falhar, a mensagem de erro às vezes traz só o caminho, sem o motivo.
+- A pasta reserva é criada com a permissão padrão e fechada para o dono logo em seguida (janela de
+  instantes); e é recusada, por segurança, se o `/tmp` não aceitar escrita mesmo já existindo.
+- Não testados: operador de nível 1 a 3 (só nível 4), relógio lento de verdade, cliente de verdade
+  (só o bot de protocolo), carga de produção.
+
 ## O que os arquivos dizem
 
 Termos:

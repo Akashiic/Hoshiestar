@@ -53,7 +53,8 @@ e um segundo perfil com mais jogadores.
 - Alternativa sem o mundo: construir bases sintéticas por comando. Mais fraco, mas possível.
 - Alternativa leve: só os arquivos de região de 3 a 5 bases (`region/r.<X÷512>.<Z÷512>.mca`, poucos MB cada) e o `level.dat`.
 
-### 0.6 Bots de teste ⏳ (sonnet)
+### 0.6 Bots de teste 🔄 (sonnet)
+- Parcial (2026-11-22): `tools/test_bot.py`, um bot mínimo em Python, entra no servidor de teste com o handshake FML e os 292 mods (D-30). Ele não anda nem gera carga.
 - Validar `minecraft-protocol` + `minecraft-protocol-forge` contra o servidor de teste na 1.7.10. **Não verificado** que funcione com o handshake FML dessa versão e com 292 mods.
 - Entrega: script que conecta N bots, anda, e desconecta; relatório do que funcionou.
 - Pronto quando: 20 bots ficam conectados 10 minutos sem serem expulsos. Se não der, registrar o motivo e o plano alternativo (cliente real sem tela, ou bots só para carga de chunk).
@@ -70,7 +71,7 @@ e um segundo perfil com mais jogadores.
 - A lista de `docs/pesquisa/arte-previa.md` §4 é conhecimento geral. Conferir cada item no código do workspace gerado em 0.7.
 - Entrega: tabela "estrutura, onde é usada, quem acessa de fora, tratamento previsto".
 
-### 0.9 Medidor de carga por região 🔄 (novo; opus, com revisão e teste por agentes diferentes)
+### 0.9 Medidor de carga por região ✅ construído e testado; 🧑 falta rodar em produção (opus, com revisão e teste por agentes diferentes)
 O perfil do spark diz **quanto** o tick custa, mas não **onde no mapa**. Sem isso não dá
 para saber se o orçamento por região (Degrau A) ajuda. Como o mundo não pode ser copiado,
 a medida tem que ser feita em produção, por um mod pequeno e só de leitura:
@@ -79,6 +80,7 @@ a medida tem que ser feita em produção, por um mod pequeno e só de leitura:
 - Não muda comportamento. Tem que conviver com o mixin do `Akashic-World-Firewall`, que já envolve o tick de tile entity.
 - Pronto quando: sobe com o modpack real; desligado, não altera o tick; ligado, aponta corretamente blocos de teste colocados por comando; revisado por outro agente.
 - Entrega: jar para o admin e roteiro de uma página.
+- **Feito** (2026-11-22): versão 1.0.4 em `medidor/`, roteiro em `medidor/ROTEIRO-ADMIN.md`. Teste independente no modpack real aprovado, com e sem o `Akashic-World-Firewall`. O custo com o medidor desligado não pôde ser separado do ruído do servidor ocioso (não verificado numericamente; conferido no bytecode: uma leitura de variável por gancho).
 
 ### Critério de saída da Etapa 0
 1. Ambiente reproduzível ✅
