@@ -1,0 +1,4 @@
+# Upstream do fork Hoshiestar (o Crucible de producao).
+url=https://github.com/CrucibleMC/Crucible
+branch=staging
+commit=67b530340b080f94079793a15e5588c2dd6fc94b

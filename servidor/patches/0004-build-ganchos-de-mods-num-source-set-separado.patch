@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Sun, 22 Nov 2026 11:05:10 +0000
+Subject: [PATCH 4/4] build: ganchos de mods num source set separado
+
+Com os jars dos mods no classpath do proprio servidor a compilacao quebrava
+(mods trazem copias de bibliotecas, ex. LWJGL). Os ganchos de src/mods/java
+passam a compilar a parte, com os jars dos mods depois do classpath do
+servidor, e entram no mesmo jar (mesma reofuscacao).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 7c47682a..31211249 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -181,9 +181,19 @@ if (hoshiestarTemFontesDeMods) {
+             "Rode o build com -Phoshiestar.mods=<pasta com os jars dos mods> (ex.: a pasta mods/ do servidor de teste). " +
+             "Pasta informada: " + (hoshiestarPastaMods?.path ?: "nenhuma"))
+     }
++    // Fonte separada (source set "hoshiestarMods"): os jars dos mods ficam DEPOIS do classpath do
++    // servidor e so nesta compilacao. Misturar tudo no "main" quebra a compilacao do proprio servidor
++    // (mods trazem copias de bibliotecas, ex. LWJGL, que passariam na frente das do Minecraft).
++    // As classes compiladas entram no jar do projeto do servidor e passam pela mesma reofuscacao.
+     project(":eclipse:cauldron").afterEvaluate {
+-        extensions.getByType(SourceSetContainer::class.java).getByName("main").java.srcDir(hoshiestarFontesDeMods)
+-        dependencies.add("compileOnly", fileTree(hoshiestarPastaMods) { include("**/*.jar") })
++        val conjuntos = extensions.getByType(SourceSetContainer::class.java)
++        val principal = conjuntos.getByName("main")
++        val ganchosDeMods = conjuntos.create("hoshiestarMods")
++        ganchosDeMods.java.srcDir(hoshiestarFontesDeMods)
++        ganchosDeMods.compileClasspath = principal.output + principal.compileClasspath +
++            fileTree(hoshiestarPastaMods) { include("**/*.jar") }
++        tasks.named("compileHoshiestarModsJava", JavaCompile::class.java).configure { options.encoding = "UTF-8" }
++        tasks.named("jar", Jar::class.java).configure { from(ganchosDeMods.output) }
+     }
+ }
+ // Hoshiestar end

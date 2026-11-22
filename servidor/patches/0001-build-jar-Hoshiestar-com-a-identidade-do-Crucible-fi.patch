@@ -1,0 +1,106 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Sun, 22 Nov 2026 10:34:18 +0000
+Subject: [PATCH 1/4] build: jar Hoshiestar com a identidade do Crucible fixa
+
+O nome do jar passa a ser Hoshiestar-1.7.10-<versao>-server.jar, com a versao
+numa constante unica (hoshiestar/Hoshiestar.java). A versao e os campos de git
+do manifesto que mods e plugins consultam ficam presos ao Crucible de origem
+(staging@67b53034). Ganchos em src/mods/java compilam contra os jars de
+-Phoshiestar.mods=<pasta> (so compilacao); sem a pasta o build para.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 4daef135..7c47682a 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -78,11 +78,21 @@ extensions.configure<ExtraPropertiesExtension>("ext") {
+ group = "io.github.cruciblemc"
+ 
+ val crucibleVersion = "5.4" // TODO: Not hardcode
+-version = if (gitInfo("branch") != "master") {
+-    "${extra["mcVersion"]}-${gitInfo("branch")}-${gitInfo("hash")}"
+-} else {
+-    "${extra["mcVersion"]}-$crucibleVersion"
++// Hoshiestar start - a versao que mods e plugins enxergam fica presa a do Crucible de origem
++// (staging@67b53034), qualquer que seja a branch ou o commit do fork. Os valores vem de
++// src/main/java/hoshiestar/Hoshiestar.java, a unica fonte da versao.
++val hoshiestarFonte = file("src/main/java/hoshiestar/Hoshiestar.java").readText()
++fun hoshiestarConstante(nome: String): String =
++    Regex("\\b" + nome + "\\s*=\\s*\"([^\"]+)\"").find(hoshiestarFonte)?.groupValues?.get(1)
++        ?: throw GradleException("Hoshiestar.java nao tem a constante " + nome)
++val hoshiestarVersao = hoshiestarConstante("VERSAO")
++val hoshiestarUpstreamBranch = hoshiestarConstante("CRUCIBLE_BRANCH")
++val hoshiestarUpstreamCommit = hoshiestarConstante("CRUCIBLE_COMMIT")
++version = "${extra["mcVersion"]}-$hoshiestarUpstreamBranch-${hoshiestarUpstreamCommit.substring(0, 8)}"
++if (version != hoshiestarConstante("CRUCIBLE_VERSAO")) {
++    throw GradleException("Hoshiestar.java: CRUCIBLE_VERSAO nao bate com CRUCIBLE_BRANCH/CRUCIBLE_COMMIT")
+ }
++// Hoshiestar end
+ 
+ val libraries by configurations.creating {
+     isCanBeConsumed = false; isCanBeResolved = true;
+@@ -155,6 +165,29 @@ dependencies {
+     "libraries"("net.minecraft:server:1.7.10")
+ }
+ 
++// Hoshiestar start - ganchos de correcoes embutidas que precisam das classes de um mod para
++// compilar ficam em src/mods/java. Os jars dos mods nao podem ir para o repositorio, entao entram
++// so na compilacao ("compileOnly", nao vao para o jar), vindos da pasta dada por
++// -Phoshiestar.mods=<pasta> (ex.: a pasta mods/ de um servidor de teste; subpastas valem).
++// Sem a pasta, o build PARA com uma mensagem clara se houver alguma fonte em src/mods/java:
++// um jar sem esses ganchos teria correcoes que nunca se aplicam.
++val hoshiestarFontesDeMods = file("src/mods/java")
++val hoshiestarTemFontesDeMods = hoshiestarFontesDeMods.isDirectory &&
++    hoshiestarFontesDeMods.walkTopDown().any { it.isFile && it.name.endsWith(".java") }
++val hoshiestarPastaMods = (findProperty("hoshiestar.mods") as String?)?.takeIf { it.isNotBlank() }?.let { file(it) }
++if (hoshiestarTemFontesDeMods) {
++    if (hoshiestarPastaMods == null || !hoshiestarPastaMods.isDirectory) {
++        throw GradleException("Hoshiestar: ha ganchos em src/mods/java que precisam dos jars dos mods para compilar. " +
++            "Rode o build com -Phoshiestar.mods=<pasta com os jars dos mods> (ex.: a pasta mods/ do servidor de teste). " +
++            "Pasta informada: " + (hoshiestarPastaMods?.path ?: "nenhuma"))
++    }
++    project(":eclipse:cauldron").afterEvaluate {
++        extensions.getByType(SourceSetContainer::class.java).getByName("main").java.srcDir(hoshiestarFontesDeMods)
++        dependencies.add("compileOnly", fileTree(hoshiestarPastaMods) { include("**/*.jar") })
++    }
++}
++// Hoshiestar end
++
+ tasks.register<Jar>("packageJavadoc") {
+     dependsOn(":eclipse:cauldron:javadoc")
+     archiveClassifier.set("javadoc")
+@@ -165,8 +198,9 @@ tasks.named<Jar>("jar").configure {
+     manifest {
+         attributes(
+             mapOf(
+-                "Thermos-Git-Branch" to gitInfo("branch"),
+-                "Thermos-Git-Hash" to gitInfo("fullHash"),
++                "Thermos-Git-Branch" to hoshiestarUpstreamBranch, // Hoshiestar
++                "Thermos-Git-Hash" to hoshiestarUpstreamCommit, // Hoshiestar
++                "Hoshiestar-Version" to hoshiestarVersao, // Hoshiestar
+                 "Thermos-Group" to project.group,
+                 "Thermos-Channel" to project.name,
+                 "Thermos-Version" to project.version,
+@@ -189,12 +223,17 @@ tasks.named<Jar>("jar").configure {
+ }
+ 
+ tasks.named<DelayedJar>("packageServer").configure {
++    // Hoshiestar start - nome do jar: Hoshiestar-1.7.10-<versao>-server.jar
++    archiveBaseName.set("Hoshiestar")
++    archiveVersion.set("${project.extra["mcVersion"]}-$hoshiestarVersao")
++    // Hoshiestar end
+     doFirst {
+         manifest {
+             attributes(
+                 mapOf(
+-                    "Thermos-Git-Branch" to gitInfo("branch"),
+-                    "Thermos-Git-Hash" to gitInfo("fullHash"),
++                    "Thermos-Git-Branch" to hoshiestarUpstreamBranch, // Hoshiestar
++                    "Thermos-Git-Hash" to hoshiestarUpstreamCommit, // Hoshiestar
++                    "Hoshiestar-Version" to hoshiestarVersao, // Hoshiestar
+                     "Thermos-Group" to project.group,
+                     "Thermos-Channel" to project.name,
+                     "Thermos-Version" to project.version,

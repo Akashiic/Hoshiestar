@@ -1,0 +1,21 @@
+// Hoshiestar - init script opcional do Gradle (build.sh --github-raw).
+// Atras de alguns proxies, enderecos "https://github.com/<dono>/<repo>/raw/<branch>" respondem 403.
+// Este script troca, so durante o build, o repositorio maven do juanmuscaria (usado pelo Crucible) para
+// o endereco equivalente em raw.githubusercontent.com. Nenhum arquivo do projeto e alterado.
+def fix = { String u -> u.replace('https://github.com/juanmuscaria/maven/raw/master', 'https://raw.githubusercontent.com/juanmuscaria/maven/master') }
+def apply = { repos ->
+    repos.all { r ->
+        if (r instanceof MavenArtifactRepository) {
+            def s = r.url.toString()
+            def n = fix(s)
+            if (n != s) { r.url = n; println "[init] repo ${r.name}: ${s} -> ${n}" }
+        }
+    }
+}
+beforeSettings { s -> apply(s.pluginManagement.repositories) }
+allprojects {
+    apply(buildscript.repositories)
+    afterEvaluate { apply(repositories) }
+    repositories.configureEach { }
+    apply(repositories)
+}
