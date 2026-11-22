@@ -66,7 +66,8 @@ e um segundo perfil com mais jogadores.
 - Risco: médio (dependências em repositório pessoal). Se uma dependência sumir, espelhar.
 - Não é necessário para as Etapas 1 e 2, mas tem que estar provado antes da Etapa 3.
 
-### 0.8 Conferir as estruturas hostis a threads no código decompilado 🔄 (opus)
+### 0.8 Conferir as estruturas hostis a threads no código decompilado ✅ (opus)
+- **Feito** (2026-11-22): `docs/pesquisa/estruturas-hostis.md`, com a tabela pedida e conferência independente por área. Relatórios brutos em `docs/pesquisa/hostis/`.
 - Parcial: tick, threads existentes, estado estático e campos públicos já mapeados com arquivo e linha (`docs/pesquisa/crucible-tick-e-threads.md` e `crucible-arquitetura-patches.md`). Falta a lista vanilla item a item.
 - A lista de `docs/pesquisa/arte-previa.md` §4 é conhecimento geral. Conferir cada item no código do workspace gerado em 0.7.
 - Entrega: tabela "estrutura, onde é usada, quem acessa de fora, tratamento previsto".

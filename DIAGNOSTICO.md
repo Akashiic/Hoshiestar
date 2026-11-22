@@ -329,6 +329,41 @@ chat. Verificado no servidor de teste com os 292 mods: o `IronDome` não barrou.
 Serve para manter os mundos ticando e testar comandos como jogador. Não anda, não
 carrega chunks novos e não simula carga: a tarefa 0.6 (bots de carga) continua aberta.
 
+## 8c. Estruturas hostis a threads (tarefa 0.8, estudo de código)
+
+Completo em `docs/pesquisa/estruturas-hostis.md`. Quatro áreas, cada uma com um
+mapeador e um conferente independente: 95 itens confirmados, 40 corrigidos, 1 refutado
+e 23 acrescentados pelos conferentes. Verificado por leitura de código com arquivo e
+linha; **nada foi executado**.
+
+**D-31. São 138 estruturas distintas; 41 têm risco alto já na fase paralela sincronizada**
+(87 em regiões independentes).
+
+**D-32. Ler um bloco grava em estado compartilhado.** `ChunkBlockHashMap.get` guarda os
+4 últimos chunks em campos comuns (`thermos/wrapper/ChunkBlockHashMap.java:40,105-133`,
+conferido pelo coordenador). Com duas threads, uma leitura pode devolver outro chunk.
+Nem uma fase "só de leitura" é segura sem tratar isso.
+
+**D-33. Carregar chunk já gerado ainda roda geradores de estrutura**, e tick aleatório
+pode carregar chunk. Pré-gerar o mapa não elimina a geração de dentro do tick.
+
+**D-34. O envio de chunks ao jogador e o registro no rastreador de entidades rodam dentro
+do laço de entidades** e mexem em dados de outras regiões. Têm que sair da fase paralela.
+
+**D-35. A ordem real do tick por mundo** é `tick()` (ticks agendados, aleatórios e
+eventos de bloco), depois `updateEntities()` (entidades e tile entities), depois o
+rastreador (`MinecraftServer.java:963,986,1010`, conferido). Os ticks de bloco não estão
+dentro de `updateEntities`.
+
+**D-36. Não existe checagem de "thread errada" na base** (o `AsyncCatcher` do Spigot não
+está presente). As checagens de dono de região terão que ser criadas. Os pools de
+`AxisAlignedBB` e `Vec3`, citados na pesquisa geral, não existem na 1.7.10.
+
+**D-37. Três defeitos antigos apareceram na leitura** (não verificados em execução):
+remoção da entidade errada num caminho de teleporte, um laço que pode não terminar no
+`LongHashSet`, e uma correção de cursor de lista que não tem efeito. Candidatos a
+correção separada, como o D-07.
+
 ## 9. A máquina de produção
 
 7 vCores e 17 GB de RAM, com heap de 14 GB (`-Xms14336M -Xmx14336M`). Sobram cerca de 3 GB

@@ -7,7 +7,7 @@ Atualizado em 2026-11-22 (depois da entrega do medidor). Leia este arquivo antes
 | Etapa | Estado |
 |---|---|
 | Entrega inicial: (a) avaliação da base, (b) arquitetura, (c) plano das Etapas 0 e 1 | ✅ **aprovada pelo admin** (base e ordem em degraus, 2026-11-21) |
-| Etapa 0 – Medição | 🔄 medidor pronto e testado; falta o admin rodá-lo em produção (0.9) e fechar a lista 0.8 |
+| Etapa 0 – Medição | 🔄 falta só o admin rodar o medidor em produção (0.9) |
 | Etapa 1 (revista) – Ganhos baratos medidos, "Degrau 0" | ⏳ não iniciada |
 | Etapa 2 – Observador | ⏳ |
 | Portão "vai / não vai" | ⏳ |
@@ -29,7 +29,7 @@ Nenhum código de etapa futura foi escrito.
 | 0.5 Mundo de teste com carga | 🧑 | mundo de 150 GB não pode ser copiado; alternativa: arquivos de região de poucas bases |
 | 0.6 Bots de teste | 🔄 | bot mínimo em Python entra com o handshake do Forge (D-30, `tools/test_bot.py`); falta bot que anda e gera carga; não bloqueia |
 | 0.7 Compilar a base do zero | ✅ | jar reconstruído igual ao de produção em 5.317 de 5.318 entradas; ligou e parou limpo |
-| 0.8 Estruturas hostis a threads | 🔄 | tick, threads, estado estático e campos públicos mapeados; lista item a item em andamento (`docs/pesquisa/estruturas-hostis.md`) |
+| 0.8 Estruturas hostis a threads | ✅ | `docs/pesquisa/estruturas-hostis.md`: 138 estruturas com arquivo e linha, tratamento previsto e conferência independente (`DIAGNOSTICO.md` §8c). Só leitura de código |
 | 0.9 Medidor de carga por região | ✅ construído, revisado e testado; 🧑 falta rodar em produção | `medidor/` (versão 1.0.4, sha256 do jar `7a414409…9b9f`); roteiro em `medidor/ROTEIRO-ADMIN.md` |
 
 ## Pendências
@@ -48,7 +48,7 @@ Nenhum código de etapa futura foi escrito.
 8. Bots de carga (que andam e carregam chunks): não feito. O handshake do Forge funciona com o bot mínimo (D-30).
 8b. Medidor, para uma próxima versão (achados menores, não mudam o jar testado): recusar argumento desconhecido no `hoshie medir`; mensagem de erro da pasta reserva com o motivo; criar a pasta reserva já fechada para o dono. Lista em `medidor/README.md`.
 8c. Medidor, não testado: operador de nível 1 a 3, relógio lento de verdade, cliente de verdade, carga de produção. O limite de custo da válvula depende da calibração na máquina de produção.
-9. Lista vanilla de estruturas hostis a threads, item a item (0.8).
+9. Lacunas do estudo 0.8, para o observador da Etapa 2: varrer os jars dos mods atrás dos mesmos padrões; singletons de IC2, AE2, EnderIO, CoFH e BuildCraft; frequência de carga de chunk dentro do tick; reproduzir os três defeitos antigos do D-37.
 10. Trocar o objeto de `world.loadedTileEntityList` por uma lista por região: hipótese, precisa de protótipo na Etapa 2.
 11. Plugin que lê bloco de outra região no modo de regiões independentes: sem solução geral ainda.
 12. O spark 1.10 da 1.7.10 aceita `--save-to-file`? Não verificado.
@@ -71,6 +71,7 @@ Nenhum código de etapa futura foi escrito.
 | 12 | Semente fixa no mundo de teste (`HOSHIE_SEED` troca) | semente aleatória travou um boot na geração de árvore do Thaumcraft (D-29) |
 | 13 | Medidor: a válvula de custo usa 10% do tick de antes de ligar, com piso de 5 ms e teto de 10 ms, e margem de 2x sobre o custo calibrado | decisão do implementador depois que o revisor mostrou que 5 ms fixos parariam a medição de pico; são constantes, fácil de mudar |
 | 14 | Medidor entregue na versão 1.0.4 com achados menores em aberto | corrigi-los mudaria o jar já testado; nenhum afeta a segurança do tick |
+| 15 | O Degrau B começa só com tile entities e entidades; ticks de bloco ficam em série no início | é onde está o custo (47% contra 14% do tick) e tira dez estruturas de risco do primeiro passo; estimativa cai para ~54 a 57 ms com 4 threads (conta, não medição) |
 | 11 | Seguir os hábitos do upstream (patch gerado, `// Hoshiestar`, opções em `Crucible.yml`, JDK 8) e mandar correções genéricas como pull request ao Crucible | manter o fork fácil de atualizar (`docs/04-estudo-crucible.md` §5) |
 
 ## Plugins desligados na cópia de teste
@@ -103,3 +104,4 @@ se ele barrar bots na tarefa 0.6, sai também.
 | 2026-11-22 | Medidor 1.0.3 (correção dos 8 achados menores; revisor diferente, 2 rodadas) | revisor achou 1 importante (regra de custo pararia a medição de pico), corrigido; segunda revisão só com menores |
 | 2026-11-22 | Medidor 1.0.4 (3 ajustes fora do caminho quente) | revisão: aprovado com ressalvas menores. Teste independente no modpack real: **aprovado**, T1 a T6 passaram: boot com e sem o firewall, 104 funis contados exatos (62.504 = 104 × 601 ticks), nenhum nome/UUID/IP nos arquivos, parada e desligamento no meio gravam os arquivos, custo ligado dentro do ruído com 2.088 funis e 400 porcos (estimado 0,21 ms por tick) |
 | 2026-11-22 | Conferência do coordenador | jar confere com o sha256 testado; contém só classes do medidor; nenhum jar no Git; o commit de um subagente com a assinatura errada foi corrigido antes do envio |
+| 2026-11-22 | Estudo das estruturas hostis a threads, tarefa 0.8 (4 mapeadores opus, 4 conferentes opus, redator sonnet) | conferentes: 95 confirmados, 40 corrigidos, 1 refutado, 23 acrescentados; o coordenador conferiu 4 itens no código (cache do mapa de chunks, lista de colisão, ordem do tick, contador de ticks agendados) |

@@ -202,7 +202,50 @@ mostrar só parte da história.
 | FakePlayer (quarry, autonomous activator) | Um por região, não o cache global do Forge. A confirmar. |
 | ~60 dimensões | Cada dimensão é pelo menos uma região. "Uma thread por dimensão" sai de graça no Degrau B. |
 | Rede AE2 ligando dimensões (Quantum Bridge) | Junção entre dimensões ou AE2 inteiro em série. Decidir com dados da Etapa 2. |
-| Geração de mundo | Fora do escopo das regiões; tratada na Etapa 1 (pré-geração e limite por tick). |
+| Geração de mundo | **Corrigido pelo estudo 0.8:** pré-gerar o mapa não basta. Carregar um chunk já gerado ainda roda geradores de estrutura, e tick aleatório de bloco pode carregar chunk. É preciso uma "porta única" de carga de chunk por mundo (uma thread por vez entra), que a região usa sem esperar a thread global. |
+
+## 5b. O que o estudo das estruturas hostis mudou (tarefa 0.8)
+
+Estudo completo, com arquivo e linha de cada item e conferência independente, em
+`docs/pesquisa/estruturas-hostis.md`. Foram 138 estruturas distintas; 41 são de risco
+alto já na fase paralela sincronizada (Degrau B). Tudo por leitura de código: nada foi
+executado. O que entra no desenho:
+
+1. **Ler bloco já escreve.** O mapa de chunks do Crucible (`ChunkBlockHashMap`) guarda os
+   4 últimos chunks lidos em campos comuns. Duas threads lendo blocos ao mesmo tempo
+   podem receber o chunk errado. É o primeiro item a tratar (cache por thread), e é o
+   mesmo código que custa 3,6% do tick em produção (D-16): o conserto e o ganho andam juntos.
+2. **Carga de chunk dentro do tick** precisa da porta única descrita na tabela acima.
+3. **Saem da fase paralela para a fase em série:** o envio de chunks ao jogador (hoje roda
+   dentro do tick do jogador e mexe em chunks de outras regiões) e o registro de entidades
+   no rastreador (quem avisa os clientes).
+4. **Listas do mundo** (entidades e tile entities) não mudam de tamanho na fase paralela:
+   cada região anota o que entrou e saiu e a thread global aplica na junção. Confirma o
+   que já estava previsto.
+5. **Rascunhos compartilhados viram "um por thread":** lista de colisão, fila de luz,
+   captura de blocos e de drops (usada pelos eventos de plugin), estáticos de dano do
+   CraftBukkit, flags de blocos como fornalha e fio de redstone.
+6. **Identidade da thread.** O Forge decide "sou servidor ou cliente" pelo nome da thread,
+   e o Bukkit compara com a "thread principal". As threads de região precisam se
+   apresentar como thread de servidor, senão mods e plugins tomam o caminho errado.
+7. **Regra de ordem das travas** (trava = só uma thread entra por vez), para não haver
+   deadlock (duas threads paradas, uma esperando a outra): nenhuma trava nossa fica presa
+   enquanto um evento de plugin ou de mod é disparado; código de plugin nunca espera por
+   recurso de região; os ouvintes de mod não liberados passam por uma única trava "serial".
+8. **Teleporte imediato** (pérola de ender, teleporte de plugin) não estava coberto: o
+   desenho só adiava portal e troca de dimensão. Entra na lista de casos de borda.
+9. **Decisão tomada (reversível): o Degrau B começa só com tile entities e entidades.**
+   Ticks agendados, ticks aleatórios e eventos de bloco rodam em outro ponto do tick
+   (`WorldServer.tick`, antes de `updateEntities`) e ficam em série no começo. Motivo: é
+   onde está o maior custo (47% do tick contra 14%) e deixa de fora dez das estruturas de
+   risco. Efeito na estimativa (conta de Amdahl, não medição): só com essa parte e
+   4 threads, 84 ms cairiam para cerca de 54 a 57 ms, contra 48 a 53 ms com os ticks de
+   bloco incluídos. Sozinho não chega a 20 TPS; depende do Degrau 0. Os ticks de bloco
+   entram depois, se o observador da Etapa 2 mostrar que compensa.
+
+Lacunas que o estudo deixou: nenhum cenário de falha foi reproduzido; os jars dos mods
+não foram varridos atrás dos mesmos padrões; os singletons dos mods grandes (IC2, AE2,
+EnderIO, CoFH, BuildCraft) não foram estudados. Ficam para o observador da Etapa 2.
 
 ## 6. Riscos e o que não dá para prometer
 
@@ -223,6 +266,8 @@ Aprovadas pelo admin em 2026-11-21:
 Tomadas pelo coordenador em 2026-11-22 (reversíveis; ver `PROGRESSO.md`):
 3. Incluir o Degrau 0 e trocar o foco da Etapa 1: de "tirar I/O da thread principal" (vale 2,9% do tick) para "ganhos baratos medidos" (~20%).
 4. Grupo de 3 a 4 threads de região, não uma thread por região.
+
+5b. O Degrau B começa só com tile entities e entidades; ticks de bloco ficam em série no início (seção 5b, item 9).
 
 Ainda dependem do admin:
 5. Aceitar que base pesada tenha máquinas mais lentas (Degrau A) como forma de isolar o lag.
