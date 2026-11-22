@@ -1,6 +1,6 @@
 ![Hoshiestar](docs/assets/hoshiestar.jpg)
 
-# Hoshiestar
+# ★ Hoshiestar
 
 Servidor híbrido (Forge + Bukkit) para Minecraft 1.7.10 em que **uma base pesada
 laga só a região dela**. Inspirado no Folia, mas feito para rodar mods e plugins
