@@ -14,6 +14,7 @@ package hoshiestar.config;
 import hoshiestar.Hoshiestar;
 import io.github.crucible.util.config.Comments;
 import io.github.crucible.util.config.ConfigMode;
+import io.github.crucible.util.config.ConfigSection;
 import io.github.crucible.util.config.InvalidConfigurationException;
 import io.github.crucible.util.config.Path;
 import io.github.crucible.util.config.YamlConfig;
@@ -39,12 +40,16 @@ import java.util.List;
  * texto do admin):
  * <ul>
  * <li>arquivo nao existe: e criado com todos os campos, os padroes e os comentarios;</li>
- * <li>arquivo existe e tudo e valido: os valores do admin valem; campos novos (de uma versao nova)
- * sao acrescentados com o padrao, e o arquivo e regravado com os comentarios atuais (como o
- * Crucible faz com o Crucible.yml: comentarios proprios do admin se perdem, valores e chaves
- * desconhecidas ficam);</li>
- * <li>valor invalido (ex.: "talvez" onde se espera true/false): aquele campo usa o padrao, sai um
- * aviso, e o arquivo NAO e regravado (o texto do admin fica como esta para ele corrigir);</li>
+ * <li>arquivo existe, tudo e valido e nada falta: os valores do admin valem e o arquivo NAO e
+ * regravado (comentarios do admin, data de modificacao e permissao ficam como estao);</li>
+ * <li>tudo valido mas falta algum item (campo novo de uma versao nova, ou item presente sem valor,
+ * como "ligado:" vazio): o item usa o padrao e o arquivo e regravado com ele e com os comentarios
+ * atuais (como o Crucible faz com o Crucible.yml: comentarios proprios do admin se perdem, valores
+ * ficam);</li>
+ * <li>algum problema: valor invalido (ex.: "talvez" onde se espera true/false), secao no formato
+ * errado (ex.: "autoteste: true" em vez de "autoteste:" com "ligado: true" dentro) ou chave
+ * desconhecida (erro de digitacao): aquele item usa o padrao, sai um aviso por problema, e o
+ * arquivo NAO e regravado (o texto do admin fica como esta para ele corrigir);</li>
  * <li>arquivo ilegivel ou com lixo (nao e YAML, ou nao e um mapa): todos os campos usam o padrao,
  * sai um aviso, e o arquivo NAO e tocado;</li>
  * <li>nada disso derruba o servidor.</li>
@@ -58,17 +63,18 @@ import java.util.List;
 public final class HoshiestarConfig extends YamlConfig {
 
     private static final String[] CABECALHO = {
-        "Hoshiestar " + Hoshiestar.VERSAO + " - um interruptor por recurso.",
+        "Hoshiestar - um interruptor por recurso.",
         "Desligado = o servidor se comporta como o Crucible original naquele ponto.",
         "Este arquivo e lido uma vez, no boot. Mudou? Reinicie o servidor.",
-        "Valor invalido: aquele item usa o padrao, sai um aviso no log e o arquivo nao e regravado.",
+        "Valor invalido, secao no formato errado ou chave desconhecida: aquele item usa o padrao,",
+        "sai um aviso no log e o arquivo nao e regravado.",
     };
 
     // ---------------------------------------------------------------- campos (um por interruptor)
 
     @Comments({"Autoteste das correcoes embutidas (so para diagnostico; deixe desligado em producao).",
-        "Ligado: aplica uma correcao inofensiva numa classe do OpenBlocks (conta chamadas de um metodo)",
-        "e tenta uma correcao com trava de versao errada de proposito noutra classe, para provar que a",
+        "Ligado: aplica duas correcoes inofensivas numa classe do OpenBlocks (so contam chamadas) e",
+        "tenta uma correcao com trava de versao errada de proposito noutra classe, para provar que a",
         "recusa funciona. O resultado aparece no log ao fim do boot e em 'hoshie status'."})
     public boolean autoteste_ligado = false;
 
@@ -146,14 +152,27 @@ public final class HoshiestarConfig extends YamlConfig {
             return;
         }
         HoshiestarConfig padroes = new HoshiestarConfig(CONFIG_FILE);
-        int invalidos = 0;
+        List<String> conhecidos = new ArrayList<String>();
+        int problemas = 0;
         int faltando = 0;
         for (Field f : getClass().getDeclaredFields()) {
             if (doSkip(f)) {
                 continue;
             }
             String caminho = caminho(f);
-            if (!root.has(caminho)) {
+            conhecidos.add(caminho);
+            // secao no formato errado (ex.: "autoteste: true" em vez de "autoteste:" com "ligado: true"
+            // dentro): sem isto a chave contaria como "faltando" e o valor do admin sumiria sem aviso
+            String errado = prefixoQueNaoESecao(caminho);
+            if (errado != null) {
+                problemas++;
+                avisos.add("'" + errado + "' deveria ser uma secao (com '" + caminho.substring(errado.length() + 1)
+                        + ":' dentro), mas tem o valor " + descreverValor(valorBruto(errado)) + "; '" + caminho + "' usa o padrao " + valorDe(f, padroes));
+                continue;
+            }
+            Object bruto = root.has(caminho) ? valorBruto(caminho) : null;
+            if (bruto == null) {
+                // ausente, ou presente sem valor ("ligado:" vazio): usa o padrao e entra no arquivo
                 faltando++;
                 continue;
             }
@@ -163,13 +182,7 @@ public final class HoshiestarConfig extends YamlConfig {
                 }
                 converter.fromConfig(this, f, root, caminho);
             } catch (Throwable t) {
-                invalidos++;
-                Object bruto;
-                try {
-                    bruto = root.get(caminho);
-                } catch (Throwable t2) {
-                    bruto = "?";
-                }
+                problemas++;
                 try {
                     f.set(this, f.get(padroes));
                 } catch (Throwable t3) {
@@ -179,12 +192,80 @@ public final class HoshiestarConfig extends YamlConfig {
                         + f.getType().getSimpleName() + "); usando o padrao " + valorDe(f, padroes));
             }
         }
-        if (invalidos > 0) {
-            avisos.add(CONFIG_FILE + " nao foi regravado para preservar o seu texto; corrija o(s) valor(es) acima"
+        List<String> desconhecidas = new ArrayList<String>();
+        procurarDesconhecidas(root, "", conhecidos, desconhecidas);
+        for (String d : desconhecidas) {
+            problemas++;
+            avisos.add("chave desconhecida '" + d + "' (ignorada; erro de digitacao, ou item de outra versao do Hoshiestar?)");
+        }
+        if (problemas > 0) {
+            avisos.add(CONFIG_FILE + " nao foi regravado para preservar o seu texto; corrija o(s) item(ns) acima"
                     + (faltando > 0 ? " (faltam tambem " + faltando + " item(ns), que usam o padrao)" : ""));
             return;
         }
-        gravar("atualizar");
+        if (faltando > 0) {
+            // so regrava quando ha item novo a acrescentar: um arquivo completo e valido fica como o
+            // admin deixou (comentarios dele, data de modificacao, permissao somente-leitura)
+            gravar("atualizar");
+        }
+    }
+
+    /** O valor cru no caminho, sem criar secoes no caminho (o get do ConfigSection cria). */
+    private Object valorBruto(String caminho) {
+        Object atual = root;
+        for (String parte : caminho.split("\\.")) {
+            if (!(atual instanceof ConfigSection)) {
+                return null;
+            }
+            atual = ((ConfigSection) atual).getRawMap().get(parte);
+        }
+        return atual;
+    }
+
+    /**
+     * O primeiro prefixo do caminho (ex.: "autoteste" em "autoteste.ligado") que existe no arquivo
+     * com um valor que nao e uma secao, ou null. Prefixo presente e vazio conta como secao vazia.
+     */
+    private String prefixoQueNaoESecao(String caminho) {
+        int i = caminho.indexOf('.');
+        while (i > 0) {
+            String prefixo = caminho.substring(0, i);
+            Object v = valorBruto(prefixo);
+            if (v != null && !(v instanceof ConfigSection)) {
+                return prefixo;
+            }
+            if (v == null) {
+                return null;
+            }
+            i = caminho.indexOf('.', i + 1);
+        }
+        return null;
+    }
+
+    /** Chaves do arquivo que nao sao campo desta classe nem secao que leva a um campo. */
+    private static void procurarDesconhecidas(ConfigSection secao, String base, List<String> conhecidos, List<String> saida) {
+        for (Object k : secao.getRawMap().keySet()) {
+            String caminho = base.isEmpty() ? String.valueOf(k) : base + "." + k;
+            if (conhecidos.contains(caminho)) {
+                continue;
+            }
+            boolean prefixo = false;
+            for (String c : conhecidos) {
+                if (c.startsWith(caminho + ".")) {
+                    prefixo = true;
+                    break;
+                }
+            }
+            if (!prefixo) {
+                saida.add(caminho);
+            } else {
+                Object v = secao.getRawMap().get(k);
+                if (v instanceof ConfigSection) {
+                    procurarDesconhecidas((ConfigSection) v, caminho, conhecidos, saida);
+                }
+                // prefixo com valor que nao e secao ja foi avisado como "deveria ser uma secao"
+            }
+        }
     }
 
     private void gravar(String acao) {

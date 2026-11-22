@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Sun, 22 Nov 2026 14:12:40 +0000
+Subject: [PATCH 7/7] build: mensagem sem a pasta de mods cita a opcao --mods
+ do build.sh
+
+Achado R7 da revisao.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 31211249..58f6277d 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -178,7 +178,8 @@ val hoshiestarPastaMods = (findProperty("hoshiestar.mods") as String?)?.takeIf {
+ if (hoshiestarTemFontesDeMods) {
+     if (hoshiestarPastaMods == null || !hoshiestarPastaMods.isDirectory) {
+         throw GradleException("Hoshiestar: ha ganchos em src/mods/java que precisam dos jars dos mods para compilar. " +
+-            "Rode o build com -Phoshiestar.mods=<pasta com os jars dos mods> (ex.: a pasta mods/ do servidor de teste). " +
++            "Rode servidor/build.sh com --mods <pasta com os jars dos mods> (ex.: a pasta mods/ do servidor de teste), " +
++            "ou o Gradle direto com -Phoshiestar.mods=<pasta>. " +
+             "Pasta informada: " + (hoshiestarPastaMods?.path ?: "nenhuma"))
+     }
+     // Fonte separada (source set "hoshiestarMods"): os jars dos mods ficam DEPOIS do classpath do

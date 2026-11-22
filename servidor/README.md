@@ -52,11 +52,15 @@ servidor/build.sh ... --mods <pasta mods/ de um servidor de teste>
 - O jar usa exatamente as mesmas bibliotecas do Crucible de produção (mesmo `Class-Path` e
   `Crucible-Libs`), então a pasta `libraries/` de um servidor existente serve.
 - **Ganchos de mods (`src/mods/java`)**: escolhemos *parar com mensagem clara* quando há fontes ali e
-  não foi dada a pasta de mods (`--mods`, ou `-Phoshiestar.mods=` no Gradle). Pular em silêncio
+  não foi dada a pasta de mods (`--mods`, ou `-Phoshiestar.mods=` no Gradle; a mensagem cita os dois).
+  Pular em silêncio
   geraria um jar com correções que nunca se aplicam. Os jars entram como `compileOnly` (só
   compilação, nunca dentro do jar). Hoje `src/mods/java` está vazio: nada exige mods para compilar.
 
-Tempos medidos nesta máquina (4 núcleos): ver seção 8.
+Tempos medidos nesta máquina (4 núcleos, cache do Gradle e do Minecraft já baixados): build completo
+do zero (clone + `setupCrucible` + `buildPackages`) 125 a 156 s (último: 126 s), mais uns 15 s do
+`test.sh`; build rápido (`--rapido`, mudança em arquivo nosso) 33 a 51 s. Um primeiro build numa máquina sem cache
+baixa o Minecraft e as dependências e demora mais (não medido aqui).
 
 ## 2. Testes isolados
 
@@ -68,8 +72,9 @@ Compila a classe de exemplo `src/test/amostras/amostra/Alvo.java` para **Java 6,
 formato de correção, passa o resultado pelo `CheckClassAdapter` do ASM e depois **carrega e executa**
 a classe num class loader de teste (o verificador da própria JVM confere os quadros de pilha). Roda
 tudo no JDK 8 e no JDK 21. Testes: `TesteAsm` (formatos 1 a 3 e falha fechada), `TesteTrava`
-(trava, registro de correções, transformador), `TesteCampoPrivado` (formato 4), `TesteLimitador`,
-`TesteConfig` (hoshiestar.yml ausente, válido, chave faltando, valor inválido, lixo). `HOSHIE_LIBS`
+(trava, registro de correções, transformador, `HashClasse`), `TesteCampoPrivado` (formato 4),
+`TesteLimitador`, `TesteConfig` (hoshiestar.yml ausente, válido e completo sem regravar, item
+faltando, chave desconhecida, erro de digitação, seção no formato errado, valor inválido, lixo). `HOSHIE_LIBS`
 serve para usar a snakeyaml 1.9, a mesma do servidor (sem ela o teste avisa e usa a 1.21 do cache do
 Gradle).
 
@@ -179,21 +184,44 @@ ligada, o transformador nem é registrado.
 - **`hoshiestar.yml`** (pasta do servidor, ao lado do `Crucible.yml`), classe
   `hoshiestar.config.HoshiestarConfig`, mecanismo `YamlConfig` do Crucible. Lido uma vez, na fase de
   coremod (o próprio Crucible lê o `Crucible.yml` com o mesmo mecanismo nesse ponto, então ele funciona
-  tão cedo). Criado com comentários se não existe; valores do admin preservados; valor inválido usa o
-  padrão, avisa e **não** regrava o arquivo; arquivo ilegível usa os padrões e não é tocado; nunca
-  derruba o servidor. Hoje só tem `autoteste.ligado` (padrão `false`).
-- **Comando `hoshie`** (console, RCON, operador nível 4): `hoshie status`, `hoshie hash <classe>`.
-  Registrado como o `crucible` (comando Bukkit, no `FMLServerStartingEvent` do
-  `CrucibleModContainer`). Subcomandos novos: `ComandoHoshie.registrar(new Subcomando(){...})`.
+  tão cedo). Regras:
+  - não existe: é criado com os padrões e os comentários;
+  - válido e completo: os valores do admin valem e o arquivo **não é regravado** (comentários do
+    admin, data e permissão ficam);
+  - válido mas falta item (campo novo de uma versão nova, ou `ligado:` vazio): o item usa o padrão e
+    o arquivo é regravado com ele (comentários próprios do admin se perdem, como no `Crucible.yml`);
+  - algum problema (valor inválido como `ligado: sim`; seção no formato errado como `autoteste: true`;
+    chave desconhecida, como erro de digitação `ligad:`): aquele item usa o padrão, sai um aviso por
+    problema e o arquivo **não** é regravado;
+  - ilegível (não é YAML ou não é mapa): todos os padrões, aviso, arquivo intocado;
+  - nunca derruba o servidor. Os avisos saem no log do boot (`[Hoshiestar] config: ...`) e o
+    `hoshie status` diz quantos houve.
+  Hoje só tem `autoteste.ligado` (padrão `false`). Um campo novo (ex.: `chunkmap_ligado`) entra
+  sozinho no arquivo do admin no primeiro boot da versão nova.
+- **Comando `hoshie`**: `hoshie status`, `hoshie hash <classe>`. Registrado como o `crucible`
+  (comando Bukkit, no `FMLServerStartingEvent` do `CrucibleModContainer`; prefixo reserva
+  `hoshiestar:`). Quem pode: console e RCON sempre; jogador só se for operador de nível 4 **e** tiver o
+  nó de permissão `hoshiestar.admin` (registrado no Bukkit com padrão "op": todo operador tem, a menos
+  que um plugin de permissão o negue). O nó esconde o comando do tab e do `/help` de quem não tem e
+  deixa o LuckPerms tirar o comando de um operador; ele **não** libera o comando para quem não é
+  operador de nível 4. Jogador sem acesso recebe a mesma resposta de um comando que não existe
+  (`Unknown command...`). No chat, `hoshie hash` mostra só o nome do jar de origem (no console, o
+  caminho completo). Subcomandos novos: `ComandoHoshie.registrar(new Subcomando(){...})`; a permissão
+  já foi conferida quando o subcomando é chamado.
 - **`hoshiestar.api`**:
   - `Relogio.ticks` (campo `volatile long`): +1 na primeira linha de `MinecraftServer.tick()`.
   - `ThreadServidor.souAThreadDoServidor()`: uma leitura volatile e uma comparação. Vale desde a
     primeira linha de `MinecraftServer.run()` (antes de mods, mundos e plugins carregarem); antes
     disso devolve `false`.
   - `Log` (prefixo `[Hoshiestar] `, `Log.de("id")` para `[Hoshiestar] [id] `) e `Limitador`
-    (N mensagens por janela, por chave).
-  - `Trava` e `HashClasse` (SHA-256 dos bytes originais lidos como recurso, sem carregar a classe).
+    (N mensagens por janela, por chave). No console a linha sai como `[Hoshiestar]: [Hoshiestar] ...`
+    (o console imprime o nome do logger; o `logs/latest.log` não, por isso o prefixo fica no texto).
+  - `Trava` e `HashClasse` (SHA-256 dos bytes originais lidos como recurso, sem carregar a classe;
+    `Resultado.descrever(false)` mostra só o nome do jar, para jogador).
   - `Recursos`: lista de recursos (id, ligado, linha de estado) para o status e o log do boot.
+- **Chamadas a partir de classes do upstream**: sempre dentro de `try { ... } catch (Throwable t)` no
+  ponto de chamada (como em `CrucibleCoremodHook` e `CrucibleModContainer`), para que uma falha do
+  Hoshiestar, até ao carregar a classe, não corte o que o upstream faz em seguida.
 - **Linhas de log**: no boot `[Hoshiestar] 1.0.0-dev sobre Crucible 1.7.10-staging-67b53034` e
   `recursos: ...`; quando o servidor termina de ligar (FMLServerStartedEvent), uma linha por recurso
   e por correção (desligada / aplicada / NÃO aplicada e por quê: mod ausente, classe ainda não
@@ -231,6 +259,13 @@ Descobertas (código lido e provado no modpack real, Java 21):
   Minecraft). E a correção de trava errada em `bq_standard.handlers.EventHandler` (classe que recebe 8
   métodos de mixin do Akashic-BQRelief) viu bytes **iguais aos do arquivo do jar**. O mesmo caminho
   (`CoreModManager` + RFB) é usado no Java 8, mas o boot em Java 8 não foi testado.
+- **Nomes reofuscados nos ganchos**: o `.class` dos ganchos dentro do jar tem os tipos do Minecraft
+  com nome "notch" (`EntityPlayerMP` vira `mw`); a classe do mod chega ao transformador com os nomes
+  de tempo de execução. O `ResolvedorDeGanchos` traduz o descritor do arquivo com o
+  `FMLDeobfuscatingRemapper` (por reflexão, em `RemapeadorFml`, só quando uma classe alvo aparece)
+  antes de comparar; a instrução gerada usa os nomes de tempo de execução, que é como a classe do
+  gancho existe depois que o DeobfuscationTransformer a carrega. Provado no boot: a correção do
+  autoteste com gancho `deveEntregarKarma(EntityPlayerMP)` foi aplicada e rodou com um jogador online.
 - **Quadros de pilha**: a classe é lida com `EXPAND_FRAMES` e gravada só com `COMPUTE_MAXS`; os
   utilitários acrescentam quadros explícitos apenas nos desvios que criam, sempre num ponto de estado
   conhecido (entrada do método). Nada de `COMPUTE_FRAMES`, que exigiria carregar classes para achar
@@ -239,25 +274,52 @@ Descobertas (código lido e provado no modpack real, Java 21):
 
 ## 8. O que foi verificado e o que não foi
 
-Verificado (comandos e saídas no relatório da tarefa):
-- Build do workspace sem mudanças: 5079 entradas, CRC igual ao jar de produção em todas menos
-  `MANIFEST.MF` (nome da branch) e `binpatches.pack.lzma` (muda a cada build, ver crucible-build.md).
-- Testes isolados: todos passam no JDK 8 e no JDK 21.
-- Modpack real (292 mods para o Forge; 285 na lista do handshake), sem nenhum jar nosso em `mods/`
-  e `plugins/`: (1) tudo no padrão: "Done", linha de boot, `hoshiestar.yml` criado com comentários,
-  transformador não registrado, `hoshie status`/`hash` respondem, `stop` limpo, sem crash-report;
-  (2) autoteste ligado: correção aplicada no OpenBlocks (contador sobe 2 por tick), trava errada
-  recusada com o hash no log, class loader do gancho = do mod, `stop` limpo. Nenhum erro novo no log
-  comparado a um boot do jar de produção na mesma cópia.
-- `exportar.sh` determinístico; `build.sh` a partir de clone limpo reconstrói o mesmo jar (entradas e
-  CRCs, fora o que muda a cada build).
+Verificado (logs no scratchpad da tarefa; números do último ciclo, depois da revisão independente):
+- `build.sh` a partir de um clone limpo do upstream + `servidor/` (7 patches, 33 arquivos novos)
+  reconstrói o jar em 126 s: 5362 entradas, todas com o mesmo CRC do jar do workspace, menos
+  `binpatches.pack.lzma` (muda a cada build, ver crucible-build.md; a revisão desempacotou e as 1470
+  entradas internas batem). Contra o jar de produção (conferido pela revisão): mudam só
+  `MANIFEST.MF` (ganha a linha `Hoshiestar-Version`), `binpatches.pack.lzma`, `CrucibleModContainer`
+  (+`$1`), `CrucibleCoremodHook` e `MinecraftServer$7` (números de linha), e entram as classes
+  `hoshiestar/*`.
+- `exportar.sh` rodado duas vezes seguidas: `diff -r` vazio.
+- Testes isolados: todos passam no JDK 8 e no JDK 21 (TesteAsm 224, TesteTrava 35, TesteLimitador 13,
+  TesteCampoPrivado 8, TesteConfig 35), inclusive o controle negativo dos quadros (tirando o quadro
+  que o utilitário acrescenta, a JVM recusa a classe Java 7/8 com VerifyError) e a tradução de nomes
+  reofuscados no conferidor de ganchos. Fora da suíte: `hoshiestar.yml` válido com o arquivo
+  imutável (`chattr +i`) lido sem nenhum aviso; os 10 casos extras da revisão (`sim`, `"true"`, tag
+  Java, BOM, tab...) dão aviso e não regravam.
+- `--mods`: com uma fonte de teste em `src/mods/java` (gancho que recebe uma classe do OpenBlocks e um
+  `EntityPlayerMP`) o build sem `--mods` para com a mensagem; com `--mods <mods/ da cópia>` compila, a
+  classe entra no jar (tipo do mod intacto, tipo do Minecraft reofuscado) e nenhum jar de mod entra.
+  A fonte de teste não ficou no repositório.
+- Modpack real (cópia nova `forkfix`, 292 mods carregados pelo Forge, 52 plugins na lista do comando
+  `plugins`), sem nenhum jar nosso em `mods/` e `plugins/`, dois boots, ambos com `stop` limpo e sem
+  crash-report:
+  1. Tudo no padrão (mundo novo, sem `hoshiestar.yml`): "Done", linha de boot, `recursos:
+     autoteste=desligado`, transformador não registrado, `hoshiestar.yml` criado com comentários,
+     uma linha por correção ("desligada") depois do "Done"; no console `hoshie status`, `hoshie hash`
+     de classe existente e inexistente, `hoshiestar:hoshie status`.
+  2. `autoteste.ligado: true` escrito à mão, mais um comentário do admin no topo: o arquivo **não**
+     foi regravado (mesmo SHA-256 e mesma data depois do boot). As duas correções do OpenBlocks
+     aplicadas (contador sobe 2 por tick; o gancho com tipo do Minecraft rodou 1947 vezes com o bot
+     conectado), trava errada recusada com o hash visto "igual ao do arquivo do jar" (a classe do BQ
+     recebe 8 métodos de mixin), class loader do gancho = do mod, transformador na posição 2 de 133
+     (Mixin na 6). Comando por jogador (bot), com o LuckPerms do pacote ligado: sem op, `/hoshie
+     status` e `/hoshiestar:hoshie hash ...` respondem `Unknown command...`, igual a um comando que não
+     existe; com `op` (nível 4) status e hash respondem no chat, e o hash mostra só
+     `OpenBlocks-1.12.20-GTNH.jar` (nenhum caminho de pasta no chat); operador com o nó negado no
+     LuckPerms (`lp user ... permission set hoshiestar.admin false`): `Unknown command`; nó desfeito:
+     volta a responder; sem op e com o nó dado pelo LuckPerms: `Unknown command` (o nó não libera).
+  Mesmo número de mods, de erros de classe (VerifyError/NoSuchMethodError...) e de avisos de mixin
+  que o boot do jar de produção na mesma máquina; as únicas linhas novas de aviso do Hoshiestar são as
+  duas esperadas da trava errada.
 
 Não verificado:
 - Boot do jar em Java 8 (a produção usa Java 21).
 - Formato 3 com método protegido herdado de classe de outro pacote (o verificador pode recusar).
-- Um gancho real em `src/mods/java` compilado com `--mods` (o mecanismo existe; nenhum gancho real
-  ainda precisa dele).
 - Custo do transformador medido em servidor (por desenho: uma busca em HashMap por classe carregada,
   e só quando há correção ligada).
-- Comportamento com plugins que filtram comandos além dos do pacote de teste (o `hoshie` respondeu
-  no console com os 65 plugins do pacote; jogador op 4 não foi testado, só o console).
+- Plugins de filtro de comando desligados na cópia de teste (`!DISABLED-HOSHIESTAR`); o tab-complete
+  e o `/help` por jogador (o código do Bukkit esconde comandos sem permissão nos dois, mas o bot não
+  testa tab nem `/help`).

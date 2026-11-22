@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Sun, 22 Nov 2026 14:10:48 +0000
+Subject: [PATCH 6/7] CrucibleCoremodHook: linha em branco do upstream
+ restaurada (bloco do Hoshiestar so com linhas marcadas)
+
+Achado R6 da revisao.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/src/main/java/io/github/crucible/bootstrap/CrucibleCoremodHook.java b/src/main/java/io/github/crucible/bootstrap/CrucibleCoremodHook.java
+index a3d67f63..82bc0803 100644
+--- a/src/main/java/io/github/crucible/bootstrap/CrucibleCoremodHook.java
++++ b/src/main/java/io/github/crucible/bootstrap/CrucibleCoremodHook.java
+@@ -15,7 +15,7 @@ public class CrucibleCoremodHook {
+         } catch (ClassNotFoundException e) {
+             throw new RuntimeException(e);
+         }
+-
++        
+         // Hoshiestar start - le o hoshiestar.yml e registra o transformador das correcoes embutidas
+         // ANTES dos transformadores do Crucible e de qualquer coremod/Mixin de mod. Por reflexao e
+         // pelo LaunchClassLoader: esta classe e do class loader da aplicacao, e o Hoshiestar tem de
+@@ -29,7 +29,6 @@ public class CrucibleCoremodHook {
+             t.printStackTrace();
+         }
+         // Hoshiestar end
+-
+         classLoader.registerTransformer("io.github.crucible.patches.StreamsTransformer");
+         classLoader.registerTransformer("thermos.ThermosClassTransformer");
+     }

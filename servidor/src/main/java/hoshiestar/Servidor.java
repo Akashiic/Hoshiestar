@@ -37,6 +37,7 @@ public final class Servidor {
     /** FMLServerStartingEvent: registra o comando "hoshie" (como o Crucible registra o "crucible"). */
     public static void iniciando(FMLServerStartingEvent evt) {
         try {
+            ComandoHoshie.registrarPermissao();
             evt.registerServerCommand("hoshiestar", new ComandoHoshie());
         } catch (Throwable t) {
             Log.erro("nao consegui registrar o comando hoshie", t);

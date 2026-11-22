@@ -20,7 +20,10 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FrameNode;
+import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 import java.io.File;
@@ -147,6 +150,9 @@ public final class TesteAsm {
         v.igual(10L, c.getMethod("semDesvio", long.class).invoke(o, 5L), j + "F1 semDesvio: original");
         gset(c, "decisao", true);
         v.igual(-2L, c.getMethod("semDesvio", long.class).invoke(o, 5L), j + "F1 semDesvio: valor do gancho");
+
+        // controle negativo: sem o quadro que o utilitario acrescenta, a JVM recusa a classe (Java 7+)
+        controleSemQuadro(java, alvo, util);
 
         // falha fechada do formato 1
         recusa(j + "F1 recusa: metodo inexistente", alvo, cn -> Asm.ganchoNoInicio(cn, "naoExiste", "()V",
@@ -294,6 +300,44 @@ public final class TesteAsm {
         });
         v.igual("(Lzz;I)Z", quebrado.descritorDeclarado(dono, "deve", runtime, "(Lzz;I)Z"),
                 "remapeador: se a traducao falha, usa o descritor do arquivo (sem excecao)");
+    }
+
+    /**
+     * Prova de que o teste de carga pega quadro de pilha faltando: aplica o formato 1 com retorno
+     * antecipado e TIRA o quadro que o utilitario acrescentou. Em classe Java 7 ou 8 a JVM tem de
+     * recusar (VerifyError). Em Java 6 nada e afirmado (a JVM pode cair no verificador antigo).
+     */
+    private static void controleSemQuadro(int java, byte[] alvo, byte[] util) throws Exception {
+        ClassNode cn = Asm.ler(alvo);
+        Asm.ganchoNoInicio(cn, "energia", "()D", Gancho.de(G, "pularEnergia"), Gancho.de(G, "valorEnergia"), true, ganchos);
+        boolean tirou = false;
+        for (MethodNode m : cn.methods) {
+            if (m.name.equals("energia")) {
+                for (AbstractInsnNode n = m.instructions.getFirst(); n != null; n = n.getNext()) {
+                    if (n instanceof FrameNode) {
+                        m.instructions.remove(n);
+                        tirou = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (java < 7) {
+            return;
+        }
+        v.sim(tirou, "Java " + java + ": controle: havia um quadro acrescentado para tirar");
+        Map<String, byte[]> mapa = new HashMap<String, byte[]>();
+        mapa.put("amostra.Alvo", Asm.escrever(cn));
+        mapa.put("amostra.Alvo$Util", util);
+        Verifica.Carregador cl = new Verifica.Carregador(TesteAsm.class.getClassLoader(), mapa);
+        Throwable erro = null;
+        try {
+            Class.forName("amostra.Alvo", true, cl);
+        } catch (VerifyError e) {
+            erro = e;
+        }
+        v.sim(erro != null, "Java " + java + ": controle: sem o quadro a JVM recusa a classe"
+                + (erro != null ? " (" + erro.getClass().getSimpleName() + ")" : " (NAO recusou: o teste nao pegaria o erro)"));
     }
 
     /** Transforma, verifica com o ASM, carrega num class loader novo e devolve a classe (ou null). */

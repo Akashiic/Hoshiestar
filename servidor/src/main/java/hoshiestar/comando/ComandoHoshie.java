@@ -19,11 +19,15 @@ import hoshiestar.api.ThreadServidor;
 import hoshiestar.config.HoshiestarConfig;
 import hoshiestar.embutidos.Correcao;
 import hoshiestar.embutidos.Correcoes;
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.command.RemoteConsoleCommandSender;
 import org.bukkit.craftbukkit.v1_7_R4.entity.CraftPlayer;
+import org.bukkit.entity.Player;
+import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionDefault;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,6 +48,13 @@ import java.util.Map;
  *
  * Outros recursos acrescentam subcomandos com {@link #registrar(Subcomando)} (ex.: "medir",
  * "parar" do medidor). Nomes "status" e "hash" sao reservados.
+ *
+ * <p><b>Quem pode usar:</b> console e RCON sempre; jogador so se for operador de nivel 4 E tiver o
+ * no de permissao {@value #PERMISSAO} (registrado com padrao "op": todo operador tem, a menos que um
+ * plugin de permissao o negue). O no faz o Bukkit esconder o comando do tab e do /help de quem nao
+ * tem, e deixa um plugin de permissao (ex.: LuckPerms) tirar o comando de um operador; ele NAO libera
+ * o comando para quem nao e operador de nivel 4. Jogador sem acesso recebe a mesma resposta de um
+ * comando que nao existe (nao fica sabendo que o comando existe).
  */
 public final class ComandoHoshie extends Command {
 
@@ -61,12 +72,32 @@ public final class ComandoHoshie extends Command {
 
     public static final int NIVEL_OP = 4;
 
+    /** No de permissao Bukkit do comando (padrao "op"). */
+    public static final String PERMISSAO = "hoshiestar.admin";
+
     private static final Map<String, Subcomando> SUBCOMANDOS = Collections.synchronizedMap(new LinkedHashMap<String, Subcomando>());
 
     public ComandoHoshie() {
         super("hoshie");
         setDescription("Hoshiestar: estado dos recursos e ferramentas do admin");
         setUsage("/hoshie <status|hash <classe>|...>");
+        setPermission(PERMISSAO);
+    }
+
+    /**
+     * Registra o no {@value #PERMISSAO} no Bukkit com padrao "op" (chamado com o servidor de pe, junto
+     * com o comando). Sem isso o no funcionaria igual (o Bukkit trata no desconhecido como "op"), mas
+     * plugins de permissao nao o veriam na lista. Nunca lanca excecao.
+     */
+    public static void registrarPermissao() {
+        try {
+            if (Bukkit.getPluginManager().getPermission(PERMISSAO) == null) {
+                Bukkit.getPluginManager().addPermission(new Permission(PERMISSAO,
+                        "Hoshiestar: comando /hoshie (alem disso exige operador de nivel 4)", PermissionDefault.OP));
+            }
+        } catch (Throwable t) {
+            hoshiestar.api.Log.aviso("nao consegui registrar a permissao " + PERMISSAO + " (" + t + "); o comando segue so para console e operador de nivel 4 com o padrao do Bukkit");
+        }
     }
 
     /** Acrescenta um subcomando. Nome repetido ou reservado e erro de programacao. */
@@ -78,21 +109,31 @@ public final class ComandoHoshie extends Command {
         SUBCOMANDOS.put(n, s);
     }
 
-    /** Console, RCON, ou jogador operador de nivel 4. Bloco de comando e outros: nao. */
+    /** Console, RCON, ou jogador operador de nivel 4 com o no {@value #PERMISSAO}. Bloco de comando e outros: nao. */
     public static boolean podeUsar(CommandSender quem) {
-        if (quem instanceof ConsoleCommandSender || quem instanceof RemoteConsoleCommandSender) {
+        if (ehConsole(quem)) {
             return true;
         }
         if (quem instanceof CraftPlayer) {
-            return ((CraftPlayer) quem).getHandle().canCommandSenderUseCommand(NIVEL_OP, "hoshie");
+            return ((CraftPlayer) quem).getHandle().canCommandSenderUseCommand(NIVEL_OP, "hoshie")
+                    && quem.hasPermission(PERMISSAO);
         }
         return false;
+    }
+
+    private static boolean ehConsole(CommandSender quem) {
+        return quem instanceof ConsoleCommandSender || quem instanceof RemoteConsoleCommandSender;
     }
 
     @Override
     public boolean execute(CommandSender quem, String rotulo, String[] args) {
         if (!podeUsar(quem)) {
-            quem.sendMessage("hoshie: so console ou operador de nivel " + NIVEL_OP + ".");
+            if (quem instanceof Player) {
+                // mesma resposta de um comando inexistente (CraftServer.dispatchVanillaCommand)
+                quem.sendMessage(org.spigotmc.SpigotConfig.unknownCommandMessage);
+            } else {
+                quem.sendMessage("hoshie: so console ou operador de nivel " + NIVEL_OP + ".");
+            }
             return true;
         }
         try {
@@ -186,7 +227,8 @@ public final class ComandoHoshie extends Command {
             return;
         }
         HashClasse.Resultado r = HashClasse.doArquivo(args[0]);
-        quem.sendMessage(r.descrever());
+        // jogador ve so o nome do jar, sem o caminho das pastas do servidor
+        quem.sendMessage(r.descrever(ehConsole(quem)));
         for (Correcao c : Correcoes.global().todas()) {
             if (c.classe().equals(r.classe)) {
                 quem.sendMessage("  trava de '" + c.descricao + "' (" + c.recurso + "): "

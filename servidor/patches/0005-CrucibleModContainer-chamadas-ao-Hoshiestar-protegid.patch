@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Sun, 22 Nov 2026 14:10:28 +0000
+Subject: [PATCH 5/7] CrucibleModContainer: chamadas ao Hoshiestar protegidas
+ por try/catch no ponto de chamada
+
+Achado R3 da revisao: um erro ao carregar hoshiestar.Servidor nao pode cortar o registro do
+proprio Crucible (CrucibleAPI.registerModPlugin, Metrics).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/src/main/java/io/github/crucible/CrucibleModContainer.java b/src/main/java/io/github/crucible/CrucibleModContainer.java
+index e7a4d50c..fe8fb4ea 100644
+--- a/src/main/java/io/github/crucible/CrucibleModContainer.java
++++ b/src/main/java/io/github/crucible/CrucibleModContainer.java
+@@ -87,7 +87,15 @@ public class CrucibleModContainer extends DummyModContainer implements Plugin {
+     @Subscribe
+     public void serverStarting(FMLServerStartingEvent evt) {
+         evt.registerServerCommand("crucible", new CrucibleCommand(evt.getServer()));
+-        hoshiestar.Servidor.iniciando(evt); // Hoshiestar - comando "hoshie"
++        // Hoshiestar start - comando "hoshie"; uma falha do Hoshiestar (ate ao carregar a classe) nao pode
++        // impedir o registro do proprio Crucible logo abaixo
++        try {
++            hoshiestar.Servidor.iniciando(evt);
++        } catch (Throwable t) {
++            System.err.println("[Hoshiestar] falha ao registrar o comando hoshie: " + t);
++            t.printStackTrace();
++        }
++        // Hoshiestar end
+         CrucibleAPI.registerModPlugin(this);
+         metrics = new Metrics(this, 6555);
+     }
+@@ -95,7 +103,12 @@ public class CrucibleModContainer extends DummyModContainer implements Plugin {
+     // Hoshiestar start - resumo dos recursos logo depois do "Done"
+     @Subscribe
+     public void serverStarted(FMLServerStartedEvent evt) {
+-        hoshiestar.Servidor.pronto();
++        try {
++            hoshiestar.Servidor.pronto();
++        } catch (Throwable t) {
++            System.err.println("[Hoshiestar] falha no resumo do boot: " + t);
++            t.printStackTrace();
++        }
+     }
+     // Hoshiestar end
+ 

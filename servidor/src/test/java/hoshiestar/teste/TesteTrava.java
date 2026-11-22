@@ -67,6 +67,14 @@ public final class TesteTrava {
         v.igual(hash, r.sha256, "HashClasse.doArquivo = sha256 do arquivo");
         HashClasse.Resultado r2 = HashClasse.doArquivo("nao.Existe", doArquivo);
         v.sim(r2.sha256 == null && r2.erro != null, "HashClasse de classe inexistente da erro, sem excecao");
+        // origem para jogador: so o nome do jar, sem o caminho do servidor (achado R5 da revisao)
+        HashClasse.Resultado r3 = HashClasse.doArquivo("org.objectweb.asm.ClassReader", TesteTrava.class.getClassLoader());
+        v.sim(r3.origem != null && r3.origem.startsWith("jar:file:") && r3.origem.contains("/"), "HashClasse de classe em jar: origem completa (" + r3.origem + ")");
+        v.sim(r3.origemCurta() != null && r3.origemCurta().endsWith(".jar") && r3.origemCurta().indexOf('/') < 0,
+                "HashClasse: origem curta e so o nome do jar (" + r3.origemCurta() + ")");
+        v.sim(r3.descrever(false).indexOf('/') < 0 && r3.descrever(false).contains(r3.sha256),
+                "HashClasse.descrever(false) sem caminho de pasta (" + r3.descrever(false) + ")");
+        v.sim(r3.descrever(true).contains(r3.origem), "HashClasse.descrever(true) com o caminho completo");
 
         // --- trava certa: aplica
         Correcoes reg = Correcoes.novoParaTeste();

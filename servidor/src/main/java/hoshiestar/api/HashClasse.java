@@ -61,12 +61,35 @@ public final class HashClasse {
             this.erro = erro;
         }
 
-        /** Uma linha legivel para log e comando. */
+        /** Uma linha legivel para log e console (com o caminho completo da origem). */
         public String descrever() {
+            return descrever(true);
+        }
+
+        /**
+         * Uma linha legivel. Com {@code caminhoCompleto} false a origem aparece so pelo nome do jar
+         * (ex.: "OpenBlocks-1.12.20-GTNH.jar"), sem o caminho do servidor: para mostrar a jogador.
+         */
+        public String descrever(boolean caminhoCompleto) {
             if (erro != null) {
                 return classe + ": " + erro;
             }
-            return classe + ": sha256 " + sha256 + (origem != null ? " (de " + origem + ")" : "");
+            String o = caminhoCompleto ? origem : origemCurta();
+            return classe + ": sha256 " + sha256 + (o != null ? " (de " + o + ")" : "");
+        }
+
+        /** So o nome do jar (ou do arquivo .class, fora de jar) de onde os bytes vieram, ou null. */
+        public String origemCurta() {
+            if (origem == null) {
+                return null;
+            }
+            String o = origem;
+            int excl = o.indexOf("!/");
+            if (excl >= 0) {
+                o = o.substring(0, excl);
+            }
+            int barra = Math.max(o.lastIndexOf('/'), o.lastIndexOf('\\'));
+            return barra >= 0 ? o.substring(barra + 1) : o;
         }
     }
 
@@ -150,8 +173,9 @@ public final class HashClasse {
             // findResource e publico no URLClassLoader/LaunchClassLoader; procura so nas fontes dele
             Method m = cl.getClass().getMethod("findResource", String.class);
             u = (URL) m.invoke(cl, caminho);
-        } catch (NoSuchMethodException e) {
-            // class loader sem findResource publico
+        } catch (Exception e) {
+            // class loader sem findResource publico, ou publico numa classe nao exportada (no Java 9+ o
+            // class loader da aplicacao fica em jdk.internal.loader e a reflexao da IllegalAccessException)
         }
         if (u == null) {
             u = cl.getResource(caminho);

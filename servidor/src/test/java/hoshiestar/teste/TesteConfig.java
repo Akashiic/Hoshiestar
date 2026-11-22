@@ -18,7 +18,10 @@ import java.io.FileOutputStream;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
-/** Leitura e gravacao do hoshiestar.yml: ausente, valido, chave faltando, valor invalido, lixo. */
+/**
+ * Leitura e gravacao do hoshiestar.yml: ausente, valido (nao regrava), item faltando, chave
+ * desconhecida, secao no formato errado, valor invalido, lixo.
+ */
 public final class TesteConfig {
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
@@ -39,22 +42,55 @@ public final class TesteConfig {
         v.igual(false, c.autoteste_ligado, "ausente: valor padrao");
         v.sim(c.avisos().isEmpty() && !c.usouPadroes(), "ausente: sem avisos");
 
-        // valido: valor do admin preservado
-        f = arquivo(dir, "valido.yml", "autoteste:\n  ligado: true\n");
+        // valido e completo: valor do admin vale e o arquivo NAO e regravado (comentario dele fica)
+        String valido = "# comentario do admin\nautoteste:\n  ligado: true\n";
+        f = arquivo(dir, "valido.yml", valido);
+        long mtime = f.lastModified() - 5000;
+        f.setLastModified(mtime);
         c = HoshiestarConfig.carregar(f);
         v.igual(true, c.autoteste_ligado, "valido: valor do admin vale");
-        t = ler(f);
-        v.sim(t.contains("ligado: true") && t.contains("# Autoteste"), "valido: regravado com comentarios e o valor do admin");
+        v.sim(c.avisos().isEmpty() && !c.usouPadroes(), "valido: sem avisos (" + c.avisos() + ")");
+        v.igual(valido, ler(f), "valido: arquivo NAO regravado (comentario do admin fica)");
+        v.igual(mtime, f.lastModified(), "valido: data de modificacao intacta");
         c = HoshiestarConfig.carregar(f);
-        v.igual(true, c.autoteste_ligado, "valido: relido igual depois de regravar");
+        v.igual(true, c.autoteste_ligado, "valido: relido igual");
 
-        // chave faltando: entra o padrao, chave desconhecida fica
-        f = arquivo(dir, "faltando.yml", "outra:\n  coisa: 5\n");
+        // falta item (secao presente e vazia): entra o padrao e o arquivo e regravado com comentarios
+        f = arquivo(dir, "faltando.yml", "autoteste:\n");
         c = HoshiestarConfig.carregar(f);
         t = ler(f);
         v.igual(false, c.autoteste_ligado, "faltando: padrao");
-        v.sim(t.contains("ligado: false"), "faltando: chave acrescentada");
-        v.sim(t.contains("coisa: 5"), "faltando: chave desconhecida preservada");
+        v.sim(c.avisos().isEmpty(), "faltando: sem avisos (" + c.avisos() + ")");
+        v.sim(t.contains("ligado: false") && t.contains("# Autoteste"), "faltando: item acrescentado com comentario");
+
+        // chave desconhecida: aviso, padrao, arquivo intocado
+        String desconhecida = "outra:\n  coisa: 5\n";
+        f = arquivo(dir, "desconhecida.yml", desconhecida);
+        c = HoshiestarConfig.carregar(f);
+        v.igual(false, c.autoteste_ligado, "desconhecida: padrao");
+        v.sim(!c.avisos().isEmpty() && c.avisos().get(0).contains("'outra'"), "desconhecida: aviso cita a chave (" + c.avisos() + ")");
+        v.igual(desconhecida, ler(f), "desconhecida: arquivo NAO regravado");
+
+        // erro de digitacao dentro da secao: aviso cita a chave errada, padrao, arquivo intocado
+        String digitacao = "autoteste:\n  ligad: true\n";
+        f = arquivo(dir, "digitacao.yml", digitacao);
+        c = HoshiestarConfig.carregar(f);
+        v.igual(false, c.autoteste_ligado, "digitacao: padrao");
+        v.sim(!c.avisos().isEmpty() && c.avisos().get(0).contains("'autoteste.ligad'"), "digitacao: aviso cita a chave (" + c.avisos() + ")");
+        v.igual(digitacao, ler(f), "digitacao: arquivo NAO regravado");
+
+        // secao no formato errado ("autoteste: true"): aviso, padrao, arquivo intocado (achado R1 da revisao)
+        String escalar = "autoteste: true\n";
+        f = arquivo(dir, "escalar.yml", escalar);
+        c = HoshiestarConfig.carregar(f);
+        v.igual(false, c.autoteste_ligado, "escalar: padrao");
+        v.sim(c.avisos().size() == 2 && c.avisos().get(0).contains("'autoteste' deveria ser uma secao")
+                && c.avisos().get(0).contains("ligado"), "escalar: aviso explica o formato (" + c.avisos() + ")");
+        v.igual(escalar, ler(f), "escalar: arquivo NAO regravado");
+
+        f = arquivo(dir, "lista-secao.yml", "autoteste:\n- ligado\n");
+        c = HoshiestarConfig.carregar(f);
+        v.sim(!c.autoteste_ligado && !c.avisos().isEmpty(), "lista no lugar da secao: padrao e aviso");
 
         // valor invalido: padrao, aviso, arquivo intocado
         String invalido = "# meu comentario\nautoteste:\n  ligado: talvez\n";
