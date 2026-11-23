@@ -82,7 +82,8 @@ a medida tem que ser feita em produção, por um mod pequeno e só de leitura:
 - Pronto quando: sobe com o modpack real; desligado, não altera o tick; ligado, aponta corretamente blocos de teste colocados por comando; revisado por outro agente.
 - Entrega: jar para o admin e roteiro de uma página.
 - **Mudança (2026-11-22, correção do admin):** o medidor deixa de ser mod separado e passa a ser parte do `server.jar`, com os mesmos comandos. A versão em mod abaixo fica só como histórico até o porte terminar.
-- **Feito** (2026-11-22): versão 1.0.4 em `medidor/`, roteiro em `medidor/ROTEIRO-ADMIN.md`. Teste independente no modpack real aprovado, com e sem o `Akashic-World-Firewall`. O custo com o medidor desligado não pôde ser separado do ruído do servidor ocioso (não verificado numericamente; conferido no bytecode: uma leitura de variável por gancho).
+- **Porte feito (2026-11-23):** o medidor está em `servidor/` (pacote `hoshiestar.medidor`), roteiro em `servidor/src/docs/ROTEIRO-MEDIDOR.md`; a pasta `medidor/` saiu do repositório.
+- **Histórico** (2026-11-22): versão 1.0.4 em `medidor/`, roteiro em `medidor/ROTEIRO-ADMIN.md`. Teste independente no modpack real aprovado, com e sem o `Akashic-World-Firewall`. O custo com o medidor desligado não pôde ser separado do ruído do servidor ocioso (não verificado numericamente; conferido no bytecode: uma leitura de variável por gancho).
 
 ### Critério de saída da Etapa 0
 1. Ambiente reproduzível ✅
