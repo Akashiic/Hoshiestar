@@ -22,6 +22,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * O observador da Etapa 2 (recurso "observador"): quando o admin manda ({@code hoshie observar <segundos>}), anota, em
@@ -41,7 +42,11 @@ public final class Observador {
     public static final int SEG_MAX = 3600;
     public static final int SEG_PADRAO = 300;
 
-    /** Verdadeiro so enquanto observa. Escrito so pela thread do servidor. */
+    /**
+     * Verdadeiro so enquanto observa. Escrito so pela thread do servidor. Nao e volatil de proposito (o teste dos ganchos
+     * fica o mais barato possivel): outra thread pode ver a mudanca com atraso, o que so muda a contagem dela (m7 da
+     * revisao de concorrencia). Quem decide algo fora da thread do servidor usa {@link #N}.
+     */
     public static boolean ATIVO;
 
     /**
@@ -68,12 +73,46 @@ public final class Observador {
     // ---- estado ----
     private static final AtomicInteger pedido = new AtomicInteger();
     private static volatile boolean montandoIndice;
+    /**
+     * Cobre "montandoIndice" e "cancelarIndice" (o 'parar' e o fim da montagem nao podem se cruzar sem um ver o outro) e,
+     * desde a revisao de concorrencia (m3), todo "conferir e agir" do pedido: o corpo do comando e a aplicacao do pedido no
+     * inicio do tick. Dentro dela so ha escrita de campo, criar thread e (na thread do servidor) iniciar/finalizar; ninguem
+     * espera nada com ela na mao. O tick so a pega quando ha pedido (um teste de campo atomico antes).
+     */
+    private static final Object TRAVA_INDICE = new Object();
+    /** 'hoshie observar parar' chegou enquanto o indice era montado: a observacao nao comeca (so sob TRAVA_INDICE). */
+    private static boolean cancelarIndice;
+    /**
+     * Hoshiestar (m8 da revisao de concorrencia): prazo da montagem do indice de jars. Se a thread do indice travar (a
+     * leitura de um jar que nao volta), um novo 'observar' depois deste prazo abandona a montagem velha em vez de o
+     * observador recusar pedidos ate reiniciar. Cada montagem tem um numero; a abandonada nao pede nem cancela nada.
+     * Os dois campos so sob TRAVA_INDICE.
+     */
+    static final long PRAZO_INDICE_NS = 120L * 1000000000L;
+    private static int geracaoIndice;
+    private static long indiceDesdeNs;
+    /** Para os testes: roda na thread do indice, depois de montado e antes de pedir a observacao. */
+    static volatile Runnable antesDePedirDoIndice;
     private static volatile String ultimoResultado;
     private static volatile Thread gravacao;
     /** A thread que iniciou a observacao (a do servidor: so ela roda inicioTickServidor); so ela finaliza. */
     private static volatile Thread threadDaObservacao;
-    /** Motivo do pedido de parada feito por outra thread (falha interna); lido pelo inicio do tick. */
-    private static volatile String motivoDoPedido;
+    /**
+     * Pedido de parada feito por outra thread (falha interna), com o nucleo da observacao que falhou: o inicio do tick so
+     * para se a observacao de pe ainda for essa (m2 da revisao de concorrencia). Nao passa por {@link #pedido}: assim um
+     * gancho antigo nao para a observacao seguinte nem apaga um pedido de inicio.
+     */
+    private static final AtomicReference<PedidoDeFalha> falhaPedida = new AtomicReference<PedidoDeFalha>();
+
+    private static final class PedidoDeFalha {
+        final Nucleo n;
+        final String motivo;
+
+        PedidoDeFalha(Nucleo n, String motivo) {
+            this.n = n;
+            this.motivo = motivo;
+        }
+    }
     private static long prazoNs;
     private static long inicioNs;
     private static int segundosPedidos;
@@ -131,10 +170,15 @@ public final class Observador {
         donos = null;
         usarIndiceDeJars = true;
         relogio = Nucleo.SISTEMA;
-        montandoIndice = false;
+        synchronized (TRAVA_INDICE) {
+            montandoIndice = false;
+            cancelarIndice = false;
+            geracaoIndice++; // uma montagem que sobrou de outro teste nao pede nada
+        }
+        antesDePedirDoIndice = null;
         ultimoResultado = null;
         threadDaObservacao = null;
-        motivoDoPedido = null;
+        falhaPedida.set(null);
         aguardarGravacao(5000);
     }
 
@@ -169,11 +213,19 @@ public final class Observador {
             return r;
         }
         if (a.equals("parar")) {
-            if (!ATIVO && pedido.get() <= 0 && !montandoIndice) {
-                r.add("Nao ha observacao em andamento.");
-                return r;
+            synchronized (TRAVA_INDICE) {
+                if (montandoIndice) {
+                    cancelarIndice = true; // a thread do indice ainda vai pedir a observacao: avisa que nao
+                    r.add("Pedido cancelado: a observacao nao vai comecar (o indice de jars ainda estava sendo montado).");
+                    return r;
+                }
+                // Hoshiestar (m3): N e volatil (ATIVO nao e); conferir e pedir sob a mesma trava que o inicio do tick usa
+                if (N == null && pedido.get() <= 0) {
+                    r.add("Nao ha observacao em andamento.");
+                    return r;
+                }
+                pedido.set(-1);
             }
-            pedido.set(-1);
             r.add("Pedido de parada enviado: o relatorio sai no proximo tick.");
             return r;
         }
@@ -188,23 +240,39 @@ public final class Observador {
             r.add("Segundos fora da faixa " + SEG_MIN + "-" + SEG_MAX + ": " + s);
             return r;
         }
-        if (ATIVO || pedido.get() > 0 || montandoIndice) {
-            r.add("Ja ha uma observacao em andamento ou pedida. Use 'hoshie observar status' ou 'hoshie observar parar'.");
-            return r;
-        }
-        if (donos == null && usarIndiceDeJars) {
-            montarIndiceEPedir(s);
-            r.add("Montando o indice de jars (alguns segundos, em outra thread); a observacao de " + s
-                    + " s comeca sozinha no tick seguinte.");
-        } else {
-            pedido.set(s);
-            r.add("Observacao de " + s + " s pedida: comeca no proximo tick.");
+        // Hoshiestar (m3): conferir e agir sob a trava; dois 'observar' juntos (console e RCON) nao passam os dois
+        synchronized (TRAVA_INDICE) {
+            boolean indiceTravado = montandoIndice && relogio.nano() - indiceDesdeNs > PRAZO_INDICE_NS;
+            if (N != null || pedido.get() > 0 || (montandoIndice && !indiceTravado)) {
+                r.add("Ja ha uma observacao em andamento ou pedida. Use 'hoshie observar status' ou 'hoshie observar parar'.");
+                return r;
+            }
+            if (indiceTravado) {
+                geracaoIndice++; // a montagem velha, se um dia terminar, nao pede nem cancela nada
+                montandoIndice = false;
+                r.add("A montagem anterior do indice de jars nao terminou em " + PRAZO_INDICE_NS / 1000000000L
+                        + " s e foi abandonada (veja o log; a thread dela pode ter travado lendo um jar).");
+            }
+            if (donos == null && usarIndiceDeJars) {
+                montarIndiceEPedir(s);
+                r.add("Montando o indice de jars (alguns segundos, em outra thread); a observacao de " + s
+                        + " s comeca sozinha no tick seguinte.");
+            } else {
+                pedido.set(s);
+                r.add("Observacao de " + s + " s pedida: comeca no proximo tick.");
+            }
         }
         return r;
     }
 
     private static void montarIndiceEPedir(final int segundos) {
-        montandoIndice = true;
+        final int minha;
+        synchronized (TRAVA_INDICE) {
+            montandoIndice = true;
+            cancelarIndice = false;
+            minha = ++geracaoIndice;
+            indiceDesdeNs = relogio.nano();
+        }
         Thread t = new Thread("Hoshiestar observador indice") {
             @Override
             public void run() {
@@ -229,12 +297,34 @@ public final class Observador {
                     };
                     Log.de(ID).i("indice de jars montado: " + ind.jars() + " jars, " + ind.pacotes() + " pacotes em "
                             + ind.msParaMontar() + " ms");
-                    pedido.set(segundos);
+                    Runnable gancho = antesDePedirDoIndice;
+                    if (gancho != null) {
+                        gancho.run();
+                    }
+                    synchronized (TRAVA_INDICE) {
+                        if (minha != geracaoIndice) {
+                            return; // abandonada pelo prazo (m8): o indice fica, o pedido nao
+                        }
+                        if (cancelarIndice) {
+                            ultimoResultado = "cancelado: 'hoshie observar parar' chegou durante a montagem do indice de jars";
+                        } else {
+                            pedido.set(segundos);
+                        }
+                        montandoIndice = false;
+                    }
                 } catch (Throwable e) {
                     Log.de(ID).e("nao consegui montar o indice de jars; a observacao nao comecou", e);
-                    ultimoResultado = "nao comecou: erro ao montar o indice de jars (" + e.getClass().getSimpleName() + ")";
+                    synchronized (TRAVA_INDICE) {
+                        if (minha == geracaoIndice) {
+                            ultimoResultado = "nao comecou: erro ao montar o indice de jars (" + e.getClass().getSimpleName() + ")";
+                        }
+                    }
                 } finally {
-                    montandoIndice = false;
+                    synchronized (TRAVA_INDICE) {
+                        if (minha == geracaoIndice) {
+                            montandoIndice = false;
+                        }
+                    }
                 }
             }
         };
@@ -246,7 +336,7 @@ public final class Observador {
     public static List<String> status() {
         List<String> r = new ArrayList<String>();
         Nucleo n = N;
-        if (ATIVO && n != null) {
+        if (n != null) { // Hoshiestar (m3): N e volatil; ATIVO nao e (o comando pode vir de outra thread)
             long restanteNs = prazoNs - relogio.nano();
             r.add("Observando: " + n.ticks() + " ticks, " + n.acessosCompletos() + " acessos registrados, "
                     + n.leiturasRapidas() + " leituras na mesma secao, " + n.cargasDeChunk() + " cargas de chunk, "
@@ -270,7 +360,7 @@ public final class Observador {
     /** A linha de estado do recurso (status e boot). */
     public static String linhaDeEstado() {
         Nucleo n = N;
-        if (ATIVO && n != null) {
+        if (n != null) { // Hoshiestar (m3): N e volatil; ATIVO nao e (o comando pode vir de outra thread)
             return "observando (" + n.ticks() + " ticks, custo estimado " + String.format(Locale.ROOT, "%.2f", n.custoMedioPct()) + "%)";
         }
         return "parado (use hoshie observar <segundos>); amostra de pilha 1 em " + amostraPilha + ", limite de custo "
@@ -284,15 +374,24 @@ public final class Observador {
 
     /** Primeira coisa de MinecraftServer.tick (depois dos relogios): aplica pedidos e abre o tick do observador. */
     public static void inicioTickServidor() {
-        int p = pedido.get();
-        if (p != 0) {
-            pedido.set(0);
-            if (p > 0) {
-                iniciar(p);
-            } else if (ATIVO) {
-                String m = motivoDoPedido;
-                motivoDoPedido = null;
-                finalizar(m != null ? m : "parado pelo comando", false);
+        if (falhaPedida.get() != null) {
+            PedidoDeFalha f = falhaPedida.getAndSet(null); // sempre solta o nucleo guardado
+            Nucleo atual = N;
+            if (f != null && atual != null && f.n == atual) {
+                finalizar(f.motivo, false);
+            }
+        }
+        if (pedido.get() != 0) {
+            // Hoshiestar: le e zera de uma vez so (m1 da revisao de concorrencia). Com get() e depois set(0), um 'parar' que
+            // chegasse entre os dois era apagado e o admin lia "enviado" com a observacao seguindo.
+            // sob a trava do comando (m3): entre zerar o pedido e publicar N, nenhum comando confere o estado
+            synchronized (TRAVA_INDICE) {
+                int p = pedido.getAndSet(0);
+                if (p > 0) {
+                    iniciar(p);
+                } else if (p < 0 && ATIVO) {
+                    finalizar("parado pelo comando", false);
+                }
             }
         }
         if (ATIVO) {
@@ -322,7 +421,7 @@ public final class Observador {
             try {
                 n.tirarFoto(j.fotografar());
             } catch (Throwable t) {
-                falha("a foto das regioes falhou", t);
+                falha(n, "a foto das regioes falhou", t);
                 return;
             }
         }
@@ -330,7 +429,7 @@ public final class Observador {
             try {
                 j.conferirListas(n.lista);
             } catch (Throwable t) {
-                falha("a conferencia das listas de tiles falhou", t);
+                falha(n, "a conferencia das listas de tiles falhou", t);
                 return;
             }
         }
@@ -342,7 +441,11 @@ public final class Observador {
         }
     }
 
-    /** Parada normal do servidor: grava o que ja tem e espera a gravacao terminar (ate 10 s). */
+    /**
+     * Parada normal do servidor: grava o que ja tem e espera a gravacao terminar (ate 10 s). Roda antes do stopServer():
+     * com parada.ligado, parada.espera_laco_segundos precisa cobrir essa espera (m5; ver src/docs/observador.md, 8.1).
+     * Nao roda se o laco de tick cair por excecao (m6).
+     */
     public static void encerrarNoDesligamento() {
         if (ATIVO) {
             finalizar("o servidor foi parado", true);
@@ -353,23 +456,35 @@ public final class Observador {
     /**
      * Erro interno do observador: desliga e grava o que tem (nunca derruba o tick). So a thread do servidor finaliza
      * (as tabelas T1/T2 sao dela); vindo de outra thread, so registra no log e pede a parada para o proximo tick.
+     * {@code n} = o nucleo que o gancho tinha na mao (null = nao chegou a ler): outra thread so pede a parada da
+     * observacao desse nucleo, e so se ela ainda for a que esta de pe.
      */
-    static void falha(String quando, Throwable t) {
+    static void falha(Nucleo n, String quando, Throwable t) {
+        // Hoshiestar (m4 da revisao de concorrencia): o log e a montagem do motivo ficam num try proprio. Se eles lancarem
+        // em outra thread, o pedido de parada sai assim mesmo e ATIVO nao e tocado: so a thread do servidor escreve ATIVO
+        // (antes, um erro aqui escrevia ATIVO = false de qualquer thread e a observacao nunca era finalizada nem gravada).
+        final boolean daObservacao = Thread.currentThread() == threadDaObservacao;
+        String motivo = "erro interno: " + quando;
         try {
+            motivo = motivo + " (" + t.getClass().getSimpleName() + ")";
             Log.de(ID).e("erro no observador (" + quando + "); parando e gravando o que ja tem", t);
-            String motivo = "erro interno: " + quando + " (" + t.getClass().getSimpleName() + ")";
-            if (Thread.currentThread() != threadDaObservacao) {
-                if (ATIVO) {
-                    motivoDoPedido = motivo;
-                    pedido.set(-1);
+        } catch (Throwable ignorado) {
+            // segue: parar nao depende do log
+        }
+        try {
+            if (!daObservacao) {
+                if (n != null && n == N) {
+                    falhaPedida.compareAndSet(null, new PedidoDeFalha(n, motivo)); // a primeira falha fica
                 }
                 return;
             }
-            if (ATIVO) {
+            if (ATIVO && (n == null || n == N)) {
                 finalizar(motivo, false);
             }
         } catch (Throwable ignorado) {
-            ATIVO = false;
+            if (daObservacao) {
+                ATIVO = false;
+            }
         }
     }
 
@@ -394,7 +509,6 @@ public final class Observador {
         inicioTexto = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(new Date());
         N = n;
         threadDaObservacao = Thread.currentThread();
-        motivoDoPedido = null;
         ATIVO = true;
         Log.de(ID).i("observacao iniciada por " + segundos + " s (amostra de pilha 1 em " + amostraPilha + ", limite de custo "
                 + limiteCustoPct + "%)");

@@ -13,7 +13,7 @@ o commit do upstream + as nossas mudanças, nunca uma cópia da árvore do Cruci
 | `src/` | arquivos **novos** nossos, nos mesmos caminhos em que entram na árvore do fork (`src/main/java/hoshiestar/...`, `src/mods/java/...`, `src/test/...`, `src/docs/` com o doc de cada recurso) |
 | `build.sh` | constrói o jar a partir de um clone limpo do upstream + esta pasta (ou num workspace já pronto) |
 | `exportar.sh` | copia os commits de um workspace para `patches/` e `src/` (determinístico) |
-| `gerar-patches.sh` | roda o `genPatches` do upstream e desfaz o ruído de cabeçalho |
+| `gerar-patches.sh` | roda o `genPatches` do upstream e desfaz o ruído de cabeçalho (`--mods <pasta mods/>` repassa a pasta de mods ao Gradle; também lê `HOSHIE_MODS`) |
 | `test.sh` | todos os testes isolados (fora do jogo): os gerais, os de cada recurso e os com mods |
 | `ferramentas/github-raw.init.gradle` | contorno opcional para proxy que recusa `github.com/.../raw/...` |
 
@@ -39,6 +39,7 @@ medidor vem `habilitado: true`, mas só mede quando o admin manda (`hoshie medir
 | `betterquesting` | BetterQuesting: pula as checagens de inventário que comprovadamente não mudam nada (correção embutida) | `betterquesting.modo` (`desligado`; ou `verificar`, `ligado`) | `relatorio` | `src/docs/betterquesting.md` |
 | `arsmagica` | Ars Magica 2: pula a varredura de mundos e a checagem do DiluteTime quando os mapas do AM2 estão vazios (correção embutida) | `arsmagica.varredura` e `arsmagica.diluicao` (false) | `estatistica` | `src/docs/arsmagica.md` |
 | `chromaticraft` | ChromatiCraft: limites na habilidade de mover área (correção embutida) | `chromaticraft.ligado` (false) | `intervalo`, `distancia`, `volume`, `altura`, `chunks`, `mensagem`, `loglento`, `logsegundos` | `src/docs/chromaticraft.md` |
+| `observador` | observador de acessos entre regiões (`hoshie observar <s>` / `parar` / `status`; só anota quando o admin manda; patches em World, WorldServer, Chunk, ChunkProviderServer, TileEntityHopper, EntityPlayerMP, MinecraftServer): quem toca onde entre regiões do mapa, para a decisão da Etapa 2; protótipo opcional da lista de tiles | `observador.ligado` (false) | `amostra_pilha`, `limite_custo_pct`, `lista` | `src/docs/observador.md` |
 | `autoteste` | autoteste das correções embutidas (OpenBlocks) | `autoteste.ligado` (false) | | seção 5 abaixo |
 
 O `hoshie status` lista os recursos (o `mekanism` só aparece com o Mekanism presente) e o estado de cada
@@ -146,7 +147,7 @@ upstream guarda essas mudanças como `.patch` em `patches/` e o código editáve
 ```bash
 # 1. edite eclipse/cauldron/src/main/java/net/minecraft/server/MinecraftServer.java, com // Hoshiestar
 # 2. gere o patch com a tarefa do upstream (genPatches) e desfaca o ruido de cabecalho:
-servidor/gerar-patches.sh <workspace> --github-raw
+servidor/gerar-patches.sh <workspace> --github-raw --mods <pasta mods/>
 # 3. commit do patches/net/minecraft/server/MinecraftServer.java.patch
 ```
 

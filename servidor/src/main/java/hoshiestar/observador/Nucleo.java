@@ -14,6 +14,7 @@ package hoshiestar.observador;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 
@@ -103,6 +104,10 @@ public final class Nucleo {
     static final int TETO_T2 = 5000;
     static final int TETO_T3 = 5000;
     static final int MAX_AMOSTRAS_TICK = 20;
+    /** Teto de amostras de pilha tiradas por OUTRAS threads (T4 e lista, somadas) entre dois inicios de tick. */
+    static final int MAX_AMOSTRAS_OUTRA_TICK = 20;
+    /** Custo estimado (ns) de uma chamada contada em outra thread (tres contadores atomicos), para a valvula. */
+    static final long CUSTO_OUTRA_NS = 25;
     static final int MAX_FOTOS = 40;
     static final int PROF_MAX = 8;
     static final long INTERVALO_FOTO_NS = 30_000_000_000L;
@@ -140,6 +145,14 @@ public final class Nucleo {
     final AtomicLongArray t4 = new AtomicLongArray(16 * Mods.PASSO);
     final AtomicLong t4Total = new AtomicLong();
     private final AtomicLong t4Sorteio = new AtomicLong();
+    // Hoshiestar: orcamento das amostras de pilha de outras threads (revisao de concorrencia, I1). O inicio do tick zera;
+    // se o tick parar (por exemplo esperando uma trava que a outra thread segura), o orcamento nao volta e a outra
+    // thread deixa de pagar pilha. O tempo gasto e as chamadas entram na conta da valvula (fimTick).
+    private final AtomicInteger outraAmostrasTick = new AtomicInteger();
+    final AtomicLong outraAmostras = new AtomicLong();
+    final AtomicLong outraPilhaNs = new AtomicLong();
+    private long outraChamadasContadas;
+    private long outraPilhaNsContado;
     final List<Foto.Resumo> fotos = new ArrayList<Foto.Resumo>();
     /** Prototipo da lista de tiles (observador.lista): quem usa loadedTileEntityList de fora do World. */
     final ContagemLista lista = new ContagemLista();
@@ -176,6 +189,9 @@ public final class Nucleo {
     long tickTotalNs;
     long fotoNsTotal;
     double pctMaxJanela;
+    /** Custo estimado da primeira janela (aquecimento: foto fria e primeiras amostras de pilha). Nao conta para a valvula. */
+    double pctAquecimento;
+    private boolean aquecendo = true;
     String motivoValvula;
 
     // ---- fotos e dimensoes ----
@@ -484,9 +500,24 @@ public final class Nucleo {
         t4Total.incrementAndGet();
         int espaco = 0;
         if ((t4Sorteio.incrementAndGet() & 63) == 0) {
-            espaco = 1 + mods.id(Pilha.achar(new Throwable().getStackTrace(), donos));
+            espaco = amostraDeOutraThread();
         }
         t4.incrementAndGet((tipo & 15) * Mods.PASSO + espaco);
+    }
+
+    /**
+     * Amostra de pilha pedida por outra thread (T4 ou lista): 1 + id do mod, ou 0 se o orcamento do tick acabou (a
+     * chamada conta como "sem amostra"). Seguro entre threads; o contador passa do teto no maximo pelo numero de threads.
+     */
+    int amostraDeOutraThread() {
+        if (outraAmostrasTick.get() >= MAX_AMOSTRAS_OUTRA_TICK || outraAmostrasTick.incrementAndGet() > MAX_AMOSTRAS_OUTRA_TICK) {
+            return 0;
+        }
+        long a = System.nanoTime();
+        int id = mods.id(Pilha.achar(new Throwable().getStackTrace(), donos));
+        outraPilhaNs.addAndGet(System.nanoTime() - a);
+        outraAmostras.incrementAndGet();
+        return 1 + id;
     }
 
     private int amostrarPilha() {
@@ -561,6 +592,7 @@ public final class Nucleo {
         pilhaNsTick = 0;
         fotoNsTick = 0;
         amostrasTick = 0;
+        outraAmostrasTick.set(0);
     }
 
     /** Fim do tick. Devolve true se a valvula mandou parar (o motivo fica em {@link #motivoValvula}). */
@@ -581,6 +613,13 @@ public final class Nucleo {
         long media = amostradas > 0 ? somaAmostradaNs / amostradas : CUSTO_COMPLETA_INICIAL_NS;
         long custo = rapidasTick * CUSTO_RAPIDA_NS + entradasTick * CUSTO_ENTRADA_NS + completasTick * media
                 + pilhaNsTick + fotoNsTick + lista.custoTick();
+        // Hoshiestar: o que as outras threads pagaram desde o ultimo fim de tick (I1). Nao e tempo da thread do servidor,
+        // mas e custo do observador no processo (e a outra thread pode segurar uma trava que o tick espera).
+        long outraChamadas = t4Total.get() + lista.outraTotal.get();
+        long outraPilha = outraPilhaNs.get();
+        custo += (outraChamadas - outraChamadasContadas) * CUSTO_OUTRA_NS + (outraPilha - outraPilhaNsContado);
+        outraChamadasContadas = outraChamadas;
+        outraPilhaNsContado = outraPilha;
         custoTotalNs += custo;
         tickTotalNs += dur;
         janTicks++;
@@ -588,10 +627,19 @@ public final class Nucleo {
         janDur += dur;
         if (janTicks >= JANELA_TICKS) {
             double pct = janDur > 0 ? 100.0 * janCusto / janDur : 0.0;
-            if (pct > pctMaxJanela) {
-                pctMaxJanela = pct;
+            boolean acima = false;
+            if (aquecendo) {
+                // Hoshiestar: a primeira janela de cada observacao paga a primeira foto das regioes (41 a 73 ms com o codigo
+                // frio, D-44) e as primeiras amostras de pilha (tambem frias): isso nao e custo de regime e nao para a
+                // observacao. Ela entra nos totais; a valvula so olha da segunda janela em diante.
+                aquecendo = false;
+                pctAquecimento = pct;
+            } else {
+                if (pct > pctMaxJanela) {
+                    pctMaxJanela = pct;
+                }
+                acima = pct > limiteCustoPct && janCusto / janTicks > CUSTO_MINIMO_NS;
             }
-            boolean acima = pct > limiteCustoPct && janCusto / janTicks > CUSTO_MINIMO_NS;
             janTicks = 0;
             janCusto = 0;
             janDur = 0;

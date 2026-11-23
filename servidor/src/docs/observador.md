@@ -34,7 +34,7 @@ distância em chunks e em seções, a dimensão de origem e de destino, e se cru
 | T1 | mod do contexto, mod da pilha, contexto, acesso, faixa, mesma seção?, relação de região (mesma / outra / fora da foto / n/a), cruzou dimensão? | contagem e distância máxima | 20 000 linhas |
 | T2 | dimensão e seção de origem, dimensão e seção de destino (só os que cruzam região ou dimensão) | contagem (candidatos a "vínculo") | 5 000 pares |
 | T3 | contexto, mod do contexto, mod da pilha, onde a carga de chunk caiu (mesma seção / outra seção da mesma região / seção vazia / seção de outra região / sem origem / outra dimensão / sem foto) | contagem (frequência de carga dentro do tick) | 5 000 linhas |
-| T4 | tipo de acesso, mod da pilha (amostra 1 em 64) — acessos vindos de **outra thread** | contadores atômicos (a única parte tocada por outra thread) | fixo (16 × 4096 espaços: 0 = sem amostra, 1 + número do mod = amostrado; "(nenhum)" = amostrado sem mod) |
+| T4 | tipo de acesso, mod da pilha (amostra 1 em 64, no máximo 20 por tick somando T4 e lista) — acessos vindos de **outra thread** | contadores atômicos (a única parte tocada por outra thread) | fixo (16 × 4096 espaços: 0 = sem amostra, 1 + número do mod = amostrado; "(nenhum)" = amostrado sem mod) |
 | T5 | uma foto por 30 s: por dimensão, regiões, seções, chunks, tiles e entidades; as regiões de mais carga; os pares de regiões **com carga** mais próximos (distância em seções e a faixa em chunks) | números | 40 fotos |
 
 ## 2. Chaves do `hoshiestar.yml`
@@ -55,6 +55,10 @@ distância em chunks e em seções, a dimensão de origem e de destino, e se cru
 | `hoshie observar status` | andamento (ticks, acessos, cargas, acessos de outra thread, custo estimado, tempo que falta) e o último resultado. |
 
 O comando pode vir de outra thread (RCON): ele só deixa um número num campo; quem inicia e para é o início do tick.
+Dois comandos ao mesmo tempo (console e RCON) não passam os dois: o comando confere e pede sob uma trava. Se a montagem do
+índice de jars não terminar em 120 s, um `hoshie observar <segundos>` novo abandona a montagem velha e começa outra.
+**Não rode o medidor (`hoshie medir`) e o observador ao mesmo tempo**: o gancho do observador roda dentro da janela que o
+medidor cronometra em cada tile e o tempo do tile sairia inflado.
 A parada normal do servidor (`stop`) encerra e grava (espera a gravação até 10 s). Um erro interno do observador
 (inclusive na foto) para a observação e grava o que tem; nunca derruba o tick.
 
@@ -99,6 +103,11 @@ Akashic-World-Firewall troca a chamada): a forma da chamada não mudou.
 | `EntityPlayerMP` | `onUpdateEntity` | contexto "jogador pela rede" |
 | `MinecraftServer` | `tick` (antes/depois de `onPreServerTick` e `onPostServerTick`, início e fim do observador), `updateTimeLightAndEntities` (em volta de `mainThreadHeartbeat`, `onPreWorldTick`, `onPostWorldTick`, `networkTick`), `run` (parada) | contexto global e ciclo de vida |
 
+Contexto velho (D-39): o que o próprio servidor lê antes do gancho seguinte não pode cair no contexto anterior. Por isso o
+contexto de tick agendado fecha a cada entrada (antes do `getBlock` da próxima), o de tick aleatório fecha no fim de cada
+chunk (a checagem de luz e o `func_147467_a` do chunk seguinte ficam sem contexto), e `fimTile`/`fimEntidade` também rodam no
+`catch` do tick que lançou exceção e no fim do laço de entidades. Só trocam contexto; nada do jogo muda.
+
 Ficam de fora (caros demais e contariam em dobro): `getChunkFromChunkCoords`/`provideChunk` e `getBlockMetadata`.
 Acesso a `IInventory` não tem porta única na 1.7.10; por isso "provável inventário" (via `getTileEntity`) mais o funil.
 
@@ -119,11 +128,15 @@ Minecraft aparece no que roda na fase de coremod nem no que os testes isolados e
 - **Nunca lança**: todo gancho público tem `try/catch`; uma falha para a observação e grava (`Observador.falha`).
 - **Concorrência**: o estado do nucleo é da thread do servidor; os ganchos conferem `ThreadServidor.souAThreadDoServidor()` e
   mandam outras threads para T4 (contadores atômicos e registro de mods seguro). `ATIVO` só é escrito pela thread do
-  servidor; `N` é `volatile`. O comando só deixa um inteiro num `AtomicInteger`. **Precisa de revisão por outro agente.**
+  servidor; `N` é `volatile`. O comando só deixa um inteiro num `AtomicInteger`, sob uma trava curta que o início do tick também
+  usa quando há pedido. Revisado por outro agente em 2026-11-23 (§8.1); **as correções dessa revisão ainda não foram revisadas
+  por um terceiro agente.**
 - **Sem dado pessoal**: ver seção 4 (testado: nenhum UUID, IP, nome de classe, nem `EntityPlayer` nos relatórios).
 - **Custo**: contagem × custo medido por amostra (a cada 64 acessos completos), mais constantes para a leitura rápida (8 ns) e
   a troca de contexto (12 ns), mais o custo exato das amostras de pilha e das fotos. A válvula olha janelas de 100 ticks e
   para se passar de `limite_custo_pct` **e** de 0,25 ms por tick (não vale parar por uma folga minúscula). É estimativa.
+  O que as **outras threads** pagam também entra: 25 ns por chamada contada (constante) mais o tempo exato das amostras de
+  pilha delas (no máximo 20 por tick; se o tick parar, o orçamento não volta e a outra thread deixa de tirar pilha).
 
 ## 7. Testes isolados (um comando)
 
@@ -146,6 +159,10 @@ O `servidor/test.sh` já roda `src/test/*/teste-*.bash`. JDK 8 e 21. Resultado d
 - `TesteCorrecoesObservador` (defeitos da revisão independente): mundo coletado pelo GC depois do relatório; mod com número
   maior que 255 na T4 e na lista; `falha()` de outra thread só pede a parada (um relatório só); contexto "outro" fora da
   conta de serial.
+- `TesteRevisaoConcObservador` (achados da revisão de concorrência, §8.1): teto de 20 amostras de pilha por tick em outra
+  thread e válvula; pedido lido e zerado de uma vez (bytecode e 300 corridas); `falha()` que lança em outra thread não mexe em
+  `ATIVO`; falha de gancho antigo não para a observação seguinte nem apaga pedido de início; 30 000 rodadas de dois `observar`
+  juntos com exatamente um aceito; índice de jars travado abandonado depois do prazo.
 - `TesteObservadorConcorrencia`: 4 threads × 200 000 acessos de outra thread ao mesmo tempo que a thread do servidor
   registra: contas exatas; uma thread "RCON" mandando comandos sem parar durante `HOSHIE_ESTRESSE_S` s (padrão 5).
 - `TesteObservadorBytecode` (precisa do build rápido): 43 chamadas aos ganchos, todas atrás de `ATIVO`; padrões do Opis,
@@ -168,6 +185,44 @@ O `servidor/test.sh` já roda `src/test/*/teste-*.bash`. JDK 8 e 21. Resultado d
 - Quem de fato chama (pilha) pode não aparecer quando o código do mod é injetado por mixin em classe do Minecraft.
 - Comportamento com jogador humano de verdade, bases reais e distância real entre elas: **não verificável aqui**.
 - Protótipo da lista (§10): só testes isolados; nunca rodou num mundo de verdade (ver §10.7).
+- **Valvula de custo**: a primeira janela de 100 ticks de cada observação é de aquecimento (foto fria das regiões, primeiras
+  amostras de pilha, D-44): o custo dela entra nos totais e aparece no relatório (`pct_da_primeira_janela_aquecimento`), mas
+  só da segunda janela em diante a válvula pode parar. Um excesso real nos primeiros 100 ticks só é visto 100 ticks depois.
+- **Parar durante a montagem do índice**: `hoshie observar parar` cancela o pedido (a observação não começa).
+- **T3 não vê carga de chunk assíncrona** (achado 9 da revisão): `ChunkIOProvider.callStage2` e `CraftWorld.regenerateChunk`
+  põem chunk no mapa sem passar por `originalLoadChunk`; a T3 conta só cargas síncronas/geração (D-41).
+- **Achados menores da revisão que ficaram sem correção**: 6 (código de mod dentro de uma operação da lista não é contado: o
+  contador de profundidade é um só; só subconta), 8 (contexto aninhado do mesmo tipo perde o de fora, só no resto do tick da
+  montaria), 10 (a marca de escrita direta liga antes das checagens do `setBlock`: uma escrita direta legítima seguinte no mesmo
+  chunk pode não ser contada), 11 (o `embrulhar` copia a lista na limpeza de tiles descarregados: custo não medido) e 12 (a
+  lista pedida de dentro de um tile entra em "dentro"). Todos mexeriam no núcleo ou na lista sem teste de servidor e não mudam o
+  comportamento do jogo; ficam como limite dos dados. A chave do plano `lista_tiles` é, no código, `observador.lista` (config) e
+  o objeto `lista_tiles` (relatório).
+
+### 8.1 Revisão de concorrência (2026-11-23): o que foi corrigido e o que ficou como limite
+
+"Thread do servidor" = a que roda o laço de tick. "Válvula" = o que para a observação quando o custo estimado passa do limite.
+
+Corrigido (cada um com teste em `TesteRevisaoConcObservador`):
+- **I1** amostra de pilha em outra thread: teto de 20 por tick (T4 e lista somadas) e custo dentro da válvula. Números da
+  revisão (carga sintética, indicação): 166 a 860 ns por chamada antes da correção. Depois dela: **não medido**.
+- **m1** o início do tick lê e zera o pedido de uma vez (`getAndSet`): um `parar` não se perde mais.
+- **m2** `falha()` recebe o núcleo do gancho; de outra thread só pede a parada daquela observação, num campo próprio.
+- **m3** o comando confere e age sob trava; `parar` e `status` usam `N` (volátil) no lugar de `ATIVO`.
+- **m4** `falha()` não escreve `ATIVO` de outra thread.
+- **m8** prazo de 120 s na montagem do índice de jars.
+
+Limites que ficaram (sem mudança de código):
+- **m5** Na parada, a thread do servidor espera a gravação do observador por até 10 s (e a do medidor por até 5 s) **antes**
+  do `stopServer()`. Para o recurso `parada` isso ainda é "o laço não parou". Com `parada.ligado: true`, use
+  `parada.espera_laco_segundos` de **20 ou mais** (o padrão é 60) se for parar o servidor com observação ou medição de pé; com
+  valor menor e gravação lenta o gancho de parada pode desistir e salvar ele mesmo. O limite do vigia do Spigot
+  (`WatchdogThread`) nessa espera não foi conferido.
+- **m6** Se o laço de tick cair por exceção, a observação em andamento **não é gravada** (o encerramento só roda na saída
+  normal do laço; mesmo limite do medidor). Não mexemos no caminho de queda do `MinecraftServer` sem teste de servidor.
+- **m7** `ATIVO` não é volátil (para o teste de campo nos ganchos custar o mínimo). Outra thread num laço quente pode demorar
+  a ver a mudança: a T4 pode contar a menos no começo da observação. Só afeta a contagem.
+- **m9** Medidor e observador juntos: o tempo de tile do medidor inclui o gancho do observador. Não rodar os dois juntos.
 
 ## 9. Plano de teste no modpack (para o agente que ligar o servidor)
 
@@ -178,6 +233,8 @@ O `servidor/test.sh` já roda `src/test/*/teste-*.bash`. JDK 8 e 21. Resultado d
    de uma seção e máquinas de mod por comando: `hoshie observar 120`; ler `.json`/`.txt`; conferir que o relatório tem acessos que
    cruzam seção, T2 e T5, e nenhum dado pessoal; `hoshie observar status` durante.
 4. Parada no meio: `hoshie observar 600` e `stop` no console; o relatório tem de sair com `parou_no_meio`.
+   Com `parada.ligado: true`, repetir com SIGTERM (item 1.G) e observação de pé: o relatório sai e o log da parada não mostra
+   desistência (§8.1, m5). Dois `hoshie observar 60` seguidos (console e RCON): o segundo é recusado.
 5. Custo: mesma cópia, três rodadas de 10 min (jar 1.0.0, Hoshiestar desligado, ligado), tempo de tick pelo relógio do vigia/medidor e
    `jcmd <pid> JFR.start duration=600s filename=...` em cada uma; comparar mediana, p95 e as amostras de CPU em `hoshiestar.observador`.
 6. Bot (`tools/test_bot.py`) conectando e andando enquanto observa (contexto "jogador pela rede" aparece, sem nome).
@@ -220,7 +277,7 @@ cada região só a parte dela) sem quebrar mods? Antes de construir isso, o prot
   O iterador devolvido a quem chamou de fora é embrulhado num que delega tudo e só conta `remove`/`add`/`set`.
 - Amostra de pilha (classe.método chamador, mod da pilha, mod do contexto): **toda** modificação de fora e as leituras 1 em
   `amostra_pilha`, no máximo 20 por tick; o custo entra na válvula.
-- De outra thread: contadores atômicos por operação (mod da pilha em 1 de cada 64). Chamadas numa lista aposentada (alguém
+- De outra thread: contadores atômicos por operação (mod da pilha em 1 de cada 64, no máximo 20 amostras por tick somando com a T4). Chamadas numa lista aposentada (alguém
   guardou a referência antiga) e numa cópia (`clone`, não conta) são separadas.
 - No fim de cada tick: confere se o campo de cada mundo ainda é uma lista nossa; se não for, conta "troca de fora" e anota a
   classe achada (alguém trocou o objeto, ex.: por reflexão). Nada é desfeito: só anota.

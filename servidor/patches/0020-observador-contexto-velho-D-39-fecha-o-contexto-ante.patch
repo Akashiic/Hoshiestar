@@ -1,0 +1,497 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Mon, 23 Nov 2026 17:19:42 +0000
+Subject: [PATCH 20/20] observador: contexto velho (D-39): fecha o contexto
+ antes do getBlock da proxima entrada agendada, no fim de cada chunk do tick
+ aleatorio, na excecao do tile e da entidade e no fim do laco de entidades;
+ teste de bytecode
+
+
+diff --git a/patches/net/minecraft/world/World.java.patch b/patches/net/minecraft/world/World.java.patch
+index 0aeabc16..8cfae269 100644
+--- a/patches/net/minecraft/world/World.java.patch
++++ b/patches/net/minecraft/world/World.java.patch
+@@ -1031,7 +1031,7 @@
+  
+              if (entity.ridingEntity != null)
+              {
+-@@ -1884,7 +2449,10 @@
++@@ -1884,10 +2449,14 @@
+              {
+                  try
+                  {
+@@ -1042,7 +1042,11 @@
+                  }
+                  catch (Throwable throwable1)
+                  {
+-@@ -1916,30 +2484,92 @@
+++                    if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimEntidade(true); // Hoshiestar - observador: o tick da entidade lancou excecao: fecha o contexto (o fimEntidade do caminho normal nao rodou)
++                     crashreport = CrashReport.makeCrashReport(throwable1, "Ticking entity");
++                     crashreportcategory = crashreport.makeCategory("Entity being ticked");
++                     entity.addEntityCrashInfo(crashreportcategory);
++@@ -1916,30 +2485,94 @@
+                  {
+                      this.getChunkFromChunkCoords(j, l).removeEntity(entity);
+                  }
+@@ -1057,6 +1061,7 @@
+              this.theProfiler.endSection();
+          }
+ +        hoshiestar.vigia.Marcas.entidade(null); // Hoshiestar - vigia: fim do laco de entidades
+++        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimEntidade(true); // Hoshiestar - observador: fim do laco de entidades (nada de contexto de entidade sobra para o resto do tick)
+  
+ +        timings.entityTick.stopTiming(); // Spigot
+          this.theProfiler.endStartSection("blockEntities");
+@@ -1139,10 +1144,11 @@
+                  catch (Throwable throwable)
+                  {
+ +                    tileentity.tickTimer.stopTiming(); // Spigot
+++                    if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimTile(); // Hoshiestar - observador: o update lancou excecao: fecha o contexto do tile (o fimTile do caminho normal nao rodou)
+                      crashreport = CrashReport.makeCrashReport(throwable, "Ticking block entity");
+                      crashreportcategory = crashreport.makeCategory("Block entity being ticked");
+                      tileentity.func_145828_a(crashreportcategory);
+-@@ -1955,23 +2585,15 @@
++@@ -1955,23 +2588,15 @@
+                      }
+                  }
+              }
+@@ -1173,7 +1179,7 @@
+          if (!this.field_147483_b.isEmpty())
+          {
+              for (Object tile : field_147483_b)
+-@@ -1981,6 +2603,7 @@
++@@ -1981,6 +2606,7 @@
+              this.loadedTileEntityList.removeAll(this.field_147483_b);
+              this.field_147483_b.clear();
+          }
+@@ -1181,7 +1187,7 @@
+  
+          this.field_147481_N = false;
+  
+-@@ -1992,14 +2615,14 @@
++@@ -1992,14 +2618,14 @@
+              {
+                  TileEntity tileentity1 = (TileEntity)this.addedTileEntityList.get(k);
+  
+@@ -1198,7 +1204,7 @@
+                  {
+                      if (this.chunkExists(tileentity1.xCoord >> 4, tileentity1.zCoord >> 4))
+                      {
+-@@ -2015,18 +2638,29 @@
++@@ -2015,18 +2641,29 @@
+  
+              this.addedTileEntityList.clear();
+          }
+@@ -1231,7 +1237,7 @@
+      }
+  
+      public void updateEntity(Entity p_72870_1_)
+-@@ -2036,11 +2670,18 @@
++@@ -2036,11 +2673,18 @@
+  
+      public void updateEntityWithOptionalForce(Entity p_72866_1_, boolean p_72866_2_)
+      {
+@@ -1253,7 +1259,7 @@
+  
+          if (!canUpdate)
+          {
+-@@ -2048,9 +2689,34 @@
++@@ -2048,9 +2692,34 @@
+              MinecraftForge.EVENT_BUS.post(event);
+              canUpdate = event.canUpdate;
+          }
+@@ -1289,7 +1295,7 @@
+              p_72866_1_.lastTickPosX = p_72866_1_.posX;
+              p_72866_1_.lastTickPosY = p_72866_1_.posY;
+              p_72866_1_.lastTickPosZ = p_72866_1_.posZ;
+-@@ -2134,7 +2800,10 @@
++@@ -2134,7 +2803,10 @@
+                      p_72866_1_.riddenByEntity = null;
+                  }
+              }
+@@ -1300,7 +1306,7 @@
+      }
+  
+      public boolean checkNoEntityCollision(AxisAlignedBB p_72855_1_)
+-@@ -2517,6 +3186,16 @@
++@@ -2517,6 +3189,16 @@
+              int l;
+              TileEntity tileentity1;
+  
+@@ -1317,7 +1323,7 @@
+              if (this.field_147481_N)
+              {
+                  for (l = 0; l < this.addedTileEntityList.size(); ++l)
+-@@ -2555,6 +3234,7 @@
++@@ -2555,6 +3237,7 @@
+                  }
+              }
+  
+@@ -1325,7 +1331,7 @@
+              return tileentity;
+          }
+          else
+-@@ -2565,12 +3245,13 @@
++@@ -2565,12 +3248,13 @@
+  
+      public void setTileEntity(int p_147455_1_, int p_147455_2_, int p_147455_3_, TileEntity p_147455_4_)
+      {
+@@ -1340,7 +1346,7 @@
+          {
+              if (this.field_147481_N)
+              {
+-@@ -2591,7 +3272,9 @@
++@@ -2591,7 +3275,9 @@
+              }
+              else
+              {
+@@ -1350,7 +1356,7 @@
+              }
+          }
+          Chunk chunk = this.getChunkFromChunkCoords(p_147455_1_ >> 4, p_147455_3_ >> 4);
+-@@ -2605,14 +3288,35 @@
++@@ -2605,14 +3291,35 @@
+  
+      public void removeTileEntity(int p_147475_1_, int p_147475_2_, int p_147475_3_)
+      {
+@@ -1387,7 +1393,7 @@
+      }
+  
+      public boolean func_147469_q(int p_147469_1_, int p_147469_2_, int p_147469_3_)
+-@@ -2718,7 +3422,15 @@
++@@ -2718,7 +3425,15 @@
+  
+                      if (i <= 0)
+                      {
+@@ -1404,7 +1410,7 @@
+                      }
+                  }
+  
+-@@ -2754,7 +3466,15 @@
++@@ -2754,7 +3469,15 @@
+  
+                      if (j <= 0)
+                      {
+@@ -1421,7 +1427,7 @@
+                      }
+                  }
+  
+-@@ -2777,8 +3497,41 @@
++@@ -2777,8 +3500,41 @@
+      protected void setActivePlayerChunksAndCheckLight()
+      {
+          this.activeChunkSet.clear();
+@@ -1464,7 +1470,7 @@
+          int i;
+          EntityPlayer entityplayer;
+          int j;
+-@@ -2788,17 +3541,28 @@
++@@ -2788,17 +3544,28 @@
+          for (i = 0; i < this.playerEntities.size(); ++i)
+          {
+              entityplayer = (EntityPlayer)this.playerEntities.get(i);
+@@ -1499,7 +1505,7 @@
+          }
+  
+          this.theProfiler.endSection();
+-@@ -2810,7 +3574,7 @@
++@@ -2810,7 +3577,7 @@
+  
+          this.theProfiler.startSection("playerCheckLight");
+  
+@@ -1508,7 +1514,7 @@
+          {
+              i = this.rand.nextInt(this.playerEntities.size());
+              entityplayer = (EntityPlayer)this.playerEntities.get(i);
+-@@ -3034,9 +3798,9 @@
++@@ -3034,9 +3801,9 @@
+          }
+      }
+  
+@@ -1520,7 +1526,7 @@
+          {
+              return false;
+          }
+-@@ -3166,6 +3930,28 @@
++@@ -3166,6 +3933,28 @@
+                  }
+              }
+  
+@@ -1549,7 +1555,7 @@
+              this.theProfiler.endSection();
+              return true;
+          }
+-@@ -3188,7 +3974,7 @@
++@@ -3188,7 +3977,7 @@
+  
+      public List getEntitiesWithinAABBExcludingEntity(Entity p_94576_1_, AxisAlignedBB p_94576_2_, IEntitySelector p_94576_3_)
+      {
+@@ -1558,7 +1564,7 @@
+          int i = MathHelper.floor_double((p_94576_2_.minX - MAX_ENTITY_RADIUS) / 16.0D);
+          int j = MathHelper.floor_double((p_94576_2_.maxX + MAX_ENTITY_RADIUS) / 16.0D);
+          int k = MathHelper.floor_double((p_94576_2_.minZ - MAX_ENTITY_RADIUS) / 16.0D);
+-@@ -3219,7 +4005,7 @@
++@@ -3219,7 +4008,7 @@
+          int j = MathHelper.floor_double((p_82733_2_.maxX + MAX_ENTITY_RADIUS) / 16.0D);
+          int k = MathHelper.floor_double((p_82733_2_.minZ - MAX_ENTITY_RADIUS) / 16.0D);
+          int l = MathHelper.floor_double((p_82733_2_.maxZ + MAX_ENTITY_RADIUS) / 16.0D);
+@@ -1567,7 +1573,7 @@
+  
+          for (int i1 = i; i1 <= j; ++i1)
+          {
+-@@ -3284,8 +4070,21 @@
++@@ -3284,8 +4073,21 @@
+          {
+              Entity entity = (Entity)this.loadedEntityList.get(j);
+  
+@@ -1590,7 +1596,7 @@
+                  ++i;
+              }
+          }
+-@@ -3298,6 +4097,7 @@
++@@ -3298,6 +4100,7 @@
+          for (int i = 0; i < p_72868_1_.size(); ++i)
+          {
+              Entity entity = (Entity)p_72868_1_.get(i);
+@@ -1598,7 +1604,7 @@
+              if (!MinecraftForge.EVENT_BUS.post(new EntityJoinWorldEvent(entity, this)))
+              {
+                  loadedEntityList.add(entity);
+-@@ -3314,8 +4114,17 @@
++@@ -3314,8 +4117,17 @@
+      public boolean canPlaceEntityOnSide(Block p_147472_1_, int p_147472_2_, int p_147472_3_, int p_147472_4_, boolean p_147472_5_, int p_147472_6_, Entity p_147472_7_, ItemStack p_147472_8_)
+      {
+          Block block1 = this.getBlock(p_147472_2_, p_147472_3_, p_147472_4_);
+@@ -1617,7 +1623,7 @@
+      }
+  
+      public PathEntity getPathEntityToEntity(Entity p_72865_1_, Entity p_72865_2_, float p_72865_3_, boolean p_72865_4_, boolean p_72865_5_, boolean p_72865_6_, boolean p_72865_7_)
+-@@ -3464,6 +4273,12 @@
++@@ -3464,6 +4276,12 @@
+          for (int i = 0; i < this.playerEntities.size(); ++i)
+          {
+              EntityPlayer entityplayer1 = (EntityPlayer)this.playerEntities.get(i);
+@@ -1630,7 +1636,7 @@
+              double d5 = entityplayer1.getDistanceSq(p_72977_1_, p_72977_3_, p_72977_5_);
+  
+              if ((p_72977_7_ < 0.0D || d5 < p_72977_7_ * p_72977_7_) && (d4 == -1.0D || d5 < d4))
+-@@ -3489,7 +4304,12 @@
++@@ -3489,7 +4307,12 @@
+          for (int i = 0; i < this.playerEntities.size(); ++i)
+          {
+              EntityPlayer entityplayer1 = (EntityPlayer)this.playerEntities.get(i);
+@@ -1644,7 +1650,7 @@
+              if (!entityplayer1.capabilities.disableDamage && entityplayer1.isEntityAlive())
+              {
+                  double d5 = entityplayer1.getDistanceSq(p_72846_1_, p_72846_3_, p_72846_5_);
+-@@ -3660,6 +4480,18 @@
++@@ -3660,6 +4483,18 @@
+  
+      public void updateAllPlayersSleepingFlag() {}
+  
+@@ -1663,7 +1669,7 @@
+      public float getWeightedThunderStrength(float p_72819_1_)
+      {
+          return (this.prevThunderingStrength + (this.thunderingStrength - this.prevThunderingStrength) * p_72819_1_) * this.getRainStrength(p_72819_1_);
+-@@ -3932,11 +4764,14 @@
++@@ -3932,11 +4767,14 @@
+       */
+      public void addTileEntity(TileEntity entity)
+      {
+@@ -1680,7 +1686,7 @@
+      }
+  
+      /**
+-@@ -4029,4 +4864,132 @@
++@@ -4029,4 +4867,132 @@
+          }
+          return count;
+      }
+diff --git a/patches/net/minecraft/world/WorldServer.java.patch b/patches/net/minecraft/world/WorldServer.java.patch
+index f9304917..70a7e29d 100644
+--- a/patches/net/minecraft/world/WorldServer.java.patch
++++ b/patches/net/minecraft/world/WorldServer.java.patch
+@@ -371,7 +371,7 @@
+                  }
+  
+                  if (this.isRaining())
+-@@ -388,6 +560,8 @@
++@@ -388,14 +560,24 @@
+                          if (block.getTickRandomly())
+                          {
+                              ++i;
+@@ -380,11 +380,12 @@
+                              block.updateTick(this, j2 + k, l2 + extendedblockstorage.getYLocation(), k2 + l, this.rand);
+                          }
+                      }
+-@@ -396,6 +570,14 @@
++                 }
++             }
+  
+++            if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimTickAleatorio(); // Hoshiestar - observador: fim do contexto de tick aleatorio, por chunk (a luz e o func_147467_a do chunk seguinte nao sao do ultimo bloco sorteado)
+              this.theProfiler.endSection();
+          }
+-+        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimTickAleatorio(); // Hoshiestar - observador: fim do contexto de tick aleatorio
+ +        // Spigot Start
+ +        if (this.getSpigotConfig().clearChunksOnTick) // Cauldron
+ +        {
+@@ -503,7 +504,15 @@
+              }
+  
+              this.theProfiler.startSection("cleaning");
+-@@ -545,6 +771,7 @@
++@@ -534,6 +760,7 @@
++             {
++                 nextticklistentry = (NextTickListEntry)iterator.next();
++                 iterator.remove();
+++                if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimTickAgendado(); // Hoshiestar - observador: fecha o contexto da entrada anterior antes de o servidor ler o bloco da proxima (getBlock/checkChunksExist abaixo nao sao do tick anterior)
++                 //Keeping here as a note for future when it may be restored.
++                 //boolean isForced = getPersistentChunks().containsKey(new ChunkCoordIntPair(nextticklistentry.xCoord >> 4, nextticklistentry.zCoord >> 4));
++                 //byte b0 = isForced ? 0 : 8;
++@@ -545,6 +772,7 @@
+  
+                      if (block.getMaterial() != Material.air && Block.isEqualTo(block, nextticklistentry.func_151351_a()))
+                      {
+@@ -511,7 +520,7 @@
+                          try
+                          {
+                              block.updateTick(this, nextticklistentry.xCoord, nextticklistentry.yCoord, nextticklistentry.zCoord, this.rand);
+-@@ -575,19 +802,18 @@
++@@ -575,19 +803,18 @@
+                  }
+              }
+  
+@@ -537,7 +546,7 @@
+          int l = k + 16 + 2;
+  
+          for (int i1 = 0; i1 < 2; ++i1)
+-@@ -617,19 +843,24 @@
++@@ -617,19 +844,24 @@
+                      if (p_72920_2_)
+                      {
+                          this.pendingTickListEntriesHashSet.remove(nextticklistentry);
+@@ -564,7 +573,7 @@
+          return arraylist;
+      }
+  
+-@@ -651,7 +882,37 @@
++@@ -651,7 +883,37 @@
+      protected IChunkProvider createChunkProvider()
+      {
+          IChunkLoader ichunkloader = this.saveHandler.getChunkLoader(this.provider);
+@@ -603,7 +612,7 @@
+          return this.theChunkProviderServer;
+      }
+  
+-@@ -659,29 +920,38 @@
++@@ -659,29 +921,38 @@
+      {
+          ArrayList arraylist = new ArrayList();
+  
+@@ -657,7 +666,7 @@
+          return arraylist;
+      }
+  
+-@@ -704,7 +974,7 @@
++@@ -704,7 +975,7 @@
+  
+          if (this.pendingTickListEntriesHashSet == null)
+          {
+@@ -666,7 +675,7 @@
+          }
+  
+          if (this.pendingTickListEntriesTreeSet == null)
+-@@ -733,7 +1003,28 @@
++@@ -733,7 +1004,28 @@
+              int i = 0;
+              int j = this.provider.getAverageGroundLevel();
+              int k = 0;
+@@ -695,7 +704,7 @@
+              if (chunkposition != null)
+              {
+                  i = chunkposition.chunkPosX;
+-@@ -799,14 +1090,18 @@
++@@ -799,14 +1091,18 @@
+                  p_73044_2_.displayProgressMessage("Saving level");
+              }
+  
+@@ -714,7 +723,7 @@
+              MinecraftForge.EVENT_BUS.post(new WorldEvent.Save(this));
+              ArrayList arraylist = Lists.newArrayList(this.theChunkProviderServer.func_152380_a());
+              Iterator iterator = arraylist.iterator();
+-@@ -876,6 +1171,20 @@
++@@ -876,6 +1172,20 @@
+  
+      public boolean addWeatherEffect(Entity p_72942_1_)
+      {
+@@ -735,7 +744,7 @@
+          if (super.addWeatherEffect(p_72942_1_))
+          {
+              this.mcServer.getConfigurationManager().sendToAllNear(p_72942_1_.posX, p_72942_1_.posY, p_72942_1_.posZ, 512.0D, this.provider.dimensionId, new S2CPacketSpawnGlobalEntity(p_72942_1_));
+-@@ -894,13 +1203,24 @@
++@@ -894,13 +1204,24 @@
+  
+      public Explosion newExplosion(Entity p_72885_1_, double p_72885_2_, double p_72885_4_, double p_72885_6_, float p_72885_8_, boolean p_72885_9_, boolean p_72885_10_)
+      {
+@@ -761,7 +770,7 @@
+          if (!p_72885_10_)
+          {
+              explosion.affectedBlockPositions.clear();
+-@@ -923,6 +1243,7 @@
++@@ -923,6 +1244,7 @@
+  
+      public void addBlockEvent(int p_147452_1_, int p_147452_2_, int p_147452_3_, Block p_147452_4_, int p_147452_5_, int p_147452_6_)
+      {
+@@ -769,7 +778,7 @@
+          BlockEventData blockeventdata = new BlockEventData(p_147452_1_, p_147452_2_, p_147452_3_, p_147452_4_, p_147452_5_, p_147452_6_);
+          Iterator iterator = this.field_147490_S[this.blockEventCacheIndex].iterator();
+          BlockEventData blockeventdata1;
+-@@ -942,6 +1263,7 @@
++@@ -942,6 +1264,7 @@
+  
+      private void func_147488_Z()
+      {
+@@ -777,7 +786,7 @@
+          while (!this.field_147490_S[this.blockEventCacheIndex].isEmpty())
+          {
+              int i = this.blockEventCacheIndex;
+-@@ -960,6 +1282,7 @@
++@@ -960,6 +1283,7 @@
+  
+              this.field_147490_S[i].clear();
+          }
+@@ -785,7 +794,7 @@
+      }
+  
+      private boolean func_147485_a(BlockEventData p_147485_1_)
+-@@ -977,7 +1300,8 @@
++@@ -977,7 +1301,8 @@
+      {
+          boolean flag = this.isRaining();
+          super.updateWeather();
+@@ -795,7 +804,7 @@
+          if (this.prevRainingStrength != this.rainingStrength)
+          {
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(7, this.rainingStrength), this.provider.dimensionId);
+-@@ -987,11 +1311,9 @@
++@@ -987,11 +1312,9 @@
+          {
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(8, this.thunderingStrength), this.provider.dimensionId);
+          }
+@@ -809,7 +818,7 @@
+          if (flag != this.isRaining())
+          {
+              if (flag)
+-@@ -1006,6 +1328,33 @@
++@@ -1006,6 +1329,33 @@
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(7, this.rainingStrength), this.provider.dimensionId);
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(8, this.thunderingStrength), this.provider.dimensionId);
+          }
+@@ -843,7 +852,7 @@
+      }
+  
+      protected int func_152379_p()
+-@@ -1069,4 +1418,53 @@
++@@ -1069,4 +1419,53 @@
+                  this();
+              }
+          }

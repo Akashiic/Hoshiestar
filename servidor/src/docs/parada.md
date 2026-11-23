@@ -52,7 +52,7 @@ rodem dois salvamentos de parada ao mesmo tempo.
 | Chave | Padrão | O que faz |
 |---|---|---|
 | `parada.ligado` | `false` | O interruptor. Desligado: código original do Crucible, sem mudança de comportamento. |
-| `parada.espera_laco_segundos` (T1) | `60` | Quanto o gancho espera o laço de tick parar depois do SIGTERM (1 a 3600). Passou disso: salva pelo caminho original e avisa no log, com a pilha da thread do servidor. **Com o servidor travado o salvamento só começa depois desse tempo.** |
+| `parada.espera_laco_segundos` (T1) | `60` | Quanto o gancho espera o laço de tick parar depois do SIGTERM (1 a 3600). Passou disso: salva pelo caminho original e avisa no log, com a pilha da thread do servidor. **Com o servidor travado o salvamento só começa depois desse tempo.** Com observação (`hoshie observar`) ou medição de pé na hora da parada, use 20 ou mais: a thread do servidor espera a gravação delas (até 10 s + 5 s) antes de parar. |
 | `parada.espera_salvar_segundos` (T2) | `600` | Quanto alguém espera um salvamento de parada que já começou em outra thread (1 a 7200), contado do início desse salvamento. Passou disso: quem esperava desiste **sem** salvar ao mesmo tempo. **Se quem esperava era o gancho, a JVM sai e o salvamento em curso é cortado no meio.** |
 | `parada.folga_saida_segundos` (folga) | `30` | Depois de o mundo estar salvo, quanto o gancho espera a thread do servidor terminar o fechamento e chegar na saída (0 a 600). Só vale quando ela já saiu do laço de tick; com ela travada num tick não há essa espera. |
 

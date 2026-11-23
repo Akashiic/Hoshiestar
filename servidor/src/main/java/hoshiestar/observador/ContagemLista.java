@@ -130,7 +130,7 @@ final class ContagemLista {
         outraTotal.incrementAndGet();
         int espaco = 0;
         if ((outraSorteio.incrementAndGet() & 63) == 1) {
-            espaco = 1 + n.modDaPilha(new Throwable().getStackTrace());
+            espaco = n.amostraDeOutraThread(); // Hoshiestar: com teto por tick e dentro da valvula (I1)
         }
         outra.incrementAndGet(op * Mods.PASSO + espaco);
     }

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Mon, 23 Nov 2026 11:02:15 +0000
-Subject: [PATCH 17/19] observador: ganchos e contextos nos pontos do plano
+Subject: [PATCH 17/20] observador: ganchos e contextos nos pontos do plano
  (World, WorldServer, Chunk, ChunkProviderServer, TileEntityHopper,
  EntityPlayerMP, MinecraftServer); desligado = um teste de campo estatico
 

@@ -25,6 +25,7 @@ public final class TesteCorrecoesObservador {
         t4ModAcimaDe255();
         falhaDeOutraThread(tmp);
         contextoDesconhecidoNaoESerial();
+        pararDuranteIndice(tmp);
         Observador.reiniciarParaTeste();
         v.fim();
     }
@@ -236,7 +237,7 @@ public final class TesteCorrecoesObservador {
         Thread outra = new Thread("outra thread") {
             @Override
             public void run() {
-                Observador.falha("leitura de bloco", new RuntimeException("simulada"));
+                Observador.falha(Observador.N, "leitura de bloco", new RuntimeException("simulada"));
             }
         };
         outra.start();
@@ -261,7 +262,7 @@ public final class TesteCorrecoesObservador {
             ts[i] = new Thread() {
                 @Override
                 public void run() {
-                    Observador.falha("acesso", new RuntimeException("simulada"));
+                    Observador.falha(Observador.N, "acesso", new RuntimeException("simulada"));
                 }
             };
             ts[i].start();
@@ -307,6 +308,71 @@ public final class TesteCorrecoesObservador {
         c.fora[ListaObservada.SIZE * 16 + Nucleo.C_TILE] = 400;
         v.sim(c.indicacao(n).startsWith("inconclusivo"), "mais da metade sem contexto: inconclusivo: " + c.indicacao(n));
         parar();
+    }
+
+    /** Achado 5: 'hoshie observar parar' durante a montagem do indice de jars nao pode se perder. */
+    private static void pararDuranteIndice(File tmp) throws Exception {
+        Observador.reiniciarParaTeste(); // donos = null: o comando monta o indice em outra thread
+        Observador.configurar(true, 256, 5.0);
+        final File pasta = new File(tmp, "indice");
+        Observador.definirJogo(new Jogo() {
+            @Override
+            public FotoMundo[] fotografar() {
+                return new FotoMundo[0];
+            }
+
+            @Override
+            public void conferirListas(ContagemLista c) {
+            }
+
+            @Override
+            public File pastaDeSaida() {
+                return pasta;
+            }
+        });
+        final java.util.concurrent.CountDownLatch montado = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch liberar = new java.util.concurrent.CountDownLatch(1);
+        Observador.antesDePedirDoIndice = new Runnable() {
+            @Override
+            public void run() {
+                montado.countDown();
+                try {
+                    liberar.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        };
+        List<String> r1 = Observador.comando(new String[] {"30"});
+        v.sim(montado.await(60, java.util.concurrent.TimeUnit.SECONDS), "indice montado (a thread espera o teste): " + r1);
+        List<String> r2 = Observador.comando(new String[] {"parar"}); // o indice ja esta pronto mas a thread ainda nao pediu
+        Observador.inicioTickServidor(); // um tick passa: o pedido de parada nao pode ser gasto aqui
+        liberar.countDown();
+        long fim = System.currentTimeMillis() + 60000;
+        while (System.currentTimeMillis() < fim && Observador.status().get(0).startsWith("Montando")) {
+            Thread.sleep(20);
+        }
+        Observador.inicioTickServidor();
+        boolean ativo = Observador.ATIVO;
+        v.sim(!ativo, "parar durante a montagem do indice: a observacao NAO comeca depois (" + r1 + " / " + r2 + ")");
+        v.sim(r2.get(0).contains("cancelado") && Observador.status().get(0).equals("Parado.")
+                && Observador.status().get(1).contains("cancelado"), "parar durante o indice: diz que cancelou e o status volta a 'Parado': " + Observador.status());
+        if (ativo) {
+            Observador.comando(new String[] {"parar"});
+            Observador.inicioTickServidor();
+            Observador.aguardarGravacao(10000);
+        }
+        // sem parar, o caminho de sempre continua: pede e comeca
+        Observador.antesDePedirDoIndice = null;
+        Observador.comando(new String[] {"30"});
+        fim = System.currentTimeMillis() + 60000;
+        while (System.currentTimeMillis() < fim && Observador.status().get(0).startsWith("Montando")) {
+            Thread.sleep(20);
+        }
+        Observador.inicioTickServidor();
+        v.sim(Observador.ATIVO, "sem parar: a observacao comeca depois do indice");
+        Observador.encerrarNoDesligamento();
+        apagar(pasta);
     }
 
     private TesteCorrecoesObservador() {

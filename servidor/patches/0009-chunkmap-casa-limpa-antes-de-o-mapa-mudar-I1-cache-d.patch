@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Sun, 22 Nov 2026 17:50:03 +0000
-Subject: [PATCH 09/19] chunkmap: casa limpa antes de o mapa mudar (I1); cache
+Subject: [PATCH 09/20] chunkmap: casa limpa antes de o mapa mudar (I1); cache
  desligado e solto e MRU zerado (I2, M1); desligamento sempre contado (M2);
  busca extra do put so com conferir (M5)
 

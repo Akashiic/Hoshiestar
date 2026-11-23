@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Mon, 23 Nov 2026 01:05:05 +0000
-Subject: [PATCH 13/19] vigia: marcacoes sem try/catch e longe da chamada de
+Subject: [PATCH 13/20] vigia: marcacoes sem try/catch e longe da chamada de
  update (o Opis casa padrao exato ali e o try/catch quebrou o boot);
  entidade/tile anotados no comeco da volta do laco e limpos no fim do laco
 

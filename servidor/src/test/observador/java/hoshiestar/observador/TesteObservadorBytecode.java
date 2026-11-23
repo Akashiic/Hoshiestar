@@ -57,12 +57,12 @@ public final class TesteObservadorBytecode {
         total += guardados(world, "setTileEntity", "(III" + te + ")V", 1);
         total += guardados(world, "removeTileEntity", "(III)V", 1);
         total += guardados(world, "addTileEntity", "(" + te + ")V", 1);
-        total += guardados(world, "updateEntities", "()V", 3);
+        total += guardados(world, "updateEntities", "()V", 6);
         total += guardados(world, "updateEntityWithOptionalForce", "(" + ent + "Z)V", 4);
         total += guardados(ws, "scheduleBlockUpdateWithPriority", "(III" + blk + "II)V", 1);
         total += guardados(ws, "func_147446_b", "(III" + blk + "II)V", 1);
         total += guardados(ws, "addBlockEvent", "(III" + blk + "II)V", 1);
-        total += guardados(ws, "tickUpdates", "(Z)Z", 2);
+        total += guardados(ws, "tickUpdates", "(Z)Z", 3);
         total += guardados(ws, "func_147456_g", "()V", 2);
         total += guardados(ws, "func_147488_Z", "()V", 2);
         total += guardados(chunk, "func_150807_a", "(III" + blk + "I)Z", 1);
@@ -71,7 +71,7 @@ public final class TesteObservadorBytecode {
         total += guardados(jogador, "onUpdateEntity", "()V", 2);
         total += guardados(servidor, "tick", "()V", 4);
         total += guardados(servidor, "updateTimeLightAndEntities", "()V", 8);
-        v.igual(43, total, "43 chamadas a GanchosObservador no total, todas atras de 'if (Observador.ATIVO)'");
+        v.igual(47, total, "47 chamadas a GanchosObservador no total, todas atras de 'if (Observador.ATIVO)'");
         for (ClassNode cn : new ClassNode[] {world, ws, chunk, cps, funil, jogador, servidor}) {
             Set<String> previstos = new HashSet<String>(Arrays.asList(
                     "getBlock", "setBlock", "setBlockMetadataWithNotify", "notifyBlockOfNeighborChange", "addEntity",
@@ -110,6 +110,7 @@ public final class TesteObservadorBytecode {
         }
         v.sim(linhaHook > 0 && linhaHook != linhaUpdate, "o gancho do tile esta numa linha propria, longe da linha do update (" + linhaHook + " x " + linhaUpdate + ")");
         padroesWorld(world);
+        contextosFechados(world, ws);
         lista(world);
         servidor(servidor);
         ganchos(dir);
@@ -362,6 +363,74 @@ public final class TesteObservadorBytecode {
         }
         v.igual(5, floors, "updateEntityWithOptionalForce: 5 floor_double, como no base (o mixin do Bellow casa"
                 + " floor_double(?.posY / 16.0) com allow=1)");
+    }
+
+    /** Indice da primeira chamada (dono, nome) a partir de {@code de}; -1 se nao ha. */
+    private static int chamada(AbstractInsnNode[] l, int de, String dono, String nome) {
+        for (int i = de; i < l.length; i++) {
+            if (l[i] instanceof MethodInsnNode && ((MethodInsnNode) l[i]).owner.equals(dono) && ((MethodInsnNode) l[i]).name.equals(nome)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Contexto velho (D-39): o que o proprio servidor le antes do gancho seguinte nao pode cair no contexto da entrada
+     * anterior, e o contexto nao pode sobrar depois de excecao ou do fim do laco.
+     */
+    private static void contextosFechados(ClassNode world, ClassNode ws) {
+        // tickUpdates: o contexto da entrada anterior fecha antes do getBlock da proxima (que roda antes de tickAgendado)
+        AbstractInsnNode[] t = metodo(ws, "tickUpdates", "(Z)Z").instructions.toArray();
+        int proxima = chamada(t, 0, "java/util/Iterator", "next");
+        int fecha = chamada(t, proxima, GANCHOS, "fimTickAgendado");
+        int getBlock = chamada(t, proxima, "net/minecraft/world/WorldServer", "getBlock");
+        v.sim(proxima > 0 && fecha > proxima && getBlock > fecha, "WorldServer.tickUpdates: fimTickAgendado entre Iterator.next e o getBlock da entrada ("
+                + proxima + ", " + fecha + ", " + getBlock + ")");
+        // func_147456_g: o contexto do tick aleatorio fecha dentro do laco dos chunks (antes do desvio de volta), nao so depois dele
+        AbstractInsnNode[] r = metodo(ws, "func_147456_g", "()V").instructions.toArray();
+        int ultimaVolta = -1;
+        for (int i = 0; i < r.length; i++) {
+            if (r[i].getOpcode() == Opcodes.GOTO && r[i] instanceof JumpInsnNode) {
+                int alvo = Arrays.asList(r).indexOf(((JumpInsnNode) r[i]).label);
+                if (alvo >= 0 && alvo < i) {
+                    ultimaVolta = i;
+                }
+            }
+        }
+        int fimAleat = chamada(r, 0, GANCHOS, "fimTickAleatorio");
+        v.sim(fimAleat > 0 && ultimaVolta > fimAleat, "WorldServer.func_147456_g: fimTickAleatorio dentro do laco dos chunks (" + fimAleat + " antes do desvio de volta " + ultimaVolta + ")");
+        // updateEntities: fim do contexto na excecao do tile, na excecao da entidade e no fim do laco de entidades
+        MethodNode ue = metodo(world, "updateEntities", "()V");
+        AbstractInsnNode[] u = ue.instructions.toArray();
+        v.sim(handlerFecha(ue, u, "removeErroringTileEntities", "fimTile"), "World.updateEntities: o catch do update do tile chama fimTile");
+        v.sim(handlerFecha(ue, u, "removeErroringEntities", "fimEntidade"), "World.updateEntities: o catch do tick da entidade chama fimEntidade");
+        int marcaFim = -1;
+        for (int i = 0; i < u.length; i++) {
+            if (u[i] instanceof MethodInsnNode && ((MethodInsnNode) u[i]).owner.equals("hoshiestar/vigia/Marcas") && ((MethodInsnNode) u[i]).name.equals("entidade")
+                    && u[i - 1].getOpcode() == Opcodes.ACONST_NULL) {
+                marcaFim = i;
+            }
+        }
+        int fimEnt = chamada(u, marcaFim, GANCHOS, "fimEntidade");
+        v.sim(marcaFim > 0 && fimEnt > marcaFim && fimEnt < marcaFim + 12, "World.updateEntities: fimEntidade logo depois de Marcas.entidade(null), no fim do laco de entidades");
+    }
+
+    /** O tratador (catch) da ULTIMA leitura do campo {@code campo} (o laco principal vem depois do dos efeitos de clima) chama {@code gancho} antes dela. */
+    private static boolean handlerFecha(MethodNode m, AbstractInsnNode[] l, String campo, String gancho) {
+        for (int i = l.length - 1; i >= 0; i--) {
+            if (l[i] instanceof FieldInsnNode && ((FieldInsnNode) l[i]).name.equals(campo)) {
+                for (Object o : m.tryCatchBlocks) {
+                    org.objectweb.asm.tree.TryCatchBlockNode tc = (org.objectweb.asm.tree.TryCatchBlockNode) o;
+                    int h = Arrays.asList(l).indexOf(tc.handler);
+                    if (h >= 0 && h < i && i - h < 60) {
+                        int g = chamada(l, h, GANCHOS, gancho);
+                        return g > h && g < i;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private static void servidor(ClassNode s) {

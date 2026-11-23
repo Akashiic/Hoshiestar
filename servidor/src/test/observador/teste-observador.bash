@@ -16,6 +16,8 @@
 #   2. TesteObservadorConfig: chaves do hoshiestar.yml, registro, comando (argumentos), ciclo de vida completo com um
 #      jogo falso e relogio falso, relatorio .json/.txt sem dado pessoal, parada no meio, parada do servidor;
 #   3. TesteObservadorConcorrencia: outras threads (T4) e comando de outra thread (RCON) durante a observacao;
+#   3b. TesteRevisaoConcObservador: achados da revisao de concorrencia (teto e valvula da amostra de pilha em outra
+#      thread, pedido de parada que nao se perde, falha() de outra thread, comando sob trava, prazo do indice de jars);
 #   4. TesteObservadorBytecode (so se o workspace ja foi compilado pelo build rapido): os patches no bytecode real
 #      (teste de campo estatico por gancho, padroes do Opis/firewall/medidor/vigia intactos, nenhuma variavel local nova);
 #   5. BenchObservador: custo do caminho quente em ns (indicacao, nao medicao de servidor).
@@ -85,6 +87,8 @@ for java in "${JDKS[@]}"; do
   pushd "$OUT/observador-config" > /dev/null; rodar "$java" hoshiestar.observador.TesteObservadorConfig "$OUT/observador-config"; popd > /dev/null
   rm -rf "$OUT/observador-correcoes"; mkdir -p "$OUT/observador-correcoes"
   rodar "$java" hoshiestar.observador.TesteCorrecoesObservador "$OUT/observador-correcoes"
+  rm -rf "$OUT/observador-revconc"; mkdir -p "$OUT/observador-revconc"
+  rodar "$java" hoshiestar.observador.TesteRevisaoConcObservador "$OUT/observador-revconc"
   rm -rf "$OUT/observador-conc"; rodar "$java" hoshiestar.observador.TesteObservadorConcorrencia "$OUT/observador-conc" "${HOSHIE_ESTRESSE_S:-5}"
   if [[ -f "$CLASSES_BUILD/net/minecraft/world/World.class" ]]; then
     rodar "$java" hoshiestar.observador.TesteObservadorBytecode "$CLASSES_BUILD"

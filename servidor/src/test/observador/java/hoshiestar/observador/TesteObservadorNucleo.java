@@ -462,7 +462,21 @@ public final class TesteObservadorNucleo {
             }
             parou = n.fimTick(ticks * 10000000L + 10000000L);
         }
-        v.sim(parou && ticks == Nucleo.JANELA_TICKS, "valvula: custo acima do limite para ao fim da primeira janela de " + Nucleo.JANELA_TICKS + " ticks (parou em " + ticks + ")");
+        v.sim(parou && ticks == 2 * Nucleo.JANELA_TICKS, "valvula: custo de regime acima do limite para ao fim da segunda janela (a primeira e de aquecimento) de " + Nucleo.JANELA_TICKS + " ticks (parou em " + ticks + ")");
+        // aquecimento (D-44): a primeira foto fria e as primeiras amostras caem na primeira janela e nao param a observacao
+        Nucleo q = novo(1000000);
+        boolean p4 = false;
+        for (int t = 0; t < 400; t++) {
+            q.inicioTick(t * 10000000L);
+            q.entrar(Nucleo.C_TILE, M0, 0, 0, 0, ModAMaquina.class);
+            int acessos = t == 3 ? 600000 : 100; // o tick 3 paga o custo frio (cerca de 6% do tempo da janela inteira), os outros sao de regime
+            for (int i = 0; i < acessos; i++) {
+                q.acesso(Nucleo.A_ESCREVER_BLOCO, M0, 0, 16 + (i & 7), 0);
+            }
+            p4 |= q.fimTick(t * 10000000L + 10000000L);
+        }
+        v.sim(!p4 && q.pctAquecimento > 5.0 && q.pctMaxJanela < 5.0, "valvula: custo alto so na primeira janela (aquecimento " + String.format("%.1f", q.pctAquecimento)
+                + "%, depois no maximo " + String.format("%.2f", q.pctMaxJanela) + "%) nao para a observacao");
         v.sim(n.motivoValvula != null && n.motivoValvula.contains("valvula"), "valvula: o motivo fica registrado: " + n.motivoValvula);
         // abaixo do limite: nao para
         Nucleo m = novo(1000000);

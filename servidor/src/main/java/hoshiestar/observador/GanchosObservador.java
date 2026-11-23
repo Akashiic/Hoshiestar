@@ -60,14 +60,15 @@ public final class GanchosObservador {
     // ---------------------------------------------------------------- contextos
 
     public static void tile(World w, TileEntity te) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
             ListaObservada.fora(); // prototipo da lista: o update do tile e codigo de mod ("de fora"), mesmo dentro do laco do World
-            Nucleo n = servidor();
+            n = servidor();
             if (n != null && te != null) {
                 n.entrar(Nucleo.C_TILE, w, dim(w), te.xCoord >> 4, te.zCoord >> 4, te.getClass());
             }
         } catch (Throwable t) {
-            Observador.falha("contexto de tile", t);
+            Observador.falha(n, "contexto de tile", t);
         }
     }
 
@@ -80,19 +81,20 @@ public final class GanchosObservador {
         try {
             ListaObservada.fimFora();
         } catch (Throwable t) {
-            Observador.falha("fim de contexto da lista", t);
+            Observador.falha(null, "fim de contexto da lista", t);
         }
     }
 
     /** Inicio de World.updateEntityWithOptionalForce; {@code forcar = false} e so contabilidade de chunk: nao e tick. */
     public static void entidade(World w, Entity e, boolean forcar) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
-            Nucleo n = servidor();
+            n = servidor();
             if (n != null && forcar && e != null) {
                 n.entrar(Nucleo.C_ENTIDADE, w, dim(w), piso(e.posX) >> 4, piso(e.posZ) >> 4, e.getClass());
             }
         } catch (Throwable t) {
-            Observador.falha("contexto de entidade", t);
+            Observador.falha(n, "contexto de entidade", t);
         }
     }
 
@@ -104,13 +106,14 @@ public final class GanchosObservador {
 
     /** Inicio de EntityPlayerMP.onUpdateEntity. O jogador entra SEM objeto: so o chunk e o mundo (nenhum dado pessoal). */
     public static void jogadorRede(EntityPlayerMP p) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
-            Nucleo n = servidor();
+            n = servidor();
             if (n != null && p != null) {
                 n.entrar(Nucleo.C_JOGADOR_REDE, p.worldObj, dim(p.worldObj), piso(p.posX) >> 4, piso(p.posZ) >> 4, null);
             }
         } catch (Throwable t) {
-            Observador.falha("contexto de jogador", t);
+            Observador.falha(n, "contexto de jogador", t);
         }
     }
 
@@ -120,13 +123,14 @@ public final class GanchosObservador {
 
     /** Antes do updateTick de um bloco agendado (por entrada); o contexto fica ate o fim do laco. */
     public static void tickAgendado(World w, int x, int z, Block b) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
-            Nucleo n = servidor();
+            n = servidor();
             if (n != null) {
                 n.entrar(Nucleo.C_TICK_AGENDADO, w, dim(w), x >> 4, z >> 4, b != null ? b.getClass() : null);
             }
         } catch (Throwable t) {
-            Observador.falha("contexto de tick agendado", t);
+            Observador.falha(n, "contexto de tick agendado", t);
         }
     }
 
@@ -136,13 +140,14 @@ public final class GanchosObservador {
 
     /** Antes do updateTick aleatorio de um bloco (por bloco sorteado). */
     public static void tickAleatorio(World w, int cx, int cz, Block b) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
-            Nucleo n = servidor();
+            n = servidor();
             if (n != null) {
                 n.entrar(Nucleo.C_TICK_ALEATORIO, w, dim(w), cx, cz, b != null ? b.getClass() : null);
             }
         } catch (Throwable t) {
-            Observador.falha("contexto de tick aleatorio", t);
+            Observador.falha(n, "contexto de tick aleatorio", t);
         }
     }
 
@@ -169,24 +174,26 @@ public final class GanchosObservador {
     }
 
     private static void entrarSemOrigem(int tipo, World w) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
-            Nucleo n = servidor();
+            n = servidor();
             if (n != null) {
                 n.entrar(tipo, w, dim(w), Nucleo.SEM_ORIGEM, 0, null);
             }
         } catch (Throwable t) {
-            Observador.falha("contexto global", t);
+            Observador.falha(n, "contexto global", t);
         }
     }
 
     private static void sair(int tipo) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
-            Nucleo n = servidor();
+            n = servidor();
             if (n != null) {
                 n.sair(tipo);
             }
         } catch (Throwable t) {
-            Observador.falha("fim de contexto", t);
+            Observador.falha(n, "fim de contexto", t);
         }
     }
 
@@ -194,8 +201,9 @@ public final class GanchosObservador {
 
     /** World.getBlock: o caminho mais quente. Mesma secao do mesmo mundo = so conta; sem origem = so conta por contexto. */
     public static void lerBloco(World w, int x, int z) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
-            Nucleo n = Observador.N;
+            n = Observador.N;
             if (n == null) {
                 return;
             }
@@ -210,13 +218,14 @@ public final class GanchosObservador {
             }
             n.acesso(Nucleo.A_LER_BLOCO, w, dim(w), cx, cz);
         } catch (Throwable t) {
-            Observador.falha("leitura de bloco", t);
+            Observador.falha(n, "leitura de bloco", t);
         }
     }
 
     private static void acesso(int tipo, World w, int x, int z) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
-            Nucleo n = Observador.N;
+            n = Observador.N;
             if (n == null) {
                 return;
             }
@@ -226,18 +235,19 @@ public final class GanchosObservador {
             }
             n.acesso(tipo, w, dim(w), x >> 4, z >> 4);
         } catch (Throwable t) {
-            Observador.falha("acesso " + tipo, t);
+            Observador.falha(n, "acesso " + tipo, t);
         }
     }
 
     public static void escreverBloco(World w, int x, int z) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
-            Nucleo n = servidor();
+            n = servidor();
             if (n != null) {
                 n.escritaViaMundo(x >> 4, z >> 4);
             }
         } catch (Throwable t) {
-            Observador.falha("escrita de bloco", t);
+            Observador.falha(n, "escrita de bloco", t);
         }
         acesso(Nucleo.A_ESCREVER_BLOCO, w, x, z);
     }
@@ -291,8 +301,9 @@ public final class GanchosObservador {
 
     /** Chunk.func_150807_a: escrita direta no chunk. Nao conta se acabou de vir de World.setBlock no mesmo chunk. */
     public static void escritaChunk(Chunk c) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
-            Nucleo n = Observador.N;
+            n = Observador.N;
             if (n == null || c == null) {
                 return;
             }
@@ -304,7 +315,7 @@ public final class GanchosObservador {
                 n.acesso(Nucleo.A_ESCRITA_CHUNK, c.worldObj, dim(c.worldObj), c.xPosition, c.zPosition);
             }
         } catch (Throwable t) {
-            Observador.falha("escrita no chunk", t);
+            Observador.falha(n, "escrita no chunk", t);
         }
     }
 
@@ -315,13 +326,14 @@ public final class GanchosObservador {
 
     /** ChunkProviderServer.originalLoadChunk, quando o chunk entra no mapa: carga de chunk (T3). */
     public static void cargaChunk(World w, int cx, int cz) {
+        Nucleo n = null; // Hoshiestar: a falha diz de qual observacao e (m2)
         try {
-            Nucleo n = servidor();
+            n = servidor();
             if (n != null) {
                 n.cargaChunk(w, dim(w), cx, cz);
             }
         } catch (Throwable t) {
-            Observador.falha("carga de chunk", t);
+            Observador.falha(n, "carga de chunk", t);
         }
     }
 

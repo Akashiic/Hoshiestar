@@ -179,6 +179,7 @@ final class Relatorio {
         j.objeto("custo_estimado");
         j.campo("pct_medio_do_tick", n.custoMedioPct());
         j.campo("pct_maximo_numa_janela", n.pctMaxJanela);
+        j.campo("pct_da_primeira_janela_aquecimento", n.pctAquecimento);
         j.campo("amostras_de_pilha", n.amostras);
         j.campo("ns_gastos_em_pilha", n.pilhaNsTotal);
         j.campo("fotos_tiradas", n.fotosTiradas);
@@ -285,6 +286,10 @@ final class Relatorio {
         // T4
         j.objeto("t4_acessos_de_outra_thread");
         j.campo("total", n.t4Total.get());
+        j.campo("amostras_de_pilha", n.outraAmostras.get());
+        j.campo("amostras_de_pilha_ms", n.outraPilhaNs.get() / 1e6);
+        j.campo("nota_amostras", "1 em 64 chamadas, no maximo " + Nucleo.MAX_AMOSTRAS_OUTRA_TICK
+                + " por tick (T4 e lista somadas); o resto conta como 'sem amostra'");
         j.lista("por_tipo_e_mod_da_pilha");
         for (int i = 0; i < n.t4.length(); i++) {
             long v = n.t4.get(i);
@@ -425,7 +430,9 @@ final class Relatorio {
         s.append("custo estimado do observador: ")
                 .append(String.format(java.util.Locale.ROOT, "%.2f%% do tick (medio), %.2f%% no pior trecho de %d ticks",
                         n.custoMedioPct(), n.pctMaxJanela, Nucleo.JANELA_TICKS))
-                .append(" (limite ").append(n.limiteCustoPct).append("%). Estimativa, nao medicao.\n");
+                .append(" (limite ").append(n.limiteCustoPct).append("%). Estimativa, nao medicao. A primeira janela de ").append(Nucleo.JANELA_TICKS)
+                .append(" ticks e de aquecimento (foto e amostras frias; ").append(String.format(java.util.Locale.ROOT, "%.2f%%", n.pctAquecimento))
+                .append(") e nao conta para a valvula.\n");
         for (String a : avisos(n, m)) {
             s.append("AVISO: ").append(a).append("\n");
         }
