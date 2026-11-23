@@ -9,7 +9,7 @@ Atualizado em 2026-11-22 (correção de rumo do admin: o Hoshiestar é um `serve
 | Entrega inicial: (a) avaliação da base, (b) arquitetura, (c) plano das Etapas 0 e 1 | ✅ **aprovada pelo admin** (base e ordem em degraus, 2026-11-21) |
 | Etapa 0 – Medição | 🔄 falta só o admin rodar o medidor em produção (0.9) |
 | Etapa 1 (revista) – Ganhos baratos medidos, "Degrau 0" | ✅ construída e testada na cópia de teste; 🧑 falta o admin testar. `server.jar` do Hoshiestar com oito recursos embutidos (`servidor/`, roteiro em `servidor/ROTEIRO-ADMIN.md`). **Ganho não medido**: sem carga de produção no teste |
-| Etapa 2 – Observador | ⏳ |
+| Etapa 2 – Observador | 🔄 liberada pelo admin em 2026-11-23; plano em `docs/05-plano-etapa-2.md`; para no portão "vai / não vai" |
 | Portão "vai / não vai" | ⏳ |
 | Etapa 2.5 – Orçamento de tick por região | ⏳ |
 | Etapa 3 – Regiões, thread global, correio | ⏳ |
@@ -59,7 +59,7 @@ Segunda orientação do admin (2026-11-22): controle total dos ambientes de test
 7. Conferir o agente `Akashic-nChat-ChainColor`: ele se desliga no boot por esperar o nChat 2.0.4 (D-28).
 7c. **Perguntas do estudo Folia x NeoFolia** (`docs/pesquisa/folia-neofolia.md` §10; não bloqueiam a Etapa 1): **P1** regiões independentes (Degrau C) só nas dimensões em que todos os handlers globais de mods que mexem nela estão liberados, o resto fica na fase paralela sincronizada (Degrau B): concorda? **P2** erro no tick de uma região: parar o servidor de forma limpa (proposta) ou rebaixar a dimensão para série e seguir? **P3** as bases pesadas ficam a mais de 48 a 63 chunks (770 a 1.000 blocos) umas das outras? Mais perto que isso, viram uma região só.
 7d. **Como a produção é parada**: comando `stop` ou encerramento do processo (SIGTERM)? Define o quanto vale ligar o 1.G.
-7e. **Testar o `server.jar` do Hoshiestar** numa cópia do servidor, seguindo `servidor/ROTEIRO-ADMIN.md` (um recurso por vez; BetterQuesting e Mekanism primeiro em modo `verificar`).
+7e. ~~Testar o `server.jar` do Hoshiestar~~ passou a ser do projeto (decisão 30): o que faltava verificar roda na cópia de teste; antes era: numa cópia do servidor, seguindo `servidor/ROTEIRO-ADMIN.md` (um recurso por vez; BetterQuesting e Mekanism primeiro em modo `verificar`).
 
 ### Técnicas
 8. Bots de carga (que andam e carregam chunks): não feito. O handshake do Forge funciona com o bot mínimo (D-30).
@@ -73,7 +73,7 @@ Segunda orientação do admin (2026-11-22): controle total dos ambientes de test
 14. Lacunas de desenho apontadas pela conferência final do estudo Folia x NeoFolia, para resolver no desenho das Etapas 2 e 3: quem é dono de um chunk carregado durante a fase paralela até o ponto de junção; o que é "fase serial" no Degrau C, que não tem barreira; um modo "rebaixar e seguir" precisa liberar ou isolar a região que falhou.
 15. Propostas do estudo que ainda não são decisão (lista no fim de `docs/02-arquitetura.md` §7): confirmar ou descartar no desenho detalhado das Etapas 2 e 3.
 16. Etapa 1, não verificado: ganho real (perfil antes/depois com carga); causa do +0,008% de energia do Mekanism depois de um stop; ChromatiCraft (altura, bot sem op, calibração do volume); Ars Magica 2 com entidade acelerada; BetterQuesting com dois jogadores; boot em Java 8; plugins de filtro de comando desligados no teste.
-17. `scripts/run-test-server.sh`: o `pkill -f 'tail -f console.in'` mata o `tail` de qualquer cópia (um boot de teste travou por isso). Corrigir para matar só o da própria cópia.
+17. ✅ corrigido em 2026-11-23 (o script guarda o PID do próprio `tail`). Era: `scripts/run-test-server.sh`: o `pkill -f 'tail -f console.in'` mata o `tail` de qualquer cópia (um boot de teste travou por isso). Corrigir para matar só o da própria cópia.
 18. Item 1.I (`hasWorldObj` do Ars Magica 2, até 0,66%) continua fora (decisão 21).
 19. Revisão final das duas últimas correções de concorrência (fable, agente diferente): aprovada, só achados menores, não corrigidos no jar entregue: (a) mapa de chunks: um leitor de **outra** thread pode levar uma exceção, no máximo uma vez por mundo, se o cache for desligado por segurança no meio de um `put` (nunca na thread do servidor; 7 em 320 mil rodadas forçadas, 0 com o compilador JIT ligado); (b) parada: se a thread do servidor chamar `System.exit` depois de assumir o salvamento, o gancho espera até o limite de salvamento (600 s) em vez de sair na hora. Escrever os dois nos docs ou corrigir na próxima versão.
 
@@ -109,6 +109,12 @@ Segunda orientação do admin (2026-11-22): controle total dos ambientes de test
 | 27 | Mapa de chunks: com o cache ligado, um `get` depois de "put duplo" devolve o que está no mapa, e não o chunk antigo que o original devolve por um defeito do cache dele | o revisor recomendou; copiar o defeito exigiria manter o cache antigo em toda consulta |
 | 28 | Economia de tokens (pedido do admin, 2026-11-22): revisor não repete teste de servidor que o autor fez (exceto parada); sem rodada de correção para achado só menor; uma única revisão de concorrência no fim; relatórios curtos | eliminar repetição sem tirar a revisão por agente diferente nem o teste integrado |
 | 29 | A pasta `medidor/` (mod) saiu do repositório; o medidor vive em `servidor/` (`hoshiestar.medidor`) | decisão 23 |
+| 30 | **Decisão do admin (2026-11-23): o admin não executa tarefa nem teste.** Todo teste é do projeto, nas cópias de teste, com carga sintética (bases por comando e bots). Só se pergunta ao admin decisão difícil de desfazer. Número de carga sintética é indicação, nunca medição de produção | orientação do admin para a Etapa 2 |
+| 31 | **Decisão do admin (2026-11-23): modelos e esforço.** haiku/baixo: coleta e trabalho mecânico. sonnet/médio: execução com roteiro pronto e implementação com especificação clara. opus/médio (alto só com risco de perda de item, energia ou bloco): desenho, causa raiz, revisão que tenta quebrar. fable/médio ou alto: só concorrência. Sobe o esforço antes do modelo; modelo só sobe depois de duas falhas seguidas. Julgar resultado estranho de teste integrado fica com modelo maior. Vale a economia da decisão 28. Coordenador: menos checagens, mensagens curtas | orientação do admin |
+| 32 | P1 (padrão reversível): regiões independentes (Degrau C) só nas dimensões em que todos os handlers globais de mods que mexem nela estão liberados; o resto fica na fase paralela sincronizada (Degrau B) | padrão dado pelo admin |
+| 33 | P2 (padrão reversível): erro no tick de uma região = parada limpa do servidor; "rebaixar a dimensão para série e seguir" fica como opção no config, desligada | padrão dado pelo admin |
+| 34 | P3 (distância entre bases) e "como a produção é parada": desconhecidos. Não assumir: observador e medidor produzem o dado de distância; o recurso `parada` segue desligado e nada depende dele | padrão dado pelo admin |
+| 35 | Leitura principal de "sincronização em tempo real e sintonia": o Degrau B (regiões em paralelo, em passo, com barreira). Ideia a avaliar depois, sem código agora: ajuste automático com o servidor rodando (número de threads, juntar ou desacelerar regiões conforme a carga) | interesse do admin |
 | 11 | Seguir os hábitos do upstream (patch gerado, `// Hoshiestar`, opções em `Crucible.yml`, JDK 8) e mandar correções genéricas como pull request ao Crucible | manter o fork fácil de atualizar (`docs/04-estudo-crucible.md` §5) |
 
 ## Plugins desligados na cópia de teste

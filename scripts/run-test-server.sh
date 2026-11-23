@@ -75,8 +75,11 @@ fi
 for attempt in 1 2; do
   : > console.in
   echo "[run-test-server] ligando (memoria $XMX, tentativa $attempt). Log: $DIR/console.log"
-  tail -f console.in | java "${JVM_FLAGS[@]}" @java9args.txt -Dfml.doNotBackup=true -jar server.jar nogui > console.log 2>&1 || true
-  pkill -f "tail -f console.in" 2>/dev/null || true
+  # O tail roda como coprocesso para termos o PID dele: no fim encerramos SO o tail desta
+  # copia (antes um pkill por nome matava o tail de qualquer copia de teste; PROGRESSO, pendencia 17).
+  coproc HOSHIE_TAIL { exec tail -f console.in; }
+  java "${JVM_FLAGS[@]}" @java9args.txt -Dfml.doNotBackup=true -jar server.jar nogui <&"${HOSHIE_TAIL[0]}" > console.log 2>&1 || true
+  kill "$HOSHIE_TAIL_PID" 2>/dev/null || true
   grep -q "A restart is required to be able to boot" console.log || break
   echo "[run-test-server] bibliotecas instaladas; ligando de novo."
 done
