@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Mon, 23 Nov 2026 11:31:15 +0000
+Subject: [PATCH 18/19] observador: o gancho da parada se chama
+ encerrarNoDesligamento (o teste de bytecode do medidor conta chamadas
+ pararNoDesligamento em MinecraftServer.run sem olhar o dono)
+
+
+diff --git a/patches/net/minecraft/server/MinecraftServer.java.patch b/patches/net/minecraft/server/MinecraftServer.java.patch
+index 3cc2f747..0bce1d36 100644
+--- a/patches/net/minecraft/server/MinecraftServer.java.patch
++++ b/patches/net/minecraft/server/MinecraftServer.java.patch
+@@ -619,7 +619,7 @@
+ +
+ +                // Spigot end
+ +                try { hoshiestar.medidor.Medidor.pararNoDesligamento(); } catch (Throwable hoshieErro) { } // Hoshiestar - medidor: parada normal encerra e grava a medicao (como o evento de parada do FML)
+-+                try { hoshiestar.observador.Observador.pararNoDesligamento(); } catch (Throwable hoshieErro) { } // Hoshiestar - observador: parada normal encerra e grava a observacao
+++                try { hoshiestar.observador.Observador.encerrarNoDesligamento(); } catch (Throwable hoshieErro) { } // Hoshiestar - observador: parada normal encerra e grava a observacao
+                  FMLCommonHandler.instance().handleServerStopping();
+                  FMLCommonHandler.instance().expectServerStopped(); // has to come before finalTick to avoid race conditions
+              }

@@ -58,6 +58,11 @@ public final class Servidor {
             Log.erro("nao consegui instalar o medidor (hoshie medir/parar)", t);
         }
         try {
+            hoshiestar.observador.ComandoObservador.instalar(); // observador de acessos entre regioes: 'hoshie observar'
+        } catch (Throwable t) {
+            Log.erro("nao consegui instalar o observador (hoshie observar)", t);
+        }
+        try {
             hoshiestar.mekanism.Mekanism.aoIniciarServidor(); // subcomando "hoshie mekanism"
         } catch (Throwable t) {
             Log.erro("nao consegui registrar o subcomando hoshie mekanism", t);

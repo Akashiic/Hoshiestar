@@ -294,6 +294,33 @@ public final class HoshiestarConfig extends YamlConfig {
     @Comments({"No maximo uma linha de log de recusa por jogador a cada tantos segundos (minimo 1); as demais so entram na conta."})
     public int chromaticraft_logsegundos = 10;
 
+    // ---- observador ----
+    @Comments({"Observador (Etapa 2): anota, em tabelas de contagem, 'o mod X, executando a partir da regiao A, tocou a posicao",
+        "P da regiao B' (leitura/escrita de bloco, tile entity, entidade, tick agendado, carga de chunk...). So LE e ANOTA: nao",
+        "barra nada, nao muda o que nenhum metodo devolve. So anota quando o admin manda, por tempo limitado:",
+        "'hoshie observar <segundos>' (5 a 3600; 'hoshie observar parar' encerra antes; 'hoshie observar status').",
+        "Grava hoshiestar/observador-*.json e .txt (sem nome de jogador, UUID nem IP; nada vai para a rede).",
+        "ligado: false = o comando recusa e nenhum gancho faz nada alem de um teste de variavel (comportamento original)."})
+    public boolean observador_ligado = false;
+
+    @Comments({"Observador: a pilha de chamadas e olhada em 1 de cada tantos acessos que cruzam secao (1 a 1000000), no maximo",
+        "20 por tick, para descobrir QUAL mod fez o acesso quando o contexto nao diz. Menor = mais amostras e mais custo."})
+    @Path("observador.amostra_pilha")
+    public int observador_amostraPilha = 256;
+
+    @Comments({"Observador: valvula de custo (0.5 a 50). Se o custo ESTIMADO do observador passar desta porcentagem do tempo",
+        "do tick (media de 100 ticks, e mais de 0,25 ms por tick), ele para sozinho e grava o que ja tem."})
+    @Path("observador.limite_custo_pct")
+    public double observador_limiteCustoPct = 5.0;
+
+    @Comments({"Observador: prototipo da lista de tiles (plano da Etapa 2, secao 4). Lido so no boot; so vale com ligado: true.",
+        "true = cada mundo cria a lista de tiles (loadedTileEntityList) como uma lista nossa que devolve EXATAMENTE o mesmo",
+        "que a original e, durante 'hoshie observar', conta quem a usa de fora do World (operacao, contexto, mod). Serve para",
+        "decidir se da para trocar o objeto da lista por uma lista por regiao sem quebrar mods.",
+        "false = nenhuma troca de objeto (o comportamento original)."})
+    @Path("observador.lista")
+    public boolean observador_lista = false;
+
     // ---------------------------------------------------------------- leitura
 
     private static volatile HoshiestarConfig atual;

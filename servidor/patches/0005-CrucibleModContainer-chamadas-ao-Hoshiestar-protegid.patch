@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Sun, 22 Nov 2026 14:10:28 +0000
-Subject: [PATCH 05/16] CrucibleModContainer: chamadas ao Hoshiestar protegidas
+Subject: [PATCH 05/19] CrucibleModContainer: chamadas ao Hoshiestar protegidas
  por try/catch no ponto de chamada
 
 Achado R3 da revisao: um erro ao carregar hoshiestar.Servidor nao pode cortar o registro do

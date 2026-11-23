@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Mon, 23 Nov 2026 00:57:47 +0000
-Subject: [PATCH 12/16] vigia: marcacoes no tick, nas entidades, nos tiles e no
+Subject: [PATCH 12/19] vigia: marcacoes no tick, nas entidades, nos tiles e no
  jogador; parada da thread no inicio de stopServer
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
