@@ -149,6 +149,7 @@ Estrutura que diz "este chunk pertence a esta região".
 - Regras fixas (copiadas do Folia, verificadas na doc oficial): um chunk tem um dono só; região que está ticando não cresce; junções e divisões só no fim do tick.
   **Correção (estudo Folia x NeoFolia, 2026-11-22):** conferido no código do Folia. "Não cresce" vale para **seções novas**; uma região que tica ainda ganha chunks dentro das seções que já são dela. E "junções só no fim do tick" vale para junção **com região que está ticando**: no Folia, região vizinha que não está ticando é absorvida na hora (`folia/folia-regioes-conferencia.md` #9). A regra mais estrita "o mapa só muda no ponto de junção" (abaixo) é nossa, não do Folia.
 - Junção forçada: se uma rede de mod liga duas regiões, elas viram uma (ver (6)).
+  (Etapa 2, observador) O observador não enxerga redes que guardam referência ao vizinho ou ao tile (BuildCraft `TileBuffer`, rede de energia do IC2; D-40): quem declara o vínculo de uma rede é o módulo do mod, não a medição por gancho. Na carga sintética, a geometria se comportou como previsto: 4 bases a 30 chunks viraram uma região; 4 bases a 80 chunks, quatro (D-45).
 - Cada dimensão tem o próprio regionizador.
 
 Do estudo Folia x NeoFolia (2026-11-22), detalhes em `docs/pesquisa/folia-neofolia.md` §7 (D1 a D3):
@@ -177,6 +178,7 @@ Ponto técnico importante: em 1.7.10 muitos mods leem os campos públicos
 Um patch no método não intercepta leitura de campo feita de fora. A saída prevista é trocar o **objeto**
 da lista por uma lista própria que entrega a visão da região da thread atual.
 A confirmar em protótipo na Etapa 2 (não verificado).
+(Etapa 2, observador) Protótipo feito para `loadedTileEntityList`, com carga sintética: todo uso de fora do `World` veio de contexto serial (Akashic-TickRelief e Mirai, só leitura), 0 modificação de fora, 0 troca do campo por mod. Pelo critério do plano, a lista por região é **desnecessária no Degrau B**: basta a lista não mudar de tamanho na fase paralela. No Degrau C, esses dois usuários entram na lista de handlers da dimensão. `loadedEntityList` não foi medida. Indicação, não produção (D-42).
 
 ### (4) Módulos
 Um módulo por mod difícil. Ele declara: como o mod forma redes, o que tolera
@@ -252,12 +254,12 @@ qualquer thread, como o `getRegionTPS` do Folia.
 |---|---|
 | Jogador ou entidade cruza a borda | Regiões vizinhas dentro do raio já são a mesma região; só há travessia real em teleporte. (estudo Folia x NeoFolia, 2026-11-22) No Folia a entidade não chega à borda: a colisão vira parede até 4 chunks antes e projéteis param; como uma entidade muda de região andando ficou não verificado. |
 | Teleporte e portal | Sai da região de origem no fim do tick, entra na de destino como tarefa. Enquanto isso a entidade não tica. (estudo Folia x NeoFolia, 2026-11-22) O Folia faz o mesmo, mas troca o objeto da entidade por uma cópia. Na 1.7.10 a troca de dimensão já copia a entidade que não é jogador (vanilla; o jogador continua o mesmo objeto, como no Folia); o teleporte no mesmo mundo não copia e não deve passar a copiar, porque mods guardam referência à entidade. |
-| Pistão, fluido, explosão, redstone na borda | Cobertos pelo raio de junção (a borda de uma região nunca encosta em chunk ativo de outra). (estudo Folia x NeoFolia, 2026-11-22) Nos dois projetos a margem não bastou: os dois **cortam** atualização de vizinho e redstone fora da região. Nós não cortamos (corte perde item e energia): o observador mede o alcance real e o que passar da margem vira junção. |
+| Pistão, fluido, explosão, redstone na borda | Cobertos pelo raio de junção (a borda de uma região nunca encosta em chunk ativo de outra). (estudo Folia x NeoFolia, 2026-11-22) Nos dois projetos a margem não bastou: os dois **cortam** atualização de vizinho e redstone fora da região. Nós não cortamos (corte perde item e energia): o observador mede o alcance real e o que passar da margem vira junção. (Etapa 2, observador) Na carga sintética, o alcance de código de mod foi de 1 chunk (vizinho na borda de seção); a margem bastou. As leituras longas do relatório são artefato de contexto velho (D-39). |
 | Chunk loader longe do dono | É uma região como outra qualquer; entra no orçamento. |
 | FakePlayer (quarry, autonomous activator) | Um por região, não o cache global do Forge. A confirmar. |
 | ~60 dimensões | Cada dimensão é pelo menos uma região. "Uma thread por dimensão" sai de graça no Degrau B. |
 | Rede AE2 ligando dimensões (Quantum Bridge) | Junção entre dimensões ou AE2 inteiro em série. Decidir com dados da Etapa 2. |
-| Geração de mundo | **Corrigido pelo estudo 0.8:** pré-gerar o mapa não basta. Carregar um chunk já gerado ainda roda geradores de estrutura, e tick aleatório de bloco pode carregar chunk. É preciso uma "porta única" de carga de chunk por mundo (uma thread por vez entra), que a região usa sem esperar a thread global. |
+| Geração de mundo | **Corrigido pelo estudo 0.8:** pré-gerar o mapa não basta. Carregar um chunk já gerado ainda roda geradores de estrutura, e tick aleatório de bloco pode carregar chunk. É preciso uma "porta única" de carga de chunk por mundo (uma thread por vez entra), que a região usa sem esperar a thread global. (Etapa 2, observador) A porta tem de cobrir também a carga de chunk que já existe no disco, que entra por `ChunkIOExecutor` (síncrono e assíncrono) sem passar por `originalLoadChunk` (D-41). |
 
 ## 5b. O que o estudo das estruturas hostis mudou (tarefa 0.8)
 

@@ -364,6 +364,54 @@ remoção da entidade errada num caminho de teleporte, um laço que pode não te
 `LongHashSet`, e uma correção de cursor de lista que não tem efeito. Candidatos a
 correção separada, como o D-07.
 
+## 8d. Observador da Etapa 2 (2026-11-23, carga sintética)
+
+Completo em `docs/06-relatorio-observador.md`. Todo número é de carga sintética (bases por comando, bots, 4 núcleos,
+uma rodada por condição): **indicação, não medição de produção**.
+
+**D-38. Nenhum código de mod foi visto tocando outra região.** Os acessos de mod que cruzam seção são a vizinhos a
+1 chunk (ChromatiCraft ~2,6 por tick, Forestry ~1,6, EnderIO e Mekanism 1,0, gadomancy ~0,6) e ficam dentro da
+região pela regra de junção. Esperado: as bases da carga não se ligam umas às outras.
+
+**D-39. As leituras "longe" (241 a 527 chunks) são artefato do observador: contexto velho.** Em `tickUpdates` o
+`getBlock` da próxima entrada roda antes do gancho; no tick aleatório, a checagem de luz do chunk seguinte
+(`chunk.func_150804_b`) roda no contexto do bloco anterior; no laço de entidades falta o fim de contexto (achado 7 da
+revisão). Conferido no fonte, não reproduzido.
+
+**D-40. O observador não vê redes que guardam referência.** BuildCraft (`TileBuffer` só chama `getTileEntity` quando
+o vizinho guardado fica inválido) e IC2 (`EnergyNetLocal` sem nenhuma chamada a `getTileEntity`), conferidos com
+javap. "Não cruzou" não quer dizer "não acopla"; redes de mod precisam de módulo.
+
+**D-41. Carga de chunk que já existe no disco não passa por `originalLoadChunk`.** Entra por `ChunkIOExecutor`
+(síncrono ou assíncrono, `ChunkProviderServer.java:188-199`). Por isso a T3 deu 0 em todas as rodadas; a porta única
+de carga do desenho tem de cobrir esse caminho.
+
+**D-42. A lista de tiles só é usada de fora em contexto serial.** 2,11 milhões de chamadas de fora em 584 s, 100%
+seriais, 0 modificações, 0 trocas do campo de fora; usuários: Akashic-TickRelief (`get`/`size`) e Mirai (`size`).
+Critério 2 do plano: lista por região desnecessária no Degrau B. O Crucible troca o objeto da lista ~4 vezes por
+segundo.
+
+**D-43. Custo do observador.** Ligado: 1,9 a 2,4% das amostras de CPU da thread do servidor (JFR), cerca de 2× a
+estimativa do jar (0,56 a 1,11%); dentro da meta de 5%. Desligado: mediana 24,6 × 24,5 ms (ruído maior que a
+diferença) e 1 amostra em 10.418.
+
+**D-44. A válvula do observador para na primeira janela de cada boot.** A primeira foto das regiões custa 41 a 73 ms
+com o código frio (depois, ~2,5 ms) e cai inteira nos primeiros 100 ticks. Defeito de uso, não custo real.
+
+**D-45. A geometria das regiões se comporta como o estudo previu.** 4 bases a 30 chunks viraram uma região de
+16 seções com 41% dos tiles; 4 bases a 80 chunks viraram 4 regiões; menor distância entre regiões 49 a 79 chunks.
+
+**D-46. Leituras de handlers globais ficam sem dono.** 6,76 milhões de leituras de bloco em "mundo depois do tick"
+(e 2,5 mi em "outro", 1,4 mi em "rede") em 584 s ficam só como contagem, sem mod nem destino. A lista P1 por dimensão
+não sai do relatório atual.
+
+**D-47. Entidades crescem entre rodadas com o mundo restaurado** (104 → 1.067 na mesma foto; ~390 em cada uma de
+duas bases do layout a). Não explicado.
+
+**D-48. O ganho de energia do Mekanism depois de um stop é do próprio Mekanism.** Aparece com o recurso desligado
+(+1,9952e6 J, igual ao ligado); a célula de indução nunca marca o chunk ao mudar de energia (javap), e `save-all` não
+resolve. Marcar o chunk antes do stop evita.
+
 ## 9. A máquina de produção
 
 7 vCores e 17 GB de RAM, com heap de 14 GB (`-Xms14336M -Xmx14336M`). Sobram cerca de 3 GB
