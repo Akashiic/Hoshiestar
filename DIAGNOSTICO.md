@@ -412,6 +412,38 @@ duas bases do layout a). Não explicado.
 (+1,9952e6 J, igual ao ligado); a célula de indução nunca marca o chunk ao mudar de energia (javap), e `save-all` não
 resolve. Marcar o chunk antes do stop evita.
 
+*Depois das correções do observador (jar `7161f795…a9668`, boot de confirmação único, varredura estática; detalhe
+em `docs/06-relatorio-observador.md` §2.4, §4 e §8.4):*
+
+**D-49. As redes dos mods grandes são objetos globais andados em handler de tick, não no tick do tile** (varredura
+estática de 378 jars, 8 casos conferidos com javap). Um objeto por servidor: Mekanism (`TransmitterNetworkRegistry`,
+todas as dimensões, no fim do `ServerTickEvent`; `TransporterManager.flowingStacks` estático), EnderIO
+(`ConduitNetworkTickHandler`, `IdentityHashMap` de redes), MFR (`GridTickHandler` × 3 estáticos), Eln (`Simulator`),
+AE2 (`TickHandler.INSTANCE`; cálculo de crafting num `ExecutorService` estático), Galacticraft (listas estáticas de
+redes no `TickHandlerServer`). Por mundo: IC2 (`WorldData.mapping` estático → `EnergyNetLocal`, mais contadores
+estáticos de id). BuildCraft guarda o vizinho (D-40). Nada disso passa pelo `World`: o observador não vê. Para o
+Degrau B, quem registra/invalida rede a partir do tick do tile escreve em coleção comum sem trava; quais métodos
+fazem isso: não verificado. Brutos: Q1 2.796 campos estáticos de coleção (139 jars), Q3 2.508 (134), Q4 166 handlers
+(76), Q5 885 (70). O Q4 não pega handler de `TickEvent` genérico (é o caso do AE2).
+
+**D-50. O contexto velho (D-39) era a causa das leituras longas.** Com a correção, nenhum acesso de tile, entidade,
+tick agendado ou aleatório passou de 2 chunks em 600 s; cruzamento de região por esses contextos: 0 (antes 1.030 a
+2.757 do vanilla, 40 do CoFHCore). Restam 124 acessos a 64+ chunks (até 473), todos do contexto `jogador_rede`;
+origem não investigada.
+
+**D-51. A válvula corrigida (D-44) deixa a primeira observação do boot rodar.** 600 s, 11.157 ticks, 0 avisos; a
+primeira foto custou 85 ms e caiu na janela de aquecimento (3,08%), fora da conta. Custo estimado 1,42% médio /
+2,76% pior trecho; JFR 0,76% de todas as amostras de CPU (uma rodada, sem janela "parado").
+
+**D-52. O IC2 escreve direto na lista de tiles do `World`.** `TileEntityBlock$1.tickCallback` faz
+`loadedTileEntityList.add(this)` (javap) quando o tile termina de carregar, na fila de callbacks do IC2, em contexto
+serial (282 vezes na confirmação, 0 em contexto de região). Não muda o D-42: a lista não muda de tamanho na fase
+paralela por causa dele.
+
+**D-53. Com a observação desde o Done, a T3 contou 3.813 cargas de chunk novo** (andarilhos), quase todas em contexto
+"outro" sem origem (3.372 com pilha do hodgepodge), 74 em `jogador_rede`, 0 em tile/entidade. Carga vinda do disco
+continua fora (D-41).
+
 ## 9. A máquina de produção
 
 7 vCores e 17 GB de RAM, com heap de 14 GB (`-Xms14336M -Xmx14336M`). Sobram cerca de 3 GB

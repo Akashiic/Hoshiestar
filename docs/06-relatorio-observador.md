@@ -5,6 +5,13 @@
 > da revisão independente (`etapa2/rev/revisao.md`), do fonte do fork (branch `hoshiestar`, até `ed357cc7`) e de
 > `javap` nos jars dos mods. **A decisão do portão é do admin**; aqui está só a recomendação.
 
+> **Atualização 2026-11-23 (noite), mesmo juiz:** depois deste relatório entraram as correções do observador
+> (contexto velho D-39 `e7953b04`, válvula D-44 `bd9e9e62`, parar durante o índice `27aeb38e`, doc `9b59ae56`), um
+> jar novo feito do zero (sha256 `7161f795…a9668`, testes do build 126 + 24 + 56, 0 falhas), um boot de confirmação
+> (`etapa2/confirmacao/RESULTADO.md`), a revisão de concorrência das correções (`etapa2/rev-conc/revisao.md`) e a
+> varredura estática dos jars (`etapa2/varredura/`). As seções 1, 2, 3, 4, 7 e 8 foram atualizadas; a nova §2.4 lê a
+> varredura. Nenhum servidor foi ligado para esta atualização; os casos da varredura foram conferidos com `javap`.
+
 **Aviso que vale para todo número daqui:** é **carga sintética**, uma **indicação**, não medição de produção.
 Máquina de 4 núcleos, mundo plano, bases postas por comando, bots parados e andarilhos em vez de jogadores, uma
 rodada por condição. A pergunta P3 (distância real entre as bases) **continua sem dado real**.
@@ -25,25 +32,39 @@ seção/região; **artefato** = número que aparece por defeito da medição, n�
   BuildCraft e cabo IC2 cruzando a borda de seção), cerca de 2.000 tile entities em dim 0, 9 bots parados e
   3 andarilhos. Rodadas: T1 (desligado, jar novo × 1.0.0-dev), T2 (observador, 584 s), T3 (observador + lista),
   T4 (os 8 recursos da Etapa 1 + observador + lista).
+- **Confirmação (depois das correções):** jar `7161f795…a9668`, feito do zero; `javap` confirma no jar os campos e
+  métodos das correções (`pctAquecimento`, `cancelarIndice`, `TRAVA_INDICE`; `fimTick*`/`fimTile`/`fimEntidade` no
+  `WorldServer` e no `World`). Cópia nova, os 3 layouts juntos, 9 bots e 3 andarilhos, observador + lista ligados,
+  `hoshie observar 600` **logo depois do Done** (36,2 s), uma rodada, `stop` limpo em 6 s, sem `kill`.
 
 ## 2. Quais mods cruzam seção e região na carga sintética
 
-Contagens em 584 s de observação (cerca de 11.300 ticks), nas três rodadas completas T2c / T3 / T4.
+Contagens em 584 s de observação (cerca de 11.300 ticks), nas três rodadas completas T2c / T3 / T4, e na coluna
+"Conf." a confirmação depois das correções (600 s, 11.157 ticks, observação desde o Done, então pega o login dos
+bots e a geração de chunks dos andarilhos; não é a mesma janela das outras rodadas).
 
-| Mod (contexto, acesso) | Cruza seção (T2c / T3 / T4) | Por tick | Cruza região | Distância real | Leitura |
-|---|---|---|---|---|---|
-| ChromatiCraft (tile, lê bloco vizinho) | 28.959 / 29.319 / 29.043 | ~2,6 | 0 | 1 chunk | vizinho na borda; fica dentro da região |
-| Forestry (tile, lê bloco) | 18.048 / 18.095 / 18.217 | ~1,6 | 0 | 1 chunk | idem |
-| EnderIO (tile, lê tile/inventário vizinho) | 11.281 / 11.309 / 11.387 | 1,0 exato | 0 | 1 chunk | uma máquina na borda, uma vez por tick |
-| Mekanism (tile, lê bloco) | 11.281 / 11.309 / 11.387 | 1,0 exato | 0 | 1 chunk | idem |
-| gadomancy (tile, lê tile) | 7.110 / 7.047 / 7.036 | ~0,6 | 0 | 1 chunk | idem |
-| CoFHCore (tick agendado, lê bloco) | 63.694 / 2.675 / 600 | 5,6 a 0,05 | 40 / 2 / 0 | 1 chunk; "381" é artefato | varia 100× entre rodadas; parte é artefato (§2.1) |
-| DragonAPI (só na amostra de pilha) | 331 / 98 / 86 | — | 0 | 1 chunk | biblioteca chamada por outros mods |
-| Vanilla "(nenhum)" (tick aleatório/agendado) | 36.202 / 27.453 / 25.877 | ~2,5 | 2.757 / 1.590 / 1.030 | 1 a 2; "481-527" é artefato | relight e leitura da próxima entrada (§2.1) |
-| AkashicFossils, HarvestCraft, etfuturum, Thaumcraft, DimensionalDoors (tick aleatório) | dezenas a centenas | <0,05 | 0 a 64 | 1 chunk; "241-481" é artefato | §2.1 |
-| BuildCraft (cano na borda) | 0 / 0 / 0 (106 só na T2, que começou no boot) | 0 | 0 | 1 chunk | **invisível depois do primeiro tick** (§2.2) |
-| IC2 (cabo na borda) | 0 em todas | 0 | 0 | — | **invisível** (§2.2) |
-| ThermalExpansion (406 mil acessos) | 0 | 0 | 0 | 0 | só a própria seção |
+| Mod (contexto, acesso) | Cruza seção (T2c / T3 / T4) | Conf. | Por tick | Cruza região (T2c / T3 / T4 → Conf.) | Distância real (Conf.: máx.) | Leitura |
+|---|---|---|---|---|---|---|
+| ChromatiCraft (tile, lê bloco vizinho) | 28.959 / 29.319 / 29.043 | 25.273 | ~2,3 a 2,6 | 0 → 0 | 1 chunk (2) | vizinho na borda; fica dentro da região |
+| Forestry (tile, lê bloco) | 18.048 / 18.095 / 18.217 | 17.041 | ~1,5 | 0 → 0 | 1 chunk (1) | idem |
+| EnderIO (tile, lê tile/inventário vizinho) | 11.281 / 11.309 / 11.387 | 10.720 | ~1,0 | 0 → 0 | 1 chunk (1) | uma máquina na borda, uma vez por tick |
+| Mekanism (tile, lê bloco) | 11.281 / 11.309 / 11.387 | 10.709 | ~1,0 | 0 → 0 | 1 chunk (1) | idem |
+| gadomancy (tile, lê tile) | 7.110 / 7.047 / 7.036 | 5.713 | ~0,5 | 0 → 0 | 1 chunk (1) | idem |
+| CoFHCore (tick agendado, lê bloco) | 63.694 / 2.675 / 600 | 207.567 | 0,05 a 18,6 | 40 / 2 / 0 → **0** | **1 chunk (1)** | varia muito entre rodadas (provável: blocos de mundo novo nos andarilhos; não verificado); o "381" sumiu |
+| DragonAPI (só na amostra de pilha) | 331 / 98 / 86 | 1.686 | — | 0 → 0 | 1 chunk (1) | biblioteca chamada por outros mods |
+| Vanilla "(nenhum)" (tick aleatório/agendado) | 36.202 / 27.453 / 25.877 | 263.736 (todos os contextos sem mod) | — | 2.757 / 1.590 / 1.030 → **0** de tick | **1 a 2 (2)** | os "481-527" sumiram |
+| Vanilla "(nenhum)", contexto `jogador_rede` | — | 124 a 64+ chunks | — | → **74** | até 473 | **novo:** pacote de jogador/bot; origem não investigada (provável teleporte dos andarilhos) |
+| AkashicFossils, HarvestCraft, etfuturum, Thaumcraft, DimensionalDoors (tick aleatório) | dezenas a centenas | 560 / 54 / 2 / 0 / 0 | <0,05 | 0 a 64 → 0 | 1 chunk (1) | os "241-481" sumiram |
+| BuildCraft (cano na borda) | 0 / 0 / 0 (106 só na T2, que começou no boot) | 290 | ~0,03 | 0 → 0 | 1 chunk (1) | apareceu porque a observação começou no boot (cache do `TileBuffer` montado nela, §2.2) |
+| IC2 (cabo na borda) | 0 em todas | 0 | 0 | 0 → 0 | — | **invisível** (§2.2, §2.4) |
+| ThermalExpansion (406 mil acessos) | 0 | 4 | 0 | 0 → 0 | 0 a 1 | só a própria seção |
+
+**Os artefatos sumiram.** Na confirmação não há mais leitura longa em contexto de tick agendado, tick aleatório,
+tile ou entidade: todo acesso de mod fica a no máximo 2 chunks. Na faixa de 64+ chunks restam 124 acessos (de
+7,2 milhões), todos do contexto `jogador_rede`, sem mod. Pares entre bases distantes: 1 acesso (CargaB → CargaI),
+antes 3 pares de 12 a 18; os outros 9 pares entre regiões vão de base para seção de andarilho (o maior, 30 + 30
+acessos para a seção (1,13)). Os acessos "fora da foto" que sobram (178 mil vanilla e 86 mil CoFHCore, tick agendado)
+estão a 1-2 chunks: o vizinho caiu numa seção que não estava na última foto (feita a cada 30 s), não longe.
 
 **Resumo:** nenhum código de mod foi visto tocando **outra região**. Todo acesso de mod que cruza seção é a um
 vizinho a 1 chunk, e a regra de junção (até 3 seções viram uma região) já cobre isso. Alcance da atualização de
@@ -71,6 +92,10 @@ contexto anterior:
 Conferido no fonte; não reproduzido com um teste. Correção pequena e da própria Etapa 2: encerrar o contexto antes
 da leitura (ou no começo de cada chunk/entrada), sem mexer na chamada do bloco.
 
+**Corrigido (commit `e7953b04`):** fim do contexto antes do `getBlock` da próxima entrada, no fim de cada chunk do
+tick aleatório, no `catch` do tile e da entidade e no fim do laço de entidades; teste de bytecode que falhava no jar
+antigo. Na confirmação as leituras longas desses contextos sumiram (tabela acima).
+
 ### 2.2 O que o observador não vê (achado novo)
 
 O observador só vê acesso que passa por um método do `World`/`Chunk`. Redes que guardam **referência** ao vizinho ou
@@ -84,7 +109,7 @@ ao tile não passam por ali:
 
 Consequência: **"o observador não viu cruzar" não quer dizer "não acopla"**. Redes de mod (IC2, AE2, EnderIO,
 Mekanism, BuildCraft) precisam de conhecimento do mod (módulo), não de medição por gancho. O perfil de produção já
-punha essas redes nos 18% de handlers globais (D-13).
+punha essas redes nos 18% de handlers globais (D-13). A varredura estática (§2.4) mostra o mesmo desenho em oito mods.
 
 ### 2.3 Outras lacunas dos dados
 
@@ -96,8 +121,57 @@ punha essas redes nos 18% de handlers globais (D-13).
   **novo** (gerado). Chunk que já existe no disco entra por `ChunkIOExecutor.syncChunkLoad`/`queueChunkLoad`
   (`ChunkProviderServer.java:188-199`) e não passa por ali; a geração dos andarilhos aconteceu antes de cada
   observação começar. A frequência de carga dentro do tick (pendência 9) continua sem dado.
+  **Confirmação:** com a observação desde o Done, a T3 contou **3.813 cargas** (chunks gerados pelos andarilhos):
+  3.372 com pilha do hodgepodge e quase todas em contexto "outro" (sem origem); 74 em `jogador_rede`; 0 em contexto de
+  tile ou entidade. Ainda só chunk **novo**: carga do disco segue fora (D-41, sem correção; limite documentado no
+  commit `9b59ae56`). Leituras sem origem na confirmação: 13,3 milhões em "mundo depois do tick", 84,9 milhões em
+  "outro", 1,3 milhão em "rede" (600 s): o D-46 continua.
 - **Pares T2 entre regiões (112 na T2c):** quase todos de seções de base para seções de andarilho, distância de 15 a
   30 seções: mesmo artefato do §2.1.
+
+### 2.4 Varredura estática dos jars (passo 7 do plano)
+
+Coleta mecânica em `etapa2/varredura/` (378 jars de `mods/` e `plugins/`, 182.402 classes, 0 erros de leitura),
+sem interpretação. As cinco perguntas e o tamanho bruto:
+
+| Pergunta | Linhas | Jars |
+|---|---|---|
+| Q1 campo `static` de coleção em classe que referencia mundo/tile/chunk/entidade | 2.796 (756 não `final`; 1.184 só do PlayerAPI) | 139 |
+| Q2 mod lê campo de lista do `World` direto (`loadedEntityList`, `playerEntities`...) | 397 | 75 |
+| Q3 classe guarda `TileEntity` em campo, ou coleção em classe com nome de rede | 2.508 | 134 |
+| Q4 handler de `ServerTickEvent` (94) ou `WorldTickEvent` (72) | 166 | 54 / 39 |
+| Q5 `Thread`/`Executor`/`synchronized` em classe com mundo | 885 | 70 |
+
+É uma lista de candidatos, não de problemas: a maior parte do Q1 é tabela de receita, renderização (cliente) ou
+cache imutável. O que ela muda para o portão é mostrar **o desenho** das redes dos mods grandes. Conferido com `javap`
+nos jars da cópia de teste, 8 casos:
+
+| Mod | O que guarda (javap) | Onde roda | O observador vê? |
+|---|---|---|---|
+| IC2 2.2.828a | `WorldData.mapping` estático (`World` → `WorldData`); cada mundo tem um `EnergyNetLocal` com `Set<Grid>` e `Map<ChunkCoordinates, Tile>`; contadores estáticos `nextGridUid`/`nextNodeUid` | `TickHandler.onWorldTick` → `EnergyNetGlobal.onTickEnd(World)` (handler de mundo) | não (0 chamadas a `getTileEntity`, D-40) |
+| Mekanism 9.10.48 | `TransmitterNetworkRegistry`: **um** objeto para todas as dimensões (`INSTANCE` estático) com `HashSet` de redes, redes a mudar, transmissores inválidos e órfãos; `TransporterManager.flowingStacks` estático e público (`Map<Coord4D, Set>`, chave com dimensão); `FrequencyManager.managers` e `MultiblockManager.managers` estáticos | `TransmitterNetworkRegistry.onTick` no fim do `ServerTickEvent` (uma vez por tick do servidor, todas as dimensões juntas) | não (estado em memória) |
+| EnderIO 2.10.39 | `ConduitNetworkTickHandler` (um por `CommonProxy`) com `IdentityHashMap` de todas as redes de conduíte e lista de ouvintes; a rede se registra nele (`AbstractConduitNetwork` → `registerNetwork`) | `onServerTick` (início e fim do tick do servidor) | só o acesso pelo `World` |
+| AE2 rv3-1093 | `TickHandler.INSTANCE` estático com fila global e `WeakHashMap<World, Queue>` de tarefas; `CraftingGridCache.CRAFTING_POOL`, `ExecutorService` estático (`newCachedThreadPool`) para cálculo de crafting | `onTick(TickEvent)` com o tipo **genérico**, por isso o Q4 dá 0 para o AE2 | as tarefas sim; o cálculo em outra thread, se tocar o mundo, cairia na T4 (0 na confirmação) |
+| BuildCraft 7.1.63 | `TileBuffer` guarda o tile vizinho (D-40) | no tick do cano | só no primeiro acesso depois de montar o cache |
+| Galacticraft 4.0 | `TickHandlerServer`: listas estáticas e não `final` de redes de energia (`networkTicks`) e de condutores a atualizar (energia, oxigênio, hidrogênio) | `onServerTick`/`onWorldTick` | não |
+| MineFactoryReloaded 2.8.1 | `GridTickHandler` com três instâncias estáticas (`energy`, `redstone`, `fluid`), cada uma com `LinkedHashSet` de grades e conduítes | `ServerTickEvent` | não |
+| Eln 1.24.8 | `Simulator` com listas de processos elétricos e térmicos de todo o servidor | `ServerTickEvent` | não |
+
+**O que isso muda** (D-49): nos oito, a rede de energia, item ou fluido é um objeto em memória, **um por servidor**
+(Mekanism, EnderIO, MFR, Eln, AE2) ou por mundo (IC2), andado num handler global e não no tick do tile. Nada disso
+passa pelo `World`, então o observador não vê, e "0 acesso entre regiões" (D-38) não fala dessas redes. Para o
+**Degrau A** isso não muda nada: é uma thread só, a rede continua ticando no handler. Para o **Degrau B**, cada
+uma delas é estado compartilhado entre regiões: os handlers ficam na fase serial (já previsto), mas qualquer código
+de tile que, na fase paralela, registre/invalide transmissor ou rede (Mekanism `registerOrphanTransmitter`/
+`invalidateTransmitter`, EnderIO `registerNetwork`, IC2 `pendingAdds`) escreve num `HashSet`/`HashMap` comum sem trava.
+Quais métodos de tile chamam esses registros, e em que fase: **não verificado** (precisa de busca de chamadores por mod).
+Limites da varredura: o Q4 só pega handler com o tipo exato do evento (o AE2 escapa); nomes SRG/MCP; a hierarquia de
+`TileEntity` só entre os jars varridos.
+
+**Novo na lista de tiles, explicado pelo javap:** o IC2 `TileEntityBlock$1.tickCallback` faz
+`world.loadedTileEntityList.add(this)` direto (campo `field_147482_g`), quando o tile termina de carregar; roda
+na fila de callbacks do IC2, em contexto "mundo antes do tick" (serial). Por que apareceu só agora: provável que a
+observação desde o Done pegou a carga das bases (não verificado).
 
 ## 3. Protótipo da lista de tiles (§4 do plano)
 
@@ -109,6 +183,12 @@ fora**; 0 trocas do campo feitas de fora; 0 chamadas de outra thread; 0 chamadas
 Quem usa de fora: `Akashic-TickRelief` (`MOTickRegistry.rescan`: `get` e `size`, antes e depois do tick de mundo) e
 `Mirai` (`ForgeServerProxy.diagnosticSnapshot`: `size`, depois do tick do servidor). O próprio Crucible troca o
 objeto da lista 2.594 vezes em 584 s (cerca de 4 por segundo, `World.java:2510`), e o protótipo segue funcionando.
+
+**Confirmação:** 67,6 milhões de chamadas do `World`; 1,48 milhão de fora (1.475.410 seriais, 0 em região, 122 sem
+contexto); **282 modificações de fora** (`add` do IC2, §2.4), todas em contexto serial, 0 em região; 0 trocas do
+campo de fora (1.596 pelo `World`); 0 de outra thread. Usuários: Akashic-TickRelief (`get`), IC2 (`add`, novo) e
+Mirai (`size`). O critério 1 (descarta) pede modificação de fora **em contexto de tile/entidade**: continua 0. O
+veredito se mantém.
 
 | Critério do plano | Resultado | Vale? |
 |---|---|---|
@@ -139,6 +219,28 @@ com o código ainda frio (as seguintes, cerca de 2,5 ms cada) e cai inteira na p
 as primeiras amostras de custo, também frias. A segunda observação no mesmo boot rodou 584 s a 0,56-1,11%. Não é
 custo de verdade, mas é defeito de uso: o primeiro `hoshie observar` em produção pararia sozinho. Correção pequena:
 não contar a primeira foto (ou a primeira janela) na válvula.
+
+**Corrigido (commit `bd9e9e62`)** e confirmado: a primeira janela de 100 ticks é aquecimento e não conta para a
+válvula (o custo dela vai para o relatório). Na confirmação, `hoshie observar 600` logo depois do Done rodou os 600 s
+inteiros (11.157 ticks, 0 avisos); a primeira foto custou 85 ms.
+
+**Custo na confirmação** (observador + lista, uma rodada, indicação): estimativa do jar **1,42%** médio, **2,76%** no
+pior trecho, 3,08% na janela de aquecimento (meta 5%); JFR de 120 s: 80 de 10.499 amostras de CPU (0,76% de todas)
+com quadro do observador, alocação 5 de 18.693. Tick (`forge tps`) depois de t=150 s: mediana 22,6 ms, p95 41,8, TPS
+20. Não há janela "parado" nesse boot, então não há comparação ligado × parado. O custo subiu em relação à T3
+(1,11% / 1,79%), provável por pegar login e geração de chunks; com a regra de ~2× entre JFR da thread do servidor e a
+estimativa (D-43), o custo real ficaria perto de 3% médio: dentro da meta, sem folga grande.
+
+**Revisão de concorrência (I1, importante):** a amostra de pilha de acesso vindo de **outra thread**
+(`Nucleo.outraThread`, `ContagemLista.contarOutraThread`) não tinha teto por tick e ficava fora da válvula; teste
+sintético no JDK 8: 166 a 242 ns por chamada (pilha de 20) e 763 a 860 ns (pilha de 120), contra 1 a 3 ns sem
+gancho. Na carga sintética a T4 deu 0, então não pesou. **Corrigido no fork** (commit `a279c10e`: teto de 20 amostras
+por tick somando T4 e lista, custo das outras threads dentro da válvula), junto com m1 (`3c11c356`), m4
+(`2d1e8969`), m2 (`8db785ed`), m3 (`66f8d48a`) e m8 (`709ed6c2`); m5, m6, m7 e m9 ficaram como limite na doc
+(`49020c28`). O jar da confirmação foi construído depois desses commits e contém a correção do I1 (`javap`:
+`Nucleo.MAX_AMOSTRAS_OUTRA_TICK = 20`, `outraPilhaNs`; `Observador.falhaPedida`, `geracaoIndice`). **Essas seis
+correções de concorrência não passaram por revisão de outro agente** (a revisão `rev-conc` é de antes delas), e o
+teto do I1 não foi exercitado no boot (T4 = 0).
 
 ## 5. O que a carga sintética NÃO representa
 
@@ -177,18 +279,27 @@ não contar a primeira foto (ou a primeira janela) na válvula.
 
 ## 7. Não verificado e não verificável aqui
 
+**Fechado depois do relatório:** artefato do §2.1 (corrigido e as leituras longas sumiram na confirmação); válvula
+na primeira janela (corrigida, primeira observação rodou 600 s); parar durante o índice (achado 5, `27aeb38e`, teste
+com latch); jar testado contém as correções (agora por `javap` no conteúdo, não pela hora); varredura estática feita
+(§2.4); achado 7 (contexto velho de entidade/tile, junto com o §2.1).
+
 **Não verificado:**
-- Que o artefato do §2.1 explique **todas** as leituras longas (conferido no fonte, sem teste que reproduza);
-  quanto do CoFHCore é artefato.
+- Origem dos 124 acessos de `jogador_rede` a 64+ chunks (até 473) na confirmação; por que o CoFHCore varia de 600 a
+  207 mil cruzamentos de seção entre rodadas.
+- Por que o `add` do IC2 na lista de tiles apareceu só na confirmação (o que ele faz está no §2.4; o motivo de antes
+  dar 0 é provável, não conferido).
+- Quais métodos de tile chamam os registros globais de rede da §2.4, e em que fase do tick (precisa de busca de
+  chamadores por mod); os mods fora dos 8 conferidos.
+- As seis correções de concorrência posteriores à revisão (`a279c10e` a `709ed6c2`): sem revisão de outro agente; o
+  teto do I1 não foi exercitado com acesso real de outra thread.
 - De onde vêm os tiles do ChromatiCraft e do gadomancy; por que as entidades crescem entre rodadas.
 - Se itens/energia fluem pelo cano BC e pelo cabo IC2 da carga.
-- Ruído entre rodadas; parada por SIGTERM (item 1.G); carga de chunk dentro do tick (T3 cego).
-- Conteúdo do World patchado dentro de `binpatches.pack.lzma` (achado 13 da revisão); que o jar testado contém as
-  correções (só pela hora do build).
-- Varredura estática dos jars (passo 7 do plano, pendência 9: singletons de IC2, AE2, EnderIO, CoFH, BuildCraft):
-  não aparece nos resultados desta etapa.
-- Achados menores da revisão ainda abertos: 5 (parar durante o índice), 6 (uso dentro de `forEach`), 7 (contexto
-  velho de entidade/tile), 8 (montaria), 9 e 10 (T3 e escrita direta), 11 (cópia extra no `embrulhar`), 12, 13.
+- Ruído entre rodadas (a confirmação também foi rodada única, sem janela "parado"); parada por SIGTERM com o
+  observador gravando (item 1.G, m5); carga de chunk vinda do disco (T3 só vê chunk novo, D-41).
+- Conteúdo do World patchado dentro de `binpatches.pack.lzma` (achado 13 da revisão; ficou como nota).
+- Achados menores da revisão geral sem correção, com motivo na doc: 6 (uso dentro de `forEach`), 8 (montaria), 9 e
+  10 (T3 e escrita direta), 11 (cópia extra no `embrulhar`), 12.
 
 **Não verificável aqui:**
 - Jogador humano real, bases reais, distância real entre bases (P3), carga de produção, comportamento com 30 a 200
@@ -231,6 +342,30 @@ Motivos:
 
 Se o admin **não** aceitar máquinas mais lentas na base pesada (pendência 5), a recomendação vira: ir para o B,
 começando pela parte comum (regionizador + tempo por região, sem cortar tick), e só depois a fase paralela.
+
+### 8.4 Depois da confirmação e da varredura: a recomendação se mantém
+
+**Recomendação (mantida): vai, com o Degrau A (Etapa 2.5) como próximo passo; o B só depois.** Motivos novos:
+
+1. Os artefatos sumiram e o observador agora serve de checagem: na confirmação, nenhum acesso de mod passou de
+   2 chunks e nenhum cruzou região; a primeira observação do boot rodou inteira; custo estimado 1,42% médio /
+   2,76% pior trecho (JFR 0,76% de todas as amostras), dentro da meta. Isso confirma o D-38 sem o ruído do D-39.
+2. A varredura **reforça** a ordem. Os oito mods de rede conferidos guardam a rede num objeto global (um por servidor
+   ou por mundo) andado em handler de tick (§2.4, D-49). O A não sente isso (uma thread). O B precisa, para cada rede,
+   saber quem a registra a partir do tick do tile, porque esses registros são `HashSet`/`HashMap` sem trava: é mais
+   trabalho de módulo por mod no B, não menos. Junto com P3 sem dado e o ganho do B não medido, nada aqui puxa o B
+   para antes do A.
+3. A lista de tiles continua desnecessária por região no B (critério 2): as 282 modificações novas de fora (IC2) são
+   em contexto serial.
+
+**A etapa está fechada?** Quase. Os três itens do §8.2 (contexto velho, válvula, varredura) estão feitos; a carga de
+chunk do disco (D-41) ficou como limite documentado, sem correção, e não impede o A (ele não precisa da T3). Falta
+**uma** coisa pela regra do projeto: as seis correções de concorrência feitas depois da revisão (`a279c10e` a
+`709ed6c2`, já no jar testado) precisam de revisão por outro agente, curta e só nelas. Sem ela, a recomendação é não
+ligar o observador em produção. O resto da lista "não verificado" (§7) não bloqueia o portão: ou depende de jogador
+real, ou é trabalho do B.
+
+A decisão é do admin; aqui só a recomendação.
 
 ### 8.3 Item a avaliar (decisão 35): ajuste automático em execução
 
