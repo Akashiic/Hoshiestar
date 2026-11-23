@@ -42,6 +42,36 @@ public final class Servidor {
         } catch (Throwable t) {
             Log.erro("nao consegui registrar o comando hoshie", t);
         }
+        try {
+            hoshiestar.parada.ComandoTesteParada.registrarSePedido(); // so com -Dhoshiestar.parada.teste=true
+        } catch (Throwable t) {
+            Log.erro("nao consegui registrar o subcomando de teste da parada", t);
+        }
+        try {
+            hoshiestar.vigia.ComandoTesteVigia.registrarSePedido(); // so com -Dhoshiestar.vigia.teste=true
+        } catch (Throwable t) {
+            Log.erro("nao consegui registrar o subcomando de teste do vigia", t);
+        }
+        try {
+            hoshiestar.medidor.ComandoMedidor.instalar(); // medidor de carga: liga ao jogo e registra 'hoshie medir/parar'
+        } catch (Throwable t) {
+            Log.erro("nao consegui instalar o medidor (hoshie medir/parar)", t);
+        }
+        try {
+            hoshiestar.mekanism.Mekanism.aoIniciarServidor(); // subcomando "hoshie mekanism"
+        } catch (Throwable t) {
+            Log.erro("nao consegui registrar o subcomando hoshie mekanism", t);
+        }
+        try {
+            hoshiestar.arsmagica.ArsMagica.aoIniciarServidor(); // subcomando "hoshie arsmagica"
+        } catch (Throwable t) {
+            Log.erro("nao consegui registrar o subcomando hoshie arsmagica", t);
+        }
+        try {
+            hoshiestar.chromaticraft.ChromatiCraft.aoIniciarServidor(); // confere os ganchos e registra "hoshie chromaticraft"
+        } catch (Throwable t) {
+            Log.erro("nao consegui registrar o subcomando hoshie chromaticraft", t);
+        }
     }
 
     /**
@@ -49,6 +79,13 @@ public final class Servidor {
      * posicao do transformador na cadeia do LaunchClassLoader.
      */
     public static void pronto() {
+        try {
+            if (hoshiestar.vigia.Vigia.ligado()) {
+                hoshiestar.vigia.Vigia.iniciar(new hoshiestar.vigia.ContextoMinecraft()); // thread do vigia de tick lento
+            }
+        } catch (Throwable t) {
+            Log.erro("nao consegui iniciar o vigia", t);
+        }
         try {
             Log.info(Hoshiestar.descricao() + " pronto; thread do servidor: "
                     + (ThreadServidor.souAThreadDoServidor() ? "confere (" + Thread.currentThread().getName() + ")"

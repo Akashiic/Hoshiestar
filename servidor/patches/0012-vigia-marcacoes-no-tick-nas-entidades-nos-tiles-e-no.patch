@@ -1,0 +1,737 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Mon, 23 Nov 2026 00:57:47 +0000
+Subject: [PATCH 12/16] vigia: marcacoes no tick, nas entidades, nos tiles e no
+ jogador; parada da thread no inicio de stopServer
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/patches/net/minecraft/entity/player/EntityPlayerMP.java.patch b/patches/net/minecraft/entity/player/EntityPlayerMP.java.patch
+index f39dee90..5a37654c 100644
+--- a/patches/net/minecraft/entity/player/EntityPlayerMP.java.patch
++++ b/patches/net/minecraft/entity/player/EntityPlayerMP.java.patch
+@@ -225,7 +225,7 @@
+                              iterator1.remove();
+                          }
+                      }
+-@@ -265,26 +384,26 @@
++@@ -265,31 +384,32 @@
+                  }
+              }
+  
+@@ -268,7 +268,13 @@
+          }
+      }
+  
+-@@ -297,9 +416,16 @@
++     public void onUpdateEntity()
++     {
+++        try { hoshiestar.vigia.Marcas.entidade(this); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia: anota o jogador em atualizacao (chamado pelo pacote de movimento)
++         try
++         {
++             super.onUpdate();
++@@ -297,9 +417,16 @@
+              for (int i = 0; i < this.inventory.getSizeInventory(); ++i)
+              {
+                  ItemStack itemstack = this.inventory.getStackInSlot(i);
+@@ -287,7 +293,7 @@
+                      Packet packet = ((ItemMapBase)itemstack.getItem()).func_150911_c(itemstack, this.worldObj, this);
+  
+                      if (packet != null)
+-@@ -309,9 +435,10 @@
++@@ -309,9 +436,10 @@
+                  }
+              }
+  
+@@ -299,7 +305,7 @@
+                  this.lastHealth = this.getHealth();
+                  this.lastFoodLevel = this.foodStats.getFoodLevel();
+                  this.wasHungry = this.foodStats.getSaturationLevel() == 0.0F;
+-@@ -320,16 +447,18 @@
++@@ -320,16 +448,18 @@
+              if (this.getHealth() + this.getAbsorptionAmount() != this.field_130068_bO)
+              {
+                  this.field_130068_bO = this.getHealth() + this.getAbsorptionAmount();
+@@ -325,7 +331,7 @@
+              if (this.experienceTotal != this.lastExperience)
+              {
+                  this.lastExperience = this.experienceTotal;
+-@@ -340,6 +469,20 @@
++@@ -340,6 +470,20 @@
+              {
+                  this.func_147098_j();
+              }
+@@ -346,7 +352,15 @@
+          }
+          catch (Throwable throwable)
+          {
+-@@ -400,36 +543,85 @@
++@@ -348,6 +492,7 @@
++             this.addEntityCrashInfo(crashreportcategory);
++             throw new ReportedException(crashreport);
++         }
+++        try { hoshiestar.vigia.Marcas.entidade(null); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia
++     }
++ 
++     protected void func_147098_j()
++@@ -400,36 +545,85 @@
+          }
+      }
+  
+@@ -441,7 +455,7 @@
+              score.func_96648_a();
+          }
+  
+-@@ -495,7 +687,8 @@
++@@ -495,7 +689,8 @@
+  
+      public boolean canAttackPlayer(EntityPlayer p_96122_1_)
+      {
+@@ -451,7 +465,7 @@
+      }
+  
+      public void travelToDimension(int p_71027_1_)
+-@@ -526,7 +719,10 @@
++@@ -526,7 +721,10 @@
+                  this.triggerAchievement(AchievementList.portal);
+              }
+  
+@@ -463,7 +477,7 @@
+              this.lastExperience = -1;
+              this.lastHealth = -1.0F;
+              this.lastFoodLevel = -1;
+-@@ -569,6 +765,11 @@
++@@ -569,6 +767,11 @@
+  
+      public void wakeUpPlayer(boolean p_70999_1_, boolean p_70999_2_, boolean p_70999_3_)
+      {
+@@ -475,7 +489,7 @@
+          if (this.isPlayerSleeping())
+          {
+              this.getServerForPlayer().getEntityTracker().func_151248_b(this, new S0BPacketAnimation(this, 2));
+-@@ -584,11 +785,27 @@
++@@ -584,11 +787,27 @@
+  
+      public void mountEntity(Entity p_70078_1_)
+      {
+@@ -506,7 +520,7 @@
+      protected void updateFallState(double p_70064_1_, boolean p_70064_3_) {}
+  
+      public void handleFalling(double p_71122_1_, boolean p_71122_3_)
+-@@ -610,29 +827,64 @@
++@@ -610,29 +829,64 @@
+          this.currentWindowId = this.currentWindowId % 100 + 1;
+      }
+  
+@@ -574,7 +588,7 @@
+          this.openContainer.windowId = this.currentWindowId;
+          this.openContainer.addCraftingToCrafters(this);
+      }
+-@@ -644,71 +896,150 @@
++@@ -644,71 +898,150 @@
+              this.closeScreen();
+          }
+  
+@@ -733,7 +747,7 @@
+          this.openContainer.windowId = this.currentWindowId;
+          this.openContainer.addCraftingToCrafters(this);
+          InventoryMerchant inventorymerchant = ((ContainerMerchant)this.openContainer).getMerchantInventory();
+-@@ -725,7 +1056,7 @@
++@@ -725,7 +1058,7 @@
+                  merchantrecipelist.func_151391_a(packetbuffer);
+                  this.playerNetServerHandler.sendPacket(new S3FPacketCustomPayload("MC|TrList", packetbuffer));
+              }
+@@ -742,7 +756,7 @@
+              {
+                  logger.error("Couldn\'t send trade list", ioexception);
+              }
+-@@ -738,6 +1069,17 @@
++@@ -738,6 +1071,17 @@
+  
+      public void displayGUIHorse(EntityHorse p_110298_1_, IInventory p_110298_2_)
+      {
+@@ -760,7 +774,7 @@
+          if (this.openContainer != this.inventoryContainer)
+          {
+              this.closeScreen();
+-@@ -745,7 +1087,7 @@
++@@ -745,7 +1089,7 @@
+  
+          this.getNextWindowId();
+          this.playerNetServerHandler.sendPacket(new S2DPacketOpenWindow(this.currentWindowId, 11, p_110298_2_.getInventoryName(), p_110298_2_.getSizeInventory(), p_110298_2_.hasCustomInventoryName(), p_110298_1_.getEntityId()));
+@@ -769,7 +783,7 @@
+          this.openContainer.windowId = this.currentWindowId;
+          this.openContainer.addCraftingToCrafters(this);
+      }
+-@@ -770,6 +1112,15 @@
++@@ -770,6 +1114,15 @@
+      {
+          this.playerNetServerHandler.sendPacket(new S30PacketWindowItems(p_71110_1_.windowId, p_71110_2_));
+          this.playerNetServerHandler.sendPacket(new S2FPacketSetSlot(-1, -1, this.inventory.getItemStack()));
+@@ -785,7 +799,7 @@
+      }
+  
+      public void sendProgressBarUpdate(Container p_71112_1_, int p_71112_2_, int p_71112_3_)
+-@@ -779,6 +1130,7 @@
++@@ -779,6 +1132,7 @@
+  
+      public void closeScreen()
+      {
+@@ -793,7 +807,7 @@
+          this.playerNetServerHandler.sendPacket(new S2EPacketCloseWindow(this.openContainer.windowId));
+          this.closeContainer();
+      }
+-@@ -853,8 +1205,19 @@
++@@ -853,8 +1207,19 @@
+      public void setPlayerHealthUpdated()
+      {
+          this.lastHealth = -1.0E8F;
+@@ -813,7 +827,7 @@
+      public void addChatComponentMessage(IChatComponent p_146105_1_)
+      {
+          this.playerNetServerHandler.sendPacket(new S02PacketChat(p_146105_1_));
+-@@ -882,7 +1245,24 @@
++@@ -882,7 +1247,24 @@
+          this.lastExperience = -1;
+          this.lastHealth = -1.0F;
+          this.lastFoodLevel = -1;
+@@ -838,7 +852,7 @@
+      }
+  
+      protected void onNewPotionEffect(PotionEffect p_70670_1_)
+-@@ -1037,6 +1417,114 @@
++@@ -1037,6 +1419,114 @@
+          return this.field_143005_bX;
+      }
+  
+diff --git a/patches/net/minecraft/server/MinecraftServer.java.patch b/patches/net/minecraft/server/MinecraftServer.java.patch
+index 7e3add52..f60ca5c8 100644
+--- a/patches/net/minecraft/server/MinecraftServer.java.patch
++++ b/patches/net/minecraft/server/MinecraftServer.java.patch
+@@ -379,7 +379,7 @@
+          this.clearCurrentTask();
+      }
+  
+-@@ -292,46 +513,86 @@
++@@ -292,46 +513,87 @@
+      {
+          this.currentTask = null;
+          this.percentDone = 0;
+@@ -442,6 +442,7 @@
+ -    public void stopServer()
+ +    public void stopServer() throws MinecraftException // CraftBukkit - added throws
+      {
+++        try { hoshiestar.vigia.Vigia.parar(); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia: para a thread do vigia (espera no maximo 0,8 s; nunca relata o desligamento)
+ +        // Hoshiestar start - parada (D-24): um so salvamento de parada por vez; quem chega com outro salvando espera e nao salva de novo; desligado = 0 = caminho original
+ +        int hoshieParada = 0;
+ +        try
+@@ -478,7 +479,7 @@
+              if (this.func_147137_ag() != null)
+              {
+                  this.func_147137_ag().terminateEndpoints();
+-@@ -347,7 +608,14 @@
++@@ -347,7 +609,14 @@
+              if (this.worldServers != null)
+              {
+                  logger.info("Saving worlds");
+@@ -494,7 +495,7 @@
+  
+                  for (int i = 0; i < this.worldServers.length; ++i)
+                  {
+-@@ -368,6 +636,24 @@
++@@ -368,6 +637,24 @@
+                  this.usageSnooper.stopSnooper();
+              }
+          }
+@@ -519,7 +520,7 @@
+      }
+  
+      public boolean isServerRunning()
+-@@ -380,8 +666,16 @@
++@@ -380,8 +667,16 @@
+          this.serverRunning = false;
+      }
+  
+@@ -536,7 +537,7 @@
+          try
+          {
+              if (this.startServer())
+-@@ -392,45 +686,56 @@
++@@ -392,45 +687,56 @@
+                  this.field_147147_p.func_151315_a(new ChatComponentText(this.motd));
+                  this.field_147147_p.func_151321_a(new ServerStatusResponse.MinecraftProtocolVersionIdentifier("1.7.10", 5));
+                  this.func_147138_a(this.field_147147_p);
+@@ -620,7 +621,7 @@
+                  FMLCommonHandler.instance().handleServerStopping();
+                  FMLCommonHandler.instance().expectServerStopped(); // has to come before finalTick to avoid race conditions
+              }
+-@@ -448,6 +753,14 @@
++@@ -448,6 +754,14 @@
+          catch (Throwable throwable1)
+          {
+              logger.error("Encountered an unexpected exception", throwable1);
+@@ -635,7 +636,7 @@
+              CrashReport crashreport = null;
+  
+              if (throwable1 instanceof ReportedException)
+-@@ -477,6 +790,7 @@
++@@ -477,6 +791,7 @@
+          {
+              try
+              {
+@@ -643,7 +644,7 @@
+                  this.stopServer();
+                  this.serverStopped = true;
+              }
+-@@ -486,6 +800,16 @@
++@@ -486,6 +801,16 @@
+              }
+              finally
+              {
+@@ -660,7 +661,7 @@
+                  FMLCommonHandler.instance().handleServerStopped();
+                  this.serverStopped = true;
+                  this.systemExitNow();
+-@@ -497,6 +821,11 @@
++@@ -497,6 +822,11 @@
+      {
+          File file1 = this.getFile("server-icon.png");
+  
+@@ -672,11 +673,12 @@
+          if (file1.isFile())
+          {
+              ByteBuf bytebuf = Unpooled.buffer();
+-@@ -532,8 +861,15 @@
++@@ -532,8 +862,16 @@
+  
+      public void tick()
+      {
+ +        ++hoshiestar.api.Relogio.ticks; // Hoshiestar - relogio de ticks proprio (um so escritor: esta thread)
+++        try { hoshiestar.vigia.Marcas.inicioTick(); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia: anota o inicio do tick (so escreve um campo; desligado = nada)
+ +        TimingsManager.FULL_SERVER_TICK.startTiming();
+ +        WatchdogThread.tick(); // Thermos - be a good little WatchDog and actually restart if there's a problem!
+          long i = System.nanoTime();
+@@ -688,7 +690,7 @@
+          ++this.tickCounter;
+  
+          if (this.startProfiling)
+-@@ -562,11 +898,18 @@
++@@ -562,11 +900,18 @@
+              this.field_147147_p.func_151318_b().func_151330_a(agameprofile);
+          }
+  
+@@ -709,7 +711,7 @@
+              this.theProfiler.endSection();
+          }
+  
+-@@ -575,25 +918,58 @@
++@@ -575,25 +920,59 @@
+          this.theProfiler.endSection();
+          this.theProfiler.startSection("snooper");
+  
+@@ -733,6 +735,7 @@
+ +        CrucibleTimings.forgePostTick.stopTiming();
+ +        callingForgeTick = false; // Cauldron end
+ +        TimingsManager.FULL_SERVER_TICK.stopTiming();
+++        try { hoshiestar.vigia.Marcas.fimTick(); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia: anota o fim do tick
+      }
+  
+      public void updateTimeLightAndEntities()
+@@ -770,7 +773,7 @@
+          int i;
+  
+          Integer[] ids = DimensionManager.getIDs(this.tickCounter % 200 == 0);
+-@@ -602,19 +978,21 @@
++@@ -602,19 +981,21 @@
+              int id = ids[x];
+              long j = System.nanoTime();
+  
+@@ -795,7 +798,7 @@
+  
+                  this.theProfiler.startSection("tick");
+                  FMLCommonHandler.instance().onPreWorldTick(worldserver);
+-@@ -622,22 +1000,46 @@
++@@ -622,22 +1003,46 @@
+  
+                  try
+                  {
+@@ -844,7 +847,7 @@
+                      worldserver.addWorldInfoToCrashReport(crashreport);
+                      throw new ReportedException(crashreport);
+                  }
+-@@ -645,10 +1047,12 @@
++@@ -645,10 +1050,12 @@
+                  FMLCommonHandler.instance().onPostWorldTick(worldserver);
+                  this.theProfiler.endSection();
+                  this.theProfiler.startSection("tracker");
+@@ -858,7 +861,7 @@
+  
+              worldTickTimes.get(id)[this.tickCounter % 100] = System.nanoTime() - j;
+          }
+-@@ -656,15 +1060,21 @@
++@@ -656,15 +1063,21 @@
+          this.theProfiler.endStartSection("dim_unloading");
+          DimensionManager.unloadWorlds(worldTickTimes);
+          this.theProfiler.endStartSection("connection");
+@@ -880,7 +883,7 @@
+  
+          this.theProfiler.endSection();
+      }
+-@@ -699,6 +1109,13 @@
++@@ -699,6 +1112,13 @@
+  
+      public WorldServer worldServerForDimension(int p_71218_1_)
+      {
+@@ -894,7 +897,7 @@
+          WorldServer ret = DimensionManager.getWorld(p_71218_1_);
+          if (ret == null)
+          {
+-@@ -784,13 +1201,14 @@
++@@ -784,13 +1204,14 @@
+  
+      public List getPossibleCompletions(ICommandSender p_71248_1_, String p_71248_2_)
+      {
+@@ -913,7 +916,7 @@
+  
+              if (list != null)
+              {
+-@@ -798,40 +1216,25 @@
++@@ -798,40 +1219,25 @@
+  
+                  while (iterator.hasNext())
+                  {
+@@ -962,7 +965,7 @@
+      }
+  
+      public static MinecraftServer getServer()
+-@@ -1034,7 +1437,7 @@
++@@ -1034,7 +1440,7 @@
+  
+      public boolean isServerInOnlineMode()
+      {
+@@ -971,7 +974,7 @@
+      }
+  
+      public void setOnlineMode(boolean p_71229_1_)
+-@@ -1124,7 +1527,7 @@
++@@ -1124,7 +1530,7 @@
+  
+      public NetworkSystem func_147137_ag()
+      {
+@@ -980,7 +983,7 @@
+      }
+  
+      @SideOnly(Side.CLIENT)
+-@@ -1257,10 +1660,14 @@
++@@ -1257,10 +1663,14 @@
+      @SideOnly(Side.SERVER)
+      public static void main(String[] p_main_0_)
+      {
+@@ -995,7 +998,7 @@
+              boolean flag = true;
+              String s = null;
+              String s1 = ".";
+-@@ -1356,16 +1763,34 @@
++@@ -1356,16 +1766,34 @@
+              {
+                  dedicatedserver.setGuiEnabled();
+              }
+@@ -1036,7 +1039,7 @@
+          }
+          catch (Exception exception)
+          {
+-@@ -1400,15 +1825,70 @@
++@@ -1400,15 +1828,70 @@
+      @SideOnly(Side.SERVER)
+      public String getPlugins()
+      {
+@@ -1112,7 +1115,7 @@
+      }
+  
+      @SideOnly(Side.SERVER)
+-@@ -1455,9 +1935,213 @@
++@@ -1455,9 +1938,213 @@
+          return this.serverStopped;
+      }
+  
+diff --git a/patches/net/minecraft/world/World.java.patch b/patches/net/minecraft/world/World.java.patch
+index 75b73d53..58ad2378 100644
+--- a/patches/net/minecraft/world/World.java.patch
++++ b/patches/net/minecraft/world/World.java.patch
+@@ -999,18 +999,20 @@
+  
+              if (entity.ridingEntity != null)
+              {
+-@@ -1884,7 +2440,10 @@
++@@ -1884,7 +2440,12 @@
+              {
+                  try
+                  {
+ +                    ++TimingHistory.entityTicks; // Paper //TODO Crucible: Is this the right place? I think so
+ +                    MinecraftTimings.tickEntityTimer.startTiming(); // Spigot
+++                    try { hoshiestar.vigia.Marcas.entidade(entity); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia: anota a entidade em atualizacao
+                      this.updateEntity(entity);
+++                    try { hoshiestar.vigia.Marcas.entidade(null); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia
+ +                    MinecraftTimings.tickEntityTimer.stopTiming(); // Spigot
+                  }
+                  catch (Throwable throwable1)
+                  {
+-@@ -1916,30 +2475,82 @@
++@@ -1916,30 +2477,84 @@
+                  {
+                      this.getChunkFromChunkCoords(j, l).removeEntity(entity);
+                  }
+@@ -1091,7 +1093,9 @@
+                  {
+ +                    tileentity.tickTimer.startTiming(); // Spigot
+ +                    tilesTicked++;
+++                    try { hoshiestar.vigia.Marcas.tile(tileentity); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia: anota o tile em atualizacao (a chamada abaixo fica como esta: o Akashic-WorldFirewall a troca)
+                      tileentity.updateEntity();
+++                    try { hoshiestar.vigia.Marcas.tile(null); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia
+ +                    tileentity.tickTimer.stopTiming(); // Spigot
+                  }
+                  catch (Throwable throwable)
+@@ -1100,7 +1104,7 @@
+                      crashreport = CrashReport.makeCrashReport(throwable, "Ticking block entity");
+                      crashreportcategory = crashreport.makeCategory("Block entity being ticked");
+                      tileentity.func_145828_a(crashreportcategory);
+-@@ -1955,23 +2566,13 @@
++@@ -1955,23 +2570,13 @@
+                      }
+                  }
+              }
+@@ -1129,7 +1133,7 @@
+          if (!this.field_147483_b.isEmpty())
+          {
+              for (Object tile : field_147483_b)
+-@@ -1981,6 +2582,7 @@
++@@ -1981,6 +2586,7 @@
+              this.loadedTileEntityList.removeAll(this.field_147483_b);
+              this.field_147483_b.clear();
+          }
+@@ -1137,7 +1141,7 @@
+  
+          this.field_147481_N = false;
+  
+-@@ -1992,14 +2594,14 @@
++@@ -1992,14 +2598,14 @@
+              {
+                  TileEntity tileentity1 = (TileEntity)this.addedTileEntityList.get(k);
+  
+@@ -1154,7 +1158,7 @@
+                  {
+                      if (this.chunkExists(tileentity1.xCoord >> 4, tileentity1.zCoord >> 4))
+                      {
+-@@ -2016,17 +2618,25 @@
++@@ -2016,17 +2622,25 @@
+              this.addedTileEntityList.clear();
+          }
+  
+@@ -1183,7 +1187,7 @@
+      }
+  
+      public void updateEntity(Entity p_72870_1_)
+-@@ -2036,11 +2646,16 @@
++@@ -2036,11 +2650,16 @@
+  
+      public void updateEntityWithOptionalForce(Entity p_72866_1_, boolean p_72866_2_)
+      {
+@@ -1203,7 +1207,7 @@
+  
+          if (!canUpdate)
+          {
+-@@ -2048,9 +2663,30 @@
++@@ -2048,9 +2667,30 @@
+              MinecraftForge.EVENT_BUS.post(event);
+              canUpdate = event.canUpdate;
+          }
+@@ -1235,7 +1239,7 @@
+              p_72866_1_.lastTickPosX = p_72866_1_.posX;
+              p_72866_1_.lastTickPosY = p_72866_1_.posY;
+              p_72866_1_.lastTickPosZ = p_72866_1_.posZ;
+-@@ -2134,6 +2770,7 @@
++@@ -2134,6 +2774,7 @@
+                      p_72866_1_.riddenByEntity = null;
+                  }
+              }
+@@ -1243,7 +1247,7 @@
+          }
+      }
+  
+-@@ -2517,6 +3154,16 @@
++@@ -2517,6 +3158,16 @@
+              int l;
+              TileEntity tileentity1;
+  
+@@ -1260,7 +1264,7 @@
+              if (this.field_147481_N)
+              {
+                  for (l = 0; l < this.addedTileEntityList.size(); ++l)
+-@@ -2570,7 +3217,7 @@
++@@ -2570,7 +3221,7 @@
+              return;
+          }
+  
+@@ -1269,7 +1273,7 @@
+          {
+              if (this.field_147481_N)
+              {
+-@@ -2606,13 +3253,33 @@
++@@ -2606,13 +3257,33 @@
+      public void removeTileEntity(int p_147475_1_, int p_147475_2_, int p_147475_3_)
+      {
+          Chunk chunk = getChunkFromChunkCoords(p_147475_1_ >> 4, p_147475_3_ >> 4);
+@@ -1304,7 +1308,7 @@
+      }
+  
+      public boolean func_147469_q(int p_147469_1_, int p_147469_2_, int p_147469_3_)
+-@@ -2718,7 +3385,15 @@
++@@ -2718,7 +3389,15 @@
+  
+                      if (i <= 0)
+                      {
+@@ -1321,7 +1325,7 @@
+                      }
+                  }
+  
+-@@ -2754,7 +3429,15 @@
++@@ -2754,7 +3433,15 @@
+  
+                      if (j <= 0)
+                      {
+@@ -1338,7 +1342,7 @@
+                      }
+                  }
+  
+-@@ -2777,8 +3460,41 @@
++@@ -2777,8 +3464,41 @@
+      protected void setActivePlayerChunksAndCheckLight()
+      {
+          this.activeChunkSet.clear();
+@@ -1381,7 +1385,7 @@
+          int i;
+          EntityPlayer entityplayer;
+          int j;
+-@@ -2788,17 +3504,28 @@
++@@ -2788,17 +3508,28 @@
+          for (i = 0; i < this.playerEntities.size(); ++i)
+          {
+              entityplayer = (EntityPlayer)this.playerEntities.get(i);
+@@ -1416,7 +1420,7 @@
+          }
+  
+          this.theProfiler.endSection();
+-@@ -2810,7 +3537,7 @@
++@@ -2810,7 +3541,7 @@
+  
+          this.theProfiler.startSection("playerCheckLight");
+  
+@@ -1425,7 +1429,7 @@
+          {
+              i = this.rand.nextInt(this.playerEntities.size());
+              entityplayer = (EntityPlayer)this.playerEntities.get(i);
+-@@ -3034,9 +3761,9 @@
++@@ -3034,9 +3765,9 @@
+          }
+      }
+  
+@@ -1437,7 +1441,7 @@
+          {
+              return false;
+          }
+-@@ -3166,6 +3893,28 @@
++@@ -3166,6 +3897,28 @@
+                  }
+              }
+  
+@@ -1466,7 +1470,7 @@
+              this.theProfiler.endSection();
+              return true;
+          }
+-@@ -3188,7 +3937,7 @@
++@@ -3188,7 +3941,7 @@
+  
+      public List getEntitiesWithinAABBExcludingEntity(Entity p_94576_1_, AxisAlignedBB p_94576_2_, IEntitySelector p_94576_3_)
+      {
+@@ -1475,7 +1479,7 @@
+          int i = MathHelper.floor_double((p_94576_2_.minX - MAX_ENTITY_RADIUS) / 16.0D);
+          int j = MathHelper.floor_double((p_94576_2_.maxX + MAX_ENTITY_RADIUS) / 16.0D);
+          int k = MathHelper.floor_double((p_94576_2_.minZ - MAX_ENTITY_RADIUS) / 16.0D);
+-@@ -3219,7 +3968,7 @@
++@@ -3219,7 +3972,7 @@
+          int j = MathHelper.floor_double((p_82733_2_.maxX + MAX_ENTITY_RADIUS) / 16.0D);
+          int k = MathHelper.floor_double((p_82733_2_.minZ - MAX_ENTITY_RADIUS) / 16.0D);
+          int l = MathHelper.floor_double((p_82733_2_.maxZ + MAX_ENTITY_RADIUS) / 16.0D);
+@@ -1484,7 +1488,7 @@
+  
+          for (int i1 = i; i1 <= j; ++i1)
+          {
+-@@ -3284,8 +4033,21 @@
++@@ -3284,8 +4037,21 @@
+          {
+              Entity entity = (Entity)this.loadedEntityList.get(j);
+  
+@@ -1507,7 +1511,7 @@
+                  ++i;
+              }
+          }
+-@@ -3298,6 +4060,7 @@
++@@ -3298,6 +4064,7 @@
+          for (int i = 0; i < p_72868_1_.size(); ++i)
+          {
+              Entity entity = (Entity)p_72868_1_.get(i);
+@@ -1515,7 +1519,7 @@
+              if (!MinecraftForge.EVENT_BUS.post(new EntityJoinWorldEvent(entity, this)))
+              {
+                  loadedEntityList.add(entity);
+-@@ -3314,8 +4077,17 @@
++@@ -3314,8 +4081,17 @@
+      public boolean canPlaceEntityOnSide(Block p_147472_1_, int p_147472_2_, int p_147472_3_, int p_147472_4_, boolean p_147472_5_, int p_147472_6_, Entity p_147472_7_, ItemStack p_147472_8_)
+      {
+          Block block1 = this.getBlock(p_147472_2_, p_147472_3_, p_147472_4_);
+@@ -1534,7 +1538,7 @@
+      }
+  
+      public PathEntity getPathEntityToEntity(Entity p_72865_1_, Entity p_72865_2_, float p_72865_3_, boolean p_72865_4_, boolean p_72865_5_, boolean p_72865_6_, boolean p_72865_7_)
+-@@ -3464,6 +4236,12 @@
++@@ -3464,6 +4240,12 @@
+          for (int i = 0; i < this.playerEntities.size(); ++i)
+          {
+              EntityPlayer entityplayer1 = (EntityPlayer)this.playerEntities.get(i);
+@@ -1547,7 +1551,7 @@
+              double d5 = entityplayer1.getDistanceSq(p_72977_1_, p_72977_3_, p_72977_5_);
+  
+              if ((p_72977_7_ < 0.0D || d5 < p_72977_7_ * p_72977_7_) && (d4 == -1.0D || d5 < d4))
+-@@ -3489,7 +4267,12 @@
++@@ -3489,7 +4271,12 @@
+          for (int i = 0; i < this.playerEntities.size(); ++i)
+          {
+              EntityPlayer entityplayer1 = (EntityPlayer)this.playerEntities.get(i);
+@@ -1561,7 +1565,7 @@
+              if (!entityplayer1.capabilities.disableDamage && entityplayer1.isEntityAlive())
+              {
+                  double d5 = entityplayer1.getDistanceSq(p_72846_1_, p_72846_3_, p_72846_5_);
+-@@ -3660,6 +4443,18 @@
++@@ -3660,6 +4447,18 @@
+  
+      public void updateAllPlayersSleepingFlag() {}
+  
+@@ -1580,7 +1584,7 @@
+      public float getWeightedThunderStrength(float p_72819_1_)
+      {
+          return (this.prevThunderingStrength + (this.thunderingStrength - this.prevThunderingStrength) * p_72819_1_) * this.getRainStrength(p_72819_1_);
+-@@ -3932,8 +4727,8 @@
++@@ -3932,8 +4731,8 @@
+       */
+      public void addTileEntity(TileEntity entity)
+      {
+@@ -1591,7 +1595,7 @@
+          {
+              dest.add(entity);
+          }
+-@@ -4029,4 +4824,132 @@
++@@ -4029,4 +4828,132 @@
+          }
+          return count;
+      }

@@ -1,0 +1,129 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Sun, 22 Nov 2026 17:50:03 +0000
+Subject: [PATCH 09/16] chunkmap: casa limpa antes de o mapa mudar (I1); cache
+ desligado e solto e MRU zerado (I2, M1); desligamento sempre contado (M2);
+ busca extra do put so com conferir (M5)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+index ac48f32d..e472c08f 100644
+--- a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
++++ b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+@@ -55,10 +55,15 @@ public class ChunkBlockHashMap {
+             return null;
+         }
+     }
+-    private void hoshieFalhou(hoshiestar.chunkmap.CacheDeChunks hoshie, Throwable t) {
+-        this.hoshieCache = null;
++    // cache desligado: conta no status, solta a tabela (os chunks dela podem sair da memoria) e o codigo original recomeca com o cache de 4 entradas vazio
++    private void hoshieSoltar(hoshiestar.chunkmap.CacheDeChunks hoshie) {
+         try {
+-            hoshie.desligarPorErro(t);
++            hoshie.soltou();
++            this.hoshieCache = null;
++            last1 = null;
++            last2 = null;
++            last3 = null;
++            last4 = null;
+         } catch (Throwable ignorado) {
+         }
+     }
+@@ -131,11 +136,16 @@ public class ChunkBlockHashMap {
+         // Hoshiestar start
+         if (HOSHIE_CHUNKMAP) {
+             hoshiestar.chunkmap.CacheDeChunks hoshie = this.hoshieCache;
+-            if (hoshie != null && hoshie.ativo()) {
+-                try {
+-                    return hoshie.get(x, z);
+-                } catch (Throwable t) {
+-                    hoshieFalhou(hoshie, t);
++            if (hoshie != null) {
++                if (hoshie.ativo) {
++                    try {
++                        return hoshie.get(x, z);
++                    } catch (Throwable t) { // sem chamar metodo aqui: vale ate com a pilha estourada
++                        hoshie.erroNoPonto = t;
++                        hoshie.ativo = false;
++                    }
++                } else {
++                    hoshieSoltar(hoshie);
+                 }
+             }
+         }
+@@ -172,11 +182,16 @@ public class ChunkBlockHashMap {
+     public void put(Chunk chunk) {
+         // Hoshiestar start
+         hoshiestar.chunkmap.CacheDeChunks hoshie = HOSHIE_CHUNKMAP ? this.hoshieCache : null;
+-        if (hoshie != null && hoshie.ativo()) {
+-            try {
+-                hoshie.antesDeMudar(chunk, true);
+-            } catch (Throwable t) {
+-                hoshieFalhou(hoshie, t);
++        if (hoshie != null) {
++            if (hoshie.ativo) {
++                try {
++                    hoshie.antesDeMudar(chunk, true); // limpa a casa ANTES de o mapa mudar
++                } catch (Throwable t) {
++                    hoshie.erroNoPonto = t;
++                    hoshie.ativo = false;
++                }
++            } else {
++                hoshieSoltar(hoshie);
+             }
+         }
+         // Hoshiestar end
+@@ -209,11 +224,12 @@ public class ChunkBlockHashMap {
+             last1 = chunk;
+         }
+         // Hoshiestar start
+-        if (hoshie != null && hoshie.ativo()) {
++        if (hoshie != null && hoshie.ativo) {
+             try {
+                 hoshie.depoisDePor(chunk);
+             } catch (Throwable t) {
+-                hoshieFalhou(hoshie, t);
++                hoshie.erroNoPonto = t;
++                hoshie.ativo = false;
+             }
+         }
+         // Hoshiestar end
+@@ -222,11 +238,16 @@ public class ChunkBlockHashMap {
+     public void remove(Chunk chunk) {
+         // Hoshiestar start
+         hoshiestar.chunkmap.CacheDeChunks hoshie = HOSHIE_CHUNKMAP ? this.hoshieCache : null;
+-        if (hoshie != null && hoshie.ativo()) {
+-            try {
+-                hoshie.antesDeMudar(chunk, false);
+-            } catch (Throwable t) {
+-                hoshieFalhou(hoshie, t);
++        if (hoshie != null) {
++            if (hoshie.ativo) {
++                try {
++                    hoshie.antesDeMudar(chunk, false); // limpa a casa ANTES de o mapa mudar
++                } catch (Throwable t) {
++                    hoshie.erroNoPonto = t;
++                    hoshie.ativo = false;
++                }
++            } else {
++                hoshieSoltar(hoshie);
+             }
+         }
+         // Hoshiestar end
+@@ -266,14 +287,5 @@ public class ChunkBlockHashMap {
+         if (last4 != null && last4.xPosition == chunk.xPosition && last4.zPosition == chunk.zPosition) {
+             last4 = null;
+         }
+-        // Hoshiestar start
+-        if (hoshie != null && hoshie.ativo()) {
+-            try {
+-                hoshie.depoisDeTirar(chunk);
+-            } catch (Throwable t) {
+-                hoshieFalhou(hoshie, t);
+-            }
+-        }
+-        // Hoshiestar end
+     }
+ }

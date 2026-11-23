@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Mon, 23 Nov 2026 09:04:33 +0000
+Subject: [PATCH 16/16] chunkmap: o MRU fica vazio com o cache ativo e soltar o
+ cache nao grava nele (achado C1: hoshieSoltar zerava last1..last4 de qualquer
+ thread e a thread do servidor podia levar NPE no codigo original)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+index e472c08f..5fb28611 100644
+--- a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
++++ b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+@@ -55,15 +55,11 @@ public class ChunkBlockHashMap {
+             return null;
+         }
+     }
+-    // cache desligado: conta no status, solta a tabela (os chunks dela podem sair da memoria) e o codigo original recomeca com o cache de 4 entradas vazio
++    // cache desligado: conta no status e solta a tabela (os chunks dela podem sair da memoria). NAO grava em last1..last4: pode rodar em qualquer thread, e a thread do servidor pode estar lendo esses campos no codigo original; eles ja estao vazios (o put da dona os zera enquanto o cache vale)
+     private void hoshieSoltar(hoshiestar.chunkmap.CacheDeChunks hoshie) {
+         try {
+             hoshie.soltou();
+             this.hoshieCache = null;
+-            last1 = null;
+-            last2 = null;
+-            last3 = null;
+-            last4 = null;
+         } catch (Throwable ignorado) {
+         }
+     }
+@@ -225,6 +221,11 @@ public class ChunkBlockHashMap {
+         }
+         // Hoshiestar start
+         if (hoshie != null && hoshie.ativo) {
++            // cache ativo: ninguem le o cache de 4 entradas; fica vazio para o codigo original recomecar vazio depois do desligamento (put de outra thread desligou antes e nao passa aqui)
++            last1 = null;
++            last2 = null;
++            last3 = null;
++            last4 = null;
+             try {
+                 hoshie.depoisDePor(chunk);
+             } catch (Throwable t) {

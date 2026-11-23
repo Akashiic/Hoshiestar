@@ -12,7 +12,9 @@
 #                             a pasta <work>/Crucible nao pode existir
 #   --mods <pasta>            pasta com os jars dos mods, so para COMPILAR os ganchos de src/mods/java
 #                             (ex.: a pasta mods/ de um servidor de teste). Obrigatoria se houver
-#                             alguma fonte em src/mods/java: sem ela o build para com uma mensagem.
+#                             alguma fonte em src/mods/java (hoje ha: mekanism, betterquesting,
+#                             arsmagica, chromaticraft): sem ela o build para com uma mensagem.
+#                             Tambem vira HOSHIE_MODS do test.sh (se nao definido), para os testes com mods.
 #   --github-raw              usa servidor/ferramentas/github-raw.init.gradle (proxy que recusa
 #                             github.com/.../raw/...)
 #   --limpo                   com --rapido: recompila tudo do projeto do servidor (saida igual a de um
@@ -108,5 +110,6 @@ JAR="$(ls "$W"/build/distributions/Hoshiestar-1.7.10-*-server.jar | head -1)"
 echo "[build] jar: $JAR"
 sha256sum "$JAR"
 if [[ $TESTES -eq 1 ]]; then
+  if [[ -n "$MODS" && -z "${HOSHIE_MODS:-}" ]]; then export HOSHIE_MODS="$MODS"; fi
   "$AQUI/test.sh" "$W"
 fi

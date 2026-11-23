@@ -10,17 +10,39 @@ o commit do upstream + as nossas mudanças, nunca uma cópia da árvore do Cruci
 |---|---|
 | `UPSTREAM` | endereço, branch e commit do Crucible de onde o fork parte |
 | `patches/` | série `git format-patch` só com mudanças em arquivos que **já existem** no upstream (inclusive os `.patch` do Minecraft/Forge, gerados pelo `genPatches`) |
-| `src/` | arquivos **novos** nossos, nos mesmos caminhos em que entram na árvore do fork (`src/main/java/hoshiestar/...`, `src/test/...`) |
+| `src/` | arquivos **novos** nossos, nos mesmos caminhos em que entram na árvore do fork (`src/main/java/hoshiestar/...`, `src/mods/java/...`, `src/test/...`, `src/docs/` com o doc de cada recurso) |
 | `build.sh` | constrói o jar a partir de um clone limpo do upstream + esta pasta (ou num workspace já pronto) |
 | `exportar.sh` | copia os commits de um workspace para `patches/` e `src/` (determinístico) |
 | `gerar-patches.sh` | roda o `genPatches` do upstream e desfaz o ruído de cabeçalho |
-| `test.sh` | testes isolados (fora do jogo) |
+| `test.sh` | todos os testes isolados (fora do jogo): os gerais, os de cada recurso e os com mods |
 | `ferramentas/github-raw.init.gradle` | contorno opcional para proxy que recusa `github.com/.../raw/...` |
 
 Termos: **workspace** = a árvore do Crucible com o `servidor/` aplicado, onde se compila e edita.
 **Patch** = arquivo de diferenças. **Transformador** = código que altera o bytecode (as instruções
 compiladas) de uma classe quando ela é carregada. **Trava de versão** = SHA-256 (impressão digital)
 dos bytes originais da classe de um mod; a correção só entra se bater.
+
+## 0. Recursos do jar
+
+Cada recurso tem um interruptor no `hoshiestar.yml` (seção com o nome do recurso) e um doc em
+`src/docs/` (no repositório: `servidor/src/docs/`) com o que faz, as chaves, a segurança, os testes e o
+que não foi verificado. Desligado = comportamento original. Padrão: tudo desligado, menos o vigia; o
+medidor vem `habilitado: true`, mas só mede quando o admin manda (`hoshie medir`).
+
+| Recurso (id) | O que faz | Chave principal (padrão) | Outras chaves | Doc |
+|---|---|---|---|---|
+| `chunkmap` | cache de última consulta do mapa de chunks (patch em `thermos.wrapper.ChunkBlockHashMap`) | `chunkmap.ligado` (false) | `bits`, `conferir` | `src/docs/chunkmap.md` |
+| `parada` | parada por SIGTERM sem crash e sem salvamento duplo (D-24; patches em MinecraftServer, DedicatedServer, ServerShutdownThread) | `parada.ligado` (false) | `espera_laco_segundos`, `espera_salvar_segundos`, `folga_saida_segundos` | `src/docs/parada.md` |
+| `vigia` | vigia de tick lento: relatório de quem, onde e qual mod quando um tick passa do limite | `vigia.ligado` (**true**) | `limite_ms`, `amostras`, `intervalo_amostras_ms`, `intervalo_minimo_segundos`, `max_relatorios`, `janela_minutos`, `quadros`, `nome_do_jogador`, `max_arquivos`, `carencia_segundos` | `src/docs/vigia.md` |
+| `medidor` | medidor de carga por região (`hoshie medir <s>` / `hoshie parar`; patches em World, EntityPlayerMP, MinecraftServer) | `medidor.habilitado` (true; só mede sob comando) | `margem_custo` | `src/docs/medidor.md` e o roteiro do admin `src/docs/ROTEIRO-MEDIDOR.md` |
+| `mekanism` | matriz de indução do Mekanism: energia sem refazer a busca de cada célula (correção embutida) | `mekanism.modo` (`desligado`; ou `verificar`, `ligado`) | `intervalo` | `src/docs/mekanism.md` |
+| `betterquesting` | BetterQuesting: pula as checagens de inventário que comprovadamente não mudam nada (correção embutida) | `betterquesting.modo` (`desligado`; ou `verificar`, `ligado`) | `relatorio` | `src/docs/betterquesting.md` |
+| `arsmagica` | Ars Magica 2: pula a varredura de mundos e a checagem do DiluteTime quando os mapas do AM2 estão vazios (correção embutida) | `arsmagica.varredura` e `arsmagica.diluicao` (false) | `estatistica` | `src/docs/arsmagica.md` |
+| `chromaticraft` | ChromatiCraft: limites na habilidade de mover área (correção embutida) | `chromaticraft.ligado` (false) | `intervalo`, `distancia`, `volume`, `altura`, `chunks`, `mensagem`, `loglento`, `logsegundos` | `src/docs/chromaticraft.md` |
+| `autoteste` | autoteste das correções embutidas (OpenBlocks) | `autoteste.ligado` (false) | | seção 5 abaixo |
+
+O `hoshie status` lista os recursos (o `mekanism` só aparece com o Mekanism presente) e o estado de cada
+correção. Os recursos de mods só se aplicam se a trava de versão bater; senão ficam desligados e avisam.
 
 ---
 
@@ -30,18 +52,23 @@ Precisa: `git`, JDK 8 e JDK 17 instalados (o `buildSrc` do Crucible procura um J
 rede para os repositórios maven do Crucible. Receita completa e motivos em
 `docs/pesquisa/crucible-build.md`.
 
+**Todo build exige `--mods <pasta mods/ de um servidor de teste>`**: os ganchos de `src/mods/java`
+(mekanism, betterquesting, arsmagica, chromaticraft) compilam contra os jars dos mods, que não vão para
+o Git nem para dentro do jar.
+
 ```bash
 # build completo, do zero (clona o upstream, aplica patches/ e src/, setupCrucible, buildPackages, test.sh)
-servidor/build.sh --upstream https://github.com/CrucibleMC/Crucible --work /tmp/hoshie --github-raw
+servidor/build.sh --upstream https://github.com/CrucibleMC/Crucible --work /tmp/hoshie --github-raw \
+    --mods <pasta mods/>
 # saida: /tmp/hoshie/Crucible/build/distributions/Hoshiestar-1.7.10-1.0.0-dev-server.jar
 
 # build rapido num workspace ja preparado (o /tmp/hoshie/Crucible acima, por exemplo)
-servidor/build.sh --rapido /tmp/hoshie/Crucible --sem-testes
-servidor/build.sh --rapido /tmp/hoshie/Crucible --limpo     # recompila tudo: saida igual a do completo
-
-# quando houver ganchos em src/mods/java (compilam contra os jars dos mods, que nao vao para o Git):
-servidor/build.sh ... --mods <pasta mods/ de um servidor de teste>
+servidor/build.sh --rapido /tmp/hoshie/Crucible --sem-testes --mods <pasta mods/>
+servidor/build.sh --rapido /tmp/hoshie/Crucible --limpo --mods <pasta mods/>  # recompila tudo: saida igual a do completo
 ```
+
+O `--mods` também vira `HOSHIE_MODS` do `test.sh` que o build roda no fim (se `HOSHIE_MODS` não estiver
+definido); os testes com mods precisam ainda de `HOSHIE_LIBS` (seção 2).
 
 - `--upstream` aceita URL ou caminho local de um clone. `--github-raw` só é preciso atrás de proxy
   que bloqueia `github.com/.../raw/...` (o caso deste ambiente).
@@ -55,7 +82,8 @@ servidor/build.sh ... --mods <pasta mods/ de um servidor de teste>
   não foi dada a pasta de mods (`--mods`, ou `-Phoshiestar.mods=` no Gradle; a mensagem cita os dois).
   Pular em silêncio
   geraria um jar com correções que nunca se aplicam. Os jars entram como `compileOnly` (só
-  compilação, nunca dentro do jar). Hoje `src/mods/java` está vazio: nada exige mods para compilar.
+  compilação, nunca dentro do jar). Hoje `src/mods/java` tem os ganchos de quatro recursos, então todo
+  build exige `--mods`.
 
 Tempos medidos nesta máquina (4 núcleos, cache do Gradle e do Minecraft já baixados): build completo
 do zero (clone + `setupCrucible` + `buildPackages`) 125 a 156 s (último: 126 s), mais uns 15 s do
@@ -64,14 +92,32 @@ baixa o Minecraft e as dependências e demora mais (não medido aqui).
 
 ## 2. Testes isolados
 
+Todos os testes, de uma vez (depois de um build com `--mods`, porque os testes com mods e o de bytecode
+do medidor leem o jar e as classes construídas):
+
 ```bash
-HOSHIE_LIBS=<pasta libraries/ de um servidor> servidor/test.sh <workspace>
+HOSHIE_LIBS=<pasta libraries/ de um servidor> HOSHIE_MODS=<pasta mods/ de um servidor> \
+    servidor/test.sh <workspace>              # modo rapido (padrao)
+HOSHIE_LIBS=... HOSHIE_MODS=... servidor/test.sh <workspace> --completo   # dose cheia (mais repeticoes)
 ```
 
-Compila a classe de exemplo `src/test/amostras/amostra/Alvo.java` para **Java 6, 7 e 8**, aplica cada
+O `test.sh` roda, nesta ordem, e conta as falhas (saída 0 = tudo passou; no fim, `N teste(s) falharam`):
+1. os testes gerais (abaixo), no JDK 8 e no 21;
+2. com `HOSHIE_MODS`: `src/test/mods/*.bash` (mekanism, betterquesting, arsmagica, chromaticraft), com as
+   classes reais dos mods; sem `HOSHIE_MODS` eles são pulados com aviso no resumo;
+3. o script de cada recurso, `src/test/<recurso>/teste-*.bash` (chunkmap, parada, vigia, medidor e os
+   que vierem). No modo rápido quem aceita `--rapido` recebe a opção (menos repetições: chunkmap e
+   parada); `--completo` roda tudo cheio. Cada script também roda sozinho:
+   `HOSHIE_LIBS=... bash <workspace>/src/test/<recurso>/teste-<recurso>.bash <workspace> [--rapido]`.
+
+Script de teste com extensão `.sh` é falha: o `.gitignore` do upstream ignora `*.sh` e o script sumiria
+na exportação (use `.bash`). `HOSHIE_SAIDA=<pasta>` guarda a saída (padrão: pasta temporária nova).
+
+Testes gerais: compila a classe de exemplo `src/test/amostras/amostra/Alvo.java` para **Java 6, 7 e 8**, aplica cada
 formato de correção, passa o resultado pelo `CheckClassAdapter` do ASM e depois **carrega e executa**
 a classe num class loader de teste (o verificador da própria JVM confere os quadros de pilha). Roda
-tudo no JDK 8 e no JDK 21. Testes: `TesteAsm` (formatos 1 a 3 e falha fechada), `TesteTrava`
+tudo no JDK 8 e no JDK 21. Testes: `TesteAsm` (formatos 1 a 3, as variantes protegidas dos formatos 1
+e 3, e falha fechada), `TesteTrava`
 (trava, registro de correções, transformador, `HashClasse`), `TesteCampoPrivado` (formato 4),
 `TesteLimitador`, `TesteConfig` (hoshiestar.yml ausente, válido e completo sem regravar, item
 faltando, chave desconhecida, erro de digitação, seção no formato errado, valor inválido, lixo). `HOSHIE_LIBS`
@@ -126,13 +172,23 @@ presente) e (c) a trava confere. Arquivos de exemplo: `src/main/java/hoshiestar/
 2. **Leia o bytecode** com `javap -c -p` (método, descritor, chamadas). Escolha o formato:
    - **1. `Asm.ganchoNoInicio`**: chama um gancho na entrada do método, com retorno antecipado
      opcional (métodos de instância e estáticos; retorno void, boolean, double, objeto...). Ex.:
-     Mekanism `getEnergy`, ChromatiCraft `shiftArea`.
+     Mekanism `getEnergy` (o ChromatiCraft usa a variante protegida, abaixo).
    - **2. `Asm.trocarChamada`**: troca **uma** chamada (dono + nome + descritor + ordinal, e o total
      esperado no método) por um gancho estático que recebe receptor e argumentos. Ex.: BetterQuesting.
    - **3. `Asm.envolverChamada`**: um gancho decide se a chamada original acontece (ela fica dentro
-     da classe do mod, num método-ponte sintético); se não, outro gancho dá o valor. Ex.: Ars Magica 2.
+     da classe do mod, num método-ponte sintético); se não, outro gancho dá o valor. Ex.: Ars Magica 2
+     e ChromatiCraft (na variante protegida).
    - **4. `CampoPrivado`**: ler/escrever campo privado do mod pelo gancho, via `MethodHandle`
      guardado em `static final` (nada muda na classe do mod). Ex.: `OreIngredient.ores` do BQ.
+   - **Formatos protegidos (1 e 3)**: `Asm.ganchoNoInicioProtegido` e `Asm.envolverChamadaProtegida`
+     recebem um gancho a mais, `aoFalhar` (descritor `(Ljava/lang/Throwable;)V`, público, estático, que
+     nunca lança). Se um gancho falhar (a classe dele não liga, o método não existe com aquele descritor,
+     ou ele lança qualquer `Throwable`), o método do mod segue pelo corpo original (formato 1) ou pela
+     chamada original (formato 3), em vez de o erro sair de dentro do método do mod e derrubar o servidor.
+     O código original fica fora do `try`: o que ele lançar sai como sairia sem o gancho. O `aoFalhar`
+     tem de ficar numa classe do jar sem tipos do Minecraft nem do mod (precisa ligar quando os outros
+     não ligam). Sem falha, o caminho é o mesmo do formato comum. Ex.: ChromatiCraft (1 e 3), Ars
+     Magica 2 (3). Prefira o protegido quando o gancho usa classes de mod (`src/mods/java`).
 3. **Ganchos**: métodos `public static` numa classe `public` nossa. Receptor (método/chamada de
    instância) primeiro, com o tipo exato ou `Object`; os demais parâmetros e o retorno com os tipos
    exatos. Gancho que só usa tipos do JDK/Forge/Minecraft (receptor como `Object`) fica em
@@ -196,8 +252,8 @@ ligada, o transformador nem é registrado.
   - ilegível (não é YAML ou não é mapa): todos os padrões, aviso, arquivo intocado;
   - nunca derruba o servidor. Os avisos saem no log do boot (`[Hoshiestar] config: ...`) e o
     `hoshie status` diz quantos houve.
-  Hoje só tem `autoteste.ligado` (padrão `false`). Um campo novo (ex.: `chunkmap_ligado`) entra
-  sozinho no arquivo do admin no primeiro boot da versão nova.
+  As seções e chaves de cada recurso estão na seção 0. Um campo novo de uma versão nova entra
+  sozinho no arquivo do admin no primeiro boot dela (o arquivo é regravado com o padrão).
 - **Comando `hoshie`**: `hoshie status`, `hoshie hash <classe>`. Registrado como o `crucible`
   (comando Bukkit, no `FMLServerStartingEvent` do `CrucibleModContainer`; prefixo reserva
   `hoshiestar:`). Quem pode: console e RCON sempre; jogador só se for operador de nível 4 **e** tiver o
@@ -274,7 +330,30 @@ Descobertas (código lido e provado no modpack real, Java 21):
 
 ## 8. O que foi verificado e o que não foi
 
-Verificado (logs no scratchpad da tarefa; números do último ciclo, depois da revisão independente):
+**Junção das duas faixas (2026-11-23; os oito recursos num jar só).** Os commits da faixa de mods
+(mekanism, betterquesting, arsmagica, chromaticraft) entraram por cherry-pick no workspace da faixa do
+servidor (chunkmap, parada, vigia, medidor), um commit por commit original; conflitos só em
+`HoshiestarConfig`, `Catalogo`, `Servidor` e `TesteConfig`, resolvidos mantendo os dois lados (nos três
+primeiros só houve acréscimos). Depois: `teste-chunkmap.sh` virou `.bash`; dois ajustes de teste do
+chunkmap (arquivo "completo" do `TesteChunkmapConfig` sai do gerado; a rodada sem compilação em camadas
+usa sempre 3 rodadas do estouro de pilha); e o `build.gradle.kts` deixou de configurar o source set dos
+ganchos de mods antes do `setupCrucible` (o build do zero com `--mods` falhava). Resultado:
+- `exportar.sh` duas vezes: `diff -r` vazio (15 patches, 192 arquivos novos).
+- `build.sh` do zero (clone limpo + `servidor/`, `--mods`): 165 s; 5472 entradas, todas com o mesmo CRC
+  do build rápido `--limpo`, menos `binpatches.pack.lzma`.
+- Contra o jar de produção: mudam `MANIFEST.MF`, `binpatches.pack.lzma` (patches em MinecraftServer,
+  World, EntityPlayerMP, DedicatedServer), `CrucibleModContainer` (+`$1`), `CrucibleCoremodHook`,
+  `ServerShutdownThread` (parada), `thermos/wrapper/ChunkBlockHashMap` (chunkmap), e `MinecraftServer$7`,
+  `ahb$5`, `ahb$6` (classes internas de MinecraftServer e World: `javap -c` igual, só a tabela de
+  linhas); entram `ServerShutdownThread$1` e 153 classes `hoshiestar/`. Nenhuma classe de mod no jar.
+- `test.sh` com `HOSHIE_LIBS` e `HOSHIE_MODS`, modo rápido, JDK 8 e 21: tudo passou (o chunkmap passou
+  na segunda rodada, depois dos dois ajustes acima; os outros na primeira).
+- Boot de fumaça no modpack real (cópia nova, tudo no padrão): "Done" com 292 mods, `recursos:` com os
+  oito + autoteste (só vigia e medidor ligados; transformador não registrado), `hoshie status` lista
+  todos, `hoshiestar.yml` criado com as nove seções, `stop` limpo, sem crash-report, nenhum aviso ou
+  erro do Hoshiestar.
+
+Verificado na base (logs no scratchpad da tarefa; números do último ciclo, depois da revisão independente):
 - `build.sh` a partir de um clone limpo do upstream + `servidor/` (7 patches, 33 arquivos novos)
   reconstrói o jar em 126 s: 5362 entradas, todas com o mesmo CRC do jar do workspace, menos
   `binpatches.pack.lzma` (muda a cada build, ver crucible-build.md; a revisão desempacotou e as 1470
@@ -316,6 +395,11 @@ Verificado (logs no scratchpad da tarefa; números do último ciclo, depois da r
   duas esperadas da trava errada.
 
 Não verificado:
+- Depois da junção: os recursos ligados no modpack real juntos (cada faixa testou os seus no servidor
+  separadamente; o boot de fumaça da junção foi só com o padrão).
+- O controle do estouro de pilha do chunkmap (T2 do `TesteChunkmapAdversario`) depende do JIT: no JDK 21
+  sem compilação em camadas, com 3 rodadas, caíram só 5/2/1 estouros em remove/put/get; pode falhar por
+  acaso (falso alarme do teste, não do código).
 - Boot do jar em Java 8 (a produção usa Java 21).
 - Formato 3 com método protegido herdado de classe de outro pacote (o verificador pode recusar).
 - Custo do transformador medido em servidor (por desenho: uma busca em HashMap por classe carregada,

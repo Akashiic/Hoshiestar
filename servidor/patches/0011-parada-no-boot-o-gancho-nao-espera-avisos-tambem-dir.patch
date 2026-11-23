@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Sun, 22 Nov 2026 19:35:47 +0000
+Subject: [PATCH 11/16] parada: no boot o gancho nao espera; avisos tambem
+ direto no console durante a saida da JVM
+
+Achados do teste no modpack real: (1) com a JVM saindo o log4j para de escrever, entao os avisos da parada vao tambem direto para a saida de erro; (2) continuar o boot com a JVM saindo quebra mods (addShutdownHook lanca 'Shutdown in progress' e sai crash-report), entao antes de SERVER_STARTED o gancho segue o caminho original; (3) a saida e conferida antes do boot, porque o FML volta a responder 'nao iniciou' depois de parar.
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/v1_7_R4/util/ServerShutdownThread.java b/src/main/java/org/bukkit/craftbukkit/v1_7_R4/util/ServerShutdownThread.java
+index 86b59948..3ce45867 100644
+--- a/src/main/java/org/bukkit/craftbukkit/v1_7_R4/util/ServerShutdownThread.java
++++ b/src/main/java/org/bukkit/craftbukkit/v1_7_R4/util/ServerShutdownThread.java
+@@ -12,7 +12,7 @@ public class ServerShutdownThread extends Thread {
+ 
+     @Override
+     public void run() {
+-        // Hoshiestar start - parada (D-24): pede ao laco de tick que pare e espera a thread do servidor salvar e sair; desligado = nada
++        // Hoshiestar start - parada (D-24): com o servidor ja iniciado, pede ao laco de tick que pare e espera a thread do servidor salvar e sair; no boot ou desligado = nada
+         try {
+             if (hoshiestar.parada.Parada.ligado()) {
+                 hoshiestar.parada.Parada.ganchoAntes(server.primaryThread, new Runnable() {
+@@ -20,7 +20,7 @@ public class ServerShutdownThread extends Thread {
+                     public void run() {
+                         server.initiateShutdown();
+                     }
+-                });
++                }, cpw.mods.fml.common.Loader.instance().hasReachedState(cpw.mods.fml.common.LoaderState.SERVER_STARTED));
+             }
+         } catch (Throwable hoshieErro) {
+             // falha nossa: segue o caminho original abaixo

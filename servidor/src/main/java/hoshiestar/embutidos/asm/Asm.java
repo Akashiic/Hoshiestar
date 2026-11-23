@@ -26,6 +26,7 @@ import org.objectweb.asm.tree.LineNumberNode;
 import org.objectweb.asm.tree.LookupSwitchInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TryCatchBlockNode;
 import org.objectweb.asm.tree.TableSwitchInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 
@@ -45,7 +46,8 @@ import java.util.List;
  * (num metodo-ponte sintetico), entao vale para metodo privado da propria classe, que o gancho nao
  * poderia chamar. (Metodo protegido herdado de classe de outro pacote: o verificador exige que o
  * receptor seja da classe atual, e a ponte declara o receptor com o tipo do dono da chamada; NAO
- * verificado; prefira o formato 2 nesse caso.)</li>
+ * verificado; prefira o formato 2 nesse caso.) A variante {@link #envolverChamadaProtegida} faz a
+ * ponte seguir pela chamada original se qualquer gancho falhar (nao ligar, nao existir, lancar).</li>
  * </ol>
  *
  * <p><b>Falha fechada.</b> Cada utilitario confere tudo ANTES de mudar a arvore (metodo existe e
@@ -72,6 +74,9 @@ import java.util.List;
 public final class Asm {
 
     private static final String OBJETO = "java/lang/Object";
+
+    /** Descritor do gancho {@code aoFalhar} do formato 3 protegido. */
+    private static final String DESC_FALHOU = "(Ljava/lang/Throwable;)V";
 
     private Asm() {
     }
@@ -117,6 +122,39 @@ public final class Asm {
      */
     public static void ganchoNoInicio(ClassNode cn, String metodo, String desc, Gancho inicio, Gancho valor,
             boolean retornoAntecipado, ResolvedorDeGanchos r) throws PadraoNaoEncontrado {
+        noInicio(cn, metodo, desc, inicio, valor, retornoAntecipado, null, r);
+    }
+
+    /**
+     * Formato 1 PROTEGIDO: igual a {@link #ganchoNoInicio}, mas se qualquer gancho FALHAR (a classe do gancho nao liga:
+     * {@code NoClassDefFoundError}; o metodo dele nao existe com aquele descritor: {@code NoSuchMethodError}; ou ele
+     * lanca qualquer {@code Throwable}) o metodo do mod segue pelo corpo ORIGINAL, em vez de deixar o erro sair de dentro
+     * dele. Sem isso, um erro de ligacao sai do metodo do mod como {@code Error}, que o servidor nao captura (derruba).
+     *
+     * <pre>
+     * try {
+     *     if (inicio(this?, params...)) return valor(this?, params...);   // so com retorno antecipado
+     * } catch (Throwable t) {
+     *     aoFalhar(t);                                                    // so avisa; nunca lanca
+     * }
+     * ...corpo original, FORA do try...
+     * </pre>
+     *
+     * O corpo original fica fora do {@code try}: o que ele lancar sai como sairia sem o gancho. O gancho {@code aoFalhar}
+     * tem descritor {@code (Ljava/lang/Throwable;)V}, publico, estatico, de classe publica, e nao pode lancar; como ele
+     * tem de ligar mesmo quando a classe dos outros ganchos nao liga, deve ficar numa classe do jar sem tipos do
+     * Minecraft nem do mod. Sem falha, o caminho executado e o mesmo do formato 1 comum.
+     */
+    public static void ganchoNoInicioProtegido(ClassNode cn, String metodo, String desc, Gancho inicio, Gancho valor,
+            boolean retornoAntecipado, Gancho aoFalhar, ResolvedorDeGanchos r) throws PadraoNaoEncontrado {
+        if (aoFalhar == null) {
+            throw new PadraoNaoEncontrado("gancho no inicio protegido precisa do gancho 'aoFalhar'");
+        }
+        noInicio(cn, metodo, desc, inicio, valor, retornoAntecipado, aoFalhar, r);
+    }
+
+    private static void noInicio(ClassNode cn, String metodo, String desc, Gancho inicio, Gancho valor,
+            boolean retornoAntecipado, Gancho aoFalhar, ResolvedorDeGanchos r) throws PadraoNaoEncontrado {
         MethodNode mn = acharMetodoComCorpo(cn, metodo, desc);
         if ("<init>".equals(mn.name) || "<clinit>".equals(mn.name)) {
             throw new PadraoNaoEncontrado("gancho no inicio de construtor/inicializador nao e suportado: " + metodo);
@@ -135,13 +173,28 @@ public final class Asm {
         } else if (valor != null) {
             throw new PadraoNaoEncontrado("gancho 'valor' so faz sentido com retorno antecipado em metodo que devolve valor");
         }
+        String descFalhou = null;
+        if (aoFalhar != null) {
+            descFalhou = r.descritorDeclarado(aoFalhar.dono, aoFalhar.nome, DESC_FALHOU);
+            if (descFalhou == null) {
+                throw new PadraoNaoEncontrado("gancho ausente: " + aoFalhar + " com descritor " + DESC_FALHOU
+                        + ", public static, em classe publica");
+            }
+        }
 
         // tudo conferido: daqui para baixo so altera
+        boolean quadros = precisaQuadro(cn, mn); // antes de acrescentar o tratador (ele conta como desvio)
         InsnList il = new InsnList();
+        LabelNode comeco = new LabelNode();
+        LabelNode fim = new LabelNode();
+        LabelNode tratador = new LabelNode();
+        LabelNode continuar = new LabelNode();
+        if (aoFalhar != null) {
+            il.add(comeco);
+        }
         carregarParametros(il, estatico, desc, 0);
         il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, inicio.dono, inicio.nome, descInicio, false));
         if (retornoAntecipado) {
-            LabelNode continuar = new LabelNode();
             il.add(new JumpInsnNode(Opcodes.IFEQ, continuar));
             if (ret.getSort() == Type.VOID) {
                 il.add(new InsnNode(Opcodes.RETURN));
@@ -150,10 +203,25 @@ public final class Asm {
                 il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, valor.dono, valor.nome, descValor, false));
                 il.add(new InsnNode(ret.getOpcode(Opcodes.IRETURN)));
             }
+        } else if (aoFalhar != null) {
+            il.add(new JumpInsnNode(Opcodes.GOTO, continuar)); // pula o tratador
+        }
+        if (aoFalhar != null) {
+            il.add(fim);
+            il.add(tratador);
+            if (quadros) {
+                il.add(quadroDeEntrada(estatico ? null : cn.name, desc, "java/lang/Throwable"));
+            }
+            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, aoFalhar.dono, aoFalhar.nome, descFalhou, false));
+        }
+        if (retornoAntecipado || aoFalhar != null) {
             il.add(continuar);
-            if (precisaQuadro(cn, mn) && !proximoRealEQuadro(mn.instructions.getFirst())) {
+            if (quadros && !proximoRealEQuadro(mn.instructions.getFirst())) {
                 il.add(quadroDeEntrada(estatico ? null : cn.name, desc));
             }
+        }
+        if (aoFalhar != null) {
+            mn.tryCatchBlocks.add(new TryCatchBlockNode(comeco, fim, tratador, "java/lang/Throwable"));
         }
         mn.instructions.insert(il);
     }
@@ -198,6 +266,42 @@ public final class Asm {
      */
     public static void envolverChamada(ClassNode cn, String metodo, String desc, Chamada alvo, int ordinal,
             int totalEsperado, Gancho deveChamar, Gancho semChamar, ResolvedorDeGanchos r) throws PadraoNaoEncontrado {
+        envolver(cn, metodo, desc, alvo, ordinal, totalEsperado, deveChamar, semChamar, null, r);
+    }
+
+    /**
+     * Formato 3 PROTEGIDO: igual a {@link #envolverChamada}, mas se qualquer gancho FALHAR a ponte segue pela
+     * chamada original, em vez de deixar o erro sair de dentro do metodo do mod. Falhar = a classe do gancho
+     * nao ligar ({@code NoClassDefFoundError}), o metodo do gancho nao existir com aquele descritor
+     * ({@code NoSuchMethodError}, {@code LinkageError} em geral) ou o gancho lancar qualquer {@code Throwable}.
+     * Sem isso, um erro de ligacao sai do metodo do mod como {@code Error}, que o servidor nao captura (derruba).
+     *
+     * <pre>
+     * try {
+     *     if (!deveChamar(receptor, args...)) return semChamar(receptor, args...);   // ou so "return" se void
+     * } catch (Throwable t) {
+     *     aoFalhar(t);                                                               // so avisa; nunca lanca
+     * }
+     * return receptor.alvo(args...);                                                 // a chamada original, FORA do try
+     * </pre>
+     *
+     * A chamada original fica fora do {@code try}: o que ela lancar sai como sairia sem o gancho. O gancho
+     * {@code aoFalhar} tem descritor {@code (Ljava/lang/Throwable;)V}, e tem de ser publico, estatico, de classe
+     * publica, e nao lancar. Se ele proprio nao ligar, o erro dele sai (por isso deve ficar numa classe do
+     * jar sem tipos do Minecraft nem do mod). Sem falha, o caminho executado e o mesmo do formato 3.
+     */
+    public static void envolverChamadaProtegida(ClassNode cn, String metodo, String desc, Chamada alvo, int ordinal,
+            int totalEsperado, Gancho deveChamar, Gancho semChamar, Gancho aoFalhar, ResolvedorDeGanchos r)
+            throws PadraoNaoEncontrado {
+        if (aoFalhar == null) {
+            throw new PadraoNaoEncontrado("envolver chamada protegida precisa do gancho 'aoFalhar'");
+        }
+        envolver(cn, metodo, desc, alvo, ordinal, totalEsperado, deveChamar, semChamar, aoFalhar, r);
+    }
+
+    private static void envolver(ClassNode cn, String metodo, String desc, Chamada alvo, int ordinal,
+            int totalEsperado, Gancho deveChamar, Gancho semChamar, Gancho aoFalhar, ResolvedorDeGanchos r)
+            throws PadraoNaoEncontrado {
         if ((cn.access & Opcodes.ACC_INTERFACE) != 0) {
             throw new PadraoNaoEncontrado("envolver chamada dentro de interface nao e suportado: " + cn.name);
         }
@@ -216,30 +320,70 @@ public final class Asm {
         } else if (semChamar != null) {
             descSem = resolver(r, semChamar, receptor, alvo.desc, Type.VOID_TYPE);
         }
+        String descFalhou = null;
+        if (aoFalhar != null) {
+            descFalhou = r.descritorDeclarado(aoFalhar.dono, aoFalhar.nome, DESC_FALHOU);
+            if (descFalhou == null) {
+                throw new PadraoNaoEncontrado("gancho ausente: " + aoFalhar + " com descritor " + DESC_FALHOU
+                        + ", public static, em classe publica");
+            }
+        }
 
         // descritor da ponte: receptor (tipo exato do dono da chamada) + argumentos -> retorno
         String descPonte = descritor(receptor, alvo.desc, ret);
         String nomePonte = nomeLivre(cn, "hoshiestar$envolve$");
+        boolean comQuadros = (cn.version & 0xFFFF) >= Opcodes.V1_6;
 
         MethodNode ponte = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC,
                 nomePonte, descPonte, null, null);
         InsnList il = ponte.instructions;
-        LabelNode pular = new LabelNode();
-        carregarParametros(il, true, descPonte, 0);
-        il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, deveChamar.dono, deveChamar.nome, descDeve, false));
-        il.add(new JumpInsnNode(Opcodes.IFEQ, pular));
-        carregarParametros(il, true, descPonte, 0);
-        il.add(new MethodInsnNode(chamada.getOpcode(), chamada.owner, chamada.name, chamada.desc, chamada.itf));
-        il.add(new InsnNode(ret.getOpcode(Opcodes.IRETURN)));
-        il.add(pular);
-        if ((cn.version & 0xFFFF) >= Opcodes.V1_6) {
-            il.add(quadroDeEntrada(null, descPonte));
-        }
-        if (descSem != null) {
+        if (aoFalhar == null) {
+            LabelNode pular = new LabelNode();
             carregarParametros(il, true, descPonte, 0);
-            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, semChamar.dono, semChamar.nome, descSem, false));
+            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, deveChamar.dono, deveChamar.nome, descDeve, false));
+            il.add(new JumpInsnNode(Opcodes.IFEQ, pular));
+            carregarParametros(il, true, descPonte, 0);
+            il.add(new MethodInsnNode(chamada.getOpcode(), chamada.owner, chamada.name, chamada.desc, chamada.itf));
+            il.add(new InsnNode(ret.getOpcode(Opcodes.IRETURN)));
+            il.add(pular);
+            if (comQuadros) {
+                il.add(quadroDeEntrada(null, descPonte));
+            }
+            if (descSem != null) {
+                carregarParametros(il, true, descPonte, 0);
+                il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, semChamar.dono, semChamar.nome, descSem, false));
+            }
+            il.add(new InsnNode(ret.getOpcode(Opcodes.IRETURN)));
+        } else {
+            // try { if (!deve(...)) return sem(...); } catch (Throwable t) { aoFalhar(t); }  return original(...);
+            LabelNode inicio = new LabelNode();
+            LabelNode fim = new LabelNode();
+            LabelNode tratador = new LabelNode();
+            LabelNode original = new LabelNode();
+            il.add(inicio);
+            carregarParametros(il, true, descPonte, 0);
+            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, deveChamar.dono, deveChamar.nome, descDeve, false));
+            il.add(new JumpInsnNode(Opcodes.IFNE, original));
+            if (descSem != null) {
+                carregarParametros(il, true, descPonte, 0);
+                il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, semChamar.dono, semChamar.nome, descSem, false));
+            }
+            il.add(new InsnNode(ret.getOpcode(Opcodes.IRETURN)));
+            il.add(fim);
+            il.add(tratador);
+            if (comQuadros) {
+                il.add(quadroDeEntrada(null, descPonte, "java/lang/Throwable"));
+            }
+            il.add(new MethodInsnNode(Opcodes.INVOKESTATIC, aoFalhar.dono, aoFalhar.nome, descFalhou, false));
+            il.add(original);
+            if (comQuadros) {
+                il.add(quadroDeEntrada(null, descPonte));
+            }
+            carregarParametros(il, true, descPonte, 0);
+            il.add(new MethodInsnNode(chamada.getOpcode(), chamada.owner, chamada.name, chamada.desc, chamada.itf));
+            il.add(new InsnNode(ret.getOpcode(Opcodes.IRETURN)));
+            ponte.tryCatchBlocks.add(new TryCatchBlockNode(inicio, fim, tratador, "java/lang/Throwable"));
         }
-        il.add(new InsnNode(ret.getOpcode(Opcodes.IRETURN)));
         ponte.maxLocals = tamanhoParametros(descPonte);
         ponte.maxStack = Math.max(1, ponte.maxLocals) + 2; // recalculado pelo COMPUTE_MAXS
 
@@ -352,6 +496,11 @@ public final class Asm {
 
     /** Quadro completo da entrada de um metodo: locais = [this] + parametros; pilha vazia. */
     static FrameNode quadroDeEntrada(String dono, String desc) {
+        return quadroDeEntrada(dono, desc, (String[]) null);
+    }
+
+    /** Idem, com a pilha contendo os tipos dados (nomes internos), por exemplo o Throwable de um tratador. */
+    static FrameNode quadroDeEntrada(String dono, String desc, String... pilha) {
         List<Object> locais = new ArrayList<Object>();
         if (dono != null) {
             locais.add(dono);
@@ -382,7 +531,8 @@ public final class Asm {
                     break;
             }
         }
-        return new FrameNode(Opcodes.F_NEW, locais.size(), locais.toArray(), 0, new Object[0]);
+        Object[] p = pilha == null ? new Object[0] : pilha.clone();
+        return new FrameNode(Opcodes.F_NEW, locais.size(), locais.toArray(), p.length, p);
     }
 
     /** Se o metodo precisa de quadro no ponto de desvio criado na entrada (regras da classe). */

@@ -78,6 +78,222 @@ public final class HoshiestarConfig extends YamlConfig {
         "recusa funciona. O resultado aparece no log ao fim do boot e em 'hoshie status'."})
     public boolean autoteste_ligado = false;
 
+    // ---- chunkmap ----
+    @Comments({"Cache de ultima consulta do mapa de chunks (thermos.wrapper.ChunkBlockHashMap), ate 3,6% do tick.",
+        "Ligado: cada mundo ganha uma tabela de 64x64 posicoes que lembra o ultimo chunk achado em cada",
+        "posicao, no lugar do cache de 4 entradas do Crucible. So a thread do servidor usa e grava essa",
+        "tabela; consultas de outras threads leem direto o mapa. Se outra thread mudar o mapa (por ou tirar",
+        "chunk) ou se der qualquer erro, o cache daquele mundo se desliga sozinho e volta ao codigo original.",
+        "Desligado: o codigo original do Crucible, sem mudanca."})
+    public boolean chunkmap_ligado = false;
+
+    @Comments({"Tamanho da tabela do chunkmap: lado = 2^bits chunks (4 a 7; 6 = 64x64 = 4096 posicoes, 16 KB por mundo).",
+        "Fora de 4..7: usa 6 e avisa no log."})
+    public int chunkmap_bits = 6;
+
+    @Comments({"So para teste: a cada acerto do cache do chunkmap, confere tambem no mapa e conta divergencias",
+        "(deve ser sempre 0; o numero aparece em 'hoshie status'). Custa mais que o original; deixe desligado."})
+    public boolean chunkmap_conferir = false;
+
+    // ---- parada ----
+    @Comments({"Parada por SIGTERM sem crash e sem salvamento duplo (achado D-24).",
+        "SIGTERM e o sinal que o sistema manda para um programa fechar ('kill', 'docker stop', alguns paineis).",
+        "Desligado: o codigo original do Crucible. No SIGTERM o salvamento roda fora da thread do servidor,",
+        "com o laco de tick ainda rodando: da erro, crash-report e o salvamento pode rodar duas vezes ao mesmo tempo.",
+        "Ligado: no SIGTERM o servidor pede ao laco de tick que pare e espera a thread do servidor salvar e sair,",
+        "como no comando 'stop'. Nunca dois salvamentos de parada ao mesmo tempo. O comando 'stop' nao muda.",
+        "ANTES DE LIGAR: saiba como o painel para o servidor e quanto ele espera antes de matar o processo (SIGKILL).",
+        "Esse prazo tem de cobrir, com o servidor TRAVADO: espera_laco_segundos + o tempo de um salvamento de parada."})
+    public boolean parada_ligado = false;
+
+    @Comments({"Parada: quantos segundos esperar o laco de tick parar depois do SIGTERM (1 a 3600).",
+        "Se passar disso (servidor travado), o salvamento roda como no codigo original e sai um aviso no log.",
+        "ATENCAO: com o servidor travado o salvamento SO COMECA depois desse tempo (desligado, comecaria na hora).",
+        "Se o painel matar o processo antes de (este tempo + o salvamento), nada e salvo. Escolha um valor MENOR",
+        "que o prazo do painel menos o tempo de um salvamento de parada. (Reinicio pelo vigia de travamento do",
+        "Spigot, o 'watchdog', nao passa por esta espera: o salvamento comeca na hora, como hoje.)"})
+    @Path("parada.espera_laco_segundos")
+    public int parada_esperaLacoSegundos = 60;
+
+    @Comments({"Parada: quantos segundos esperar um salvamento de parada que ja comecou em outra thread (1 a 7200).",
+        "Se passar disso, quem esperava desiste SEM salvar ao mesmo tempo. ATENCAO: se quem esperava era o",
+        "desligamento da JVM (SIGTERM), a JVM SAI e o salvamento em curso e CORTADO no meio (parte do mundo nova,",
+        "parte velha). Deixe este valor bem acima do salvamento de parada mais demorado do seu mundo."})
+    @Path("parada.espera_salvar_segundos")
+    public int parada_esperaSalvarSegundos = 600;
+
+    @Comments({"Parada: depois de o mundo estar salvo, quantos segundos esperar a thread do servidor terminar",
+        "o fechamento (avisos de 'servidor parado' aos mods) antes de deixar a JVM sair (0 a 600).",
+        "So vale quando a thread do servidor ja saiu do laco de tick; com ela travada num tick nao ha essa espera."})
+    @Path("parada.folga_saida_segundos")
+    public int parada_folgaSaidaSegundos = 30;
+
+    // ---- vigia ----
+    @Comments({"Vigia de tick lento (item 1.H): quando um tick passa do limite, grava quem, onde e qual mod.",
+        "So le e escreve relatorio: nao muda nada no jogo, nao interrompe nem para a thread do servidor.",
+        "Ligado: a thread do servidor so anota, a cada tick/entidade/tile, o que esta rodando (uma ou duas",
+        "escritas de campo); uma thread propria ('Hoshiestar Vigia') confere 10 vezes por segundo e, se um tick",
+        "passar do limite, tira amostras da pilha da thread do servidor e grava um relatorio no log e num arquivo",
+        "hoshiestar/vigia-*.txt. Desligado: nenhuma anotacao e nenhuma thread (o codigo original)."})
+    public boolean vigia_ligado = true;
+
+    @Comments({"Vigia: duracao (ms) de um tick que gera relatorio (500 a 600000). O tick normal tem 50 ms.",
+        "O vigia do Spigot (watchdog) so avisa a partir de 5 s e nao e alterado por este."})
+    @Path("vigia.limite_ms")
+    public int vigia_limiteMs = 2000;
+
+    @Comments({"Vigia: quantas amostras da pilha tirar enquanto o mesmo tick continua lento (1 a 20)."})
+    @Path("vigia.amostras")
+    public int vigia_amostras = 5;
+
+    @Comments({"Vigia: intervalo (ms) entre as amostras da pilha (50 a 10000)."})
+    @Path("vigia.intervalo_amostras_ms")
+    public int vigia_intervaloAmostrasMs = 500;
+
+    @Comments({"Vigia: intervalo minimo (segundos) entre dois relatorios (1 a 3600). Num travamento longo sai um",
+        "relatorio a cada intervalo destes enquanto o mesmo tick continuar travado (dentro do maximo abaixo).",
+        "Ticks lentos que nao geram relatorio sao contados e aparecem no proximo relatorio e no 'hoshie status'."})
+    @Path("vigia.intervalo_minimo_segundos")
+    public int vigia_intervaloMinimoSegundos = 60;
+
+    @Comments({"Vigia: no maximo quantos relatorios por janela (1 a 1000); a janela esta logo abaixo."})
+    @Path("vigia.max_relatorios")
+    public int vigia_maxRelatorios = 10;
+
+    @Comments({"Vigia: tamanho da janela (minutos) do maximo de relatorios (1 a 1440)."})
+    @Path("vigia.janela_minutos")
+    public int vigia_janelaMinutos = 60;
+
+    @Comments({"Vigia: quantas linhas (quadros) da pilha mostrar por amostra (5 a 200)."})
+    @Path("vigia.quadros")
+    public int vigia_quadros = 40;
+
+    @Comments({"Vigia: escrever no relatorio o NOME do jogador do ultimo pacote visto e do jogador que estava",
+        "sendo atualizado. false = o relatorio diz so 'jogador (nome oculto)', com dimensao e posicao.",
+        "O relatorio nunca leva IP nem texto de pacote (chat, placa, comando): so a classe do pacote e campos numericos."})
+    @Path("vigia.nome_do_jogador")
+    public boolean vigia_nomeDoJogador = true;
+
+    @Comments({"Vigia: no maximo quantos arquivos hoshiestar/vigia-*.txt guardar (10 a 10000); os mais velhos sao apagados."})
+    @Path("vigia.max_arquivos")
+    public int vigia_maxArquivos = 200;
+
+    @Comments({"Vigia: carencia (segundos) depois que o servidor termina de ligar (0 a 3600). Ticks lentos nesse",
+        "periodo so sao contados (uma linha no log e no 'hoshie status'), sem relatorio: o primeiro tick depois do",
+        "boot costuma passar de 2 s (salva e descarrega chunks do boot). Um tick que continuar travado depois da",
+        "carencia gera relatorio normalmente."})
+    @Path("vigia.carencia_segundos")
+    public int vigia_carenciaSegundos = 30;
+
+    // ---- medidor ----
+    @Comments({"Medidor de carga por regiao (tarefa 0.9): mede onde, no mapa, vai o tempo de tick de tile entities e",
+        "entidades, por dimensao, regiao de 256x256 blocos e chunk. So mede quando o admin manda, por tempo limitado:",
+        "'hoshie medir <segundos>' (10 a 1800; 'hoshie parar' encerra antes). Grava hoshiestar/medicao-*.json e .txt",
+        "(sem nome de jogador, UUID nem IP; nada vai para a rede). Parado, custa uma leitura de variavel por",
+        "entidade/tile entity. habilitado: false = o comando recusa e nada e medido (o caminho original)."})
+    public boolean medidor_habilitado = true;
+
+    @Comments({"Medidor: margem da regra de custo da valvula (1.0 a 20.0). Enquanto mede, a valvula para a medicao",
+        "(gravando o que ja coletou) se o custo ESTIMADO do medidor vezes esta margem passar de 10% do tick de antes",
+        "de ligar (no minimo 5 ms, no maximo 10 ms por tick). No servidor de teste o custo real deu 3 a 5 vezes a",
+        "estimativa; 4.0 cobre isso. Menor = deixa medir mais no pico, mas o medidor pode pesar mais de 10% do tick",
+        "sem a valvula parar. A outra regra da valvula (o tick ficou bem mais lento que antes de ligar) nao muda."})
+    @Path("medidor.margem_custo")
+    public double medidor_margemCusto = 4.0;
+
+    // ---- mekanism ----
+    @Comments({"Mekanism, matriz de inducao: leitura e escrita rapidas da energia (item 1.C; ate 8% do tick medido).",
+        "A energia continua morando em cada celula e e SEMPRE lida e escrita ao vivo nas celulas; o que fica",
+        "guardado e so 'qual objeto de celula esta em cada coordenada', conferido a cada chamada.",
+        "  desligado = Mekanism original (a classe do mod nem e alterada);",
+        "  verificar = usa sempre o caminho original e so CONTA quando o caminho rapido daria outra resposta",
+        "              (para testar; custa mais que o original); veja 'hoshie status';",
+        "  ligado    = usa o caminho rapido quando todas as conferencias passam; na duvida, o original.",
+        "So vale com Mekanism-1.7.10-9.10.48-AkashicPerf.3 (trava de versao); com outro jar fica desligado sozinho."})
+    public String mekanism_modo = "desligado";
+
+    @Comments({"De quantos em quantos ticks a matriz refaz do zero a lista de celulas (1 a 20). 1 = todo tick (recomendado)."})
+    public int mekanism_intervalo = 1;
+
+    // ---- betterquesting ----
+    @Comments({"BetterQuesting (bq_standard): checagem de inventario das tarefas de 'retrieval' (item 1.D; ate 4,6% do tick medido).",
+        "Cada vez que o inventario de um jogador muda, o BQ reconta o inventario contra TODAS as tarefas de retrieval",
+        "nao completas. Este recurso pula so as checagens que COMPROVADAMENTE nao mudam nada (nenhum item exigido",
+        "esta nos inventarios varridos, sem ore dictionary, sem progresso parcial a zerar, nada a completar).",
+        "  desligado = BetterQuesting original (a classe do mod nem e alterada);",
+        "  verificar = roda SEMPRE o original e so CONTA (e registra no log, com limite) os casos em que o filtro",
+        "              pularia e o original mudou alguma coisa (para testar; custa mais que o original); veja 'hoshie status';",
+        "  ligado    = pula as checagens que nao podem mudar nada; na duvida, roda o original.",
+        "So vale com BetterQuesting-3.8.79-GTNH (trava de versao); com outro jar fica desligado sozinho."})
+    public String betterquesting_modo = "desligado";
+
+    @Comments({"De quantos em quantos segundos escrever no log uma linha com os contadores do filtro (0 = nunca)."})
+    public int betterquesting_relatorio = 0;
+
+    // ---- arsmagica ----
+
+    @Comments({"Ars Magica 2, varredura de todos os mundos (item 1.F; ate 2% do tick, ESTIMADO a partir de um perfil: nao e medicao).",
+        "A cada pacote de movimento de cada jogador o AM2 percorre TODAS as entidades de TODOS os mundos carregados",
+        "(e monta um texto de UUID por entidade viva) so para achar entidades aceleradas pelo feitico 'Accelerate'.",
+        "  desligado = Ars Magica original (a classe do mod nem e alterada);",
+        "  ligado    = pula a varredura SO quando nenhuma entidade esta acelerada (o mapa de aceleradas do AM2",
+        "              esta vazio, e a varredura nao teria nada a fazer); com alguma acelerada, roda o original inteiro.",
+        "So vale com AM2.5-LTS-1.6.11-LE-CR40 (trava de versao); com outro jar fica desligado sozinho."})
+    public boolean arsmagica_varredura = false;
+
+    @Comments({"Ars Magica 2, checagem do 'DiluteTime' em toda entidade viva (item 1.F; cerca de 0,35% do tick, ESTIMADO a partir de um perfil: nao e medicao).",
+        "Em todo tick de toda entidade viva o AM2 consulta a habilidade 'DiluteTime' (copiando listas) antes de olhar",
+        "o mapa de entidades retardadas.",
+        "  desligado = Ars Magica original (a classe do mod nem e alterada);",
+        "  ligado    = pula a consulta SO quando nenhuma entidade esta retardada (mapa de retardadas vazio, e o",
+        "              resultado do AM2 seria o mesmo); com alguma retardada, roda o original inteiro.",
+        "So vale com AM2.5-LTS-1.6.11-LE-CR40 (trava de versao); com outro jar fica desligado sozinho."})
+    public boolean arsmagica_diluicao = false;
+
+    @Comments({"De quantos em quantos minutos escrever no log uma linha com quantas chamadas foram puladas e quantas nao",
+        "(0 = nunca). So conta e escreve se a correcao foi aplicada na classe do AM2 (algum dos dois atalhos ligado",
+        "no boot); o comando 'hoshie arsmagica ... desligar' nao a cala (as pontes seguem contando como 'original').",
+        "O ganho so existe enquanto os mapas do AM2 estao vazios; esta linha mostra se isso acontece no seu servidor."})
+    public int arsmagica_estatistica = 5;
+
+    // ---- chromaticraft ----
+
+    @Comments({"ChromatiCraft, habilidade 'mover area' (SHIFT): limites para ela nao travar o servidor (item 1.B; o servidor ficou 30 s sem",
+        "tick por causa dela). Ligado = recusa o pedido ANTES de ler ou mexer em qualquer bloco quando uma das conferencias abaixo falha;",
+        "pedido aceito roda o codigo original do mod, sem nenhuma mudanca. A recusa toca o som de erro, desliga a habilidade no jogador,",
+        "manda uma mensagem no chat e escreve uma linha no log (com limite de frequencia). Nao devolve a energia gasta para armar a",
+        "habilidade (o original tambem nao devolve quando falta energia). Vale tambem para jogadores em criativo e operadores.",
+        "So vale com 'ChromatiCraft 1.7.10 V33a' e 'DragonAPI 1.7.10 V33b-ForbiddenFix1' (trava de versao); com outro jar fica desligado sozinho.",
+        "  desligado = ChromatiCraft original (a classe do mod nem e alterada)."})
+    public boolean chromaticraft_ligado = false;
+
+    @Comments({"Conferencia 1: tempo minimo, em milissegundos, entre dois 'mover area' ACEITOS do mesmo jogador. 0 = nao confere."})
+    public int chromaticraft_intervalo = 1000;
+
+    @Comments({"Conferencia 2: recusa distancia menor que 0 ou maior que o maximo da habilidade (24). Cliente normal nunca manda outro valor."})
+    public boolean chromaticraft_distancia = true;
+
+    @Comments({"Conferencia 3: volume maximo da caixa, em blocos, contando as posicoes que o mod percorre: (dx+1)*(dy+1)*(dz+1).",
+        "0 = sem limite. O padrao 4096 (16x16x16) e PROVISORIO: o valor final sai da medicao no servidor (veja o doc)."})
+    public int chromaticraft_volume = 4096;
+
+    @Comments({"Conferencia 4: recusa se o destino nao cabe inteiro em y de 0 a 255. Sem isto o mod apaga a origem e o bloco que sai do mundo se perde."})
+    public boolean chromaticraft_altura = true;
+
+    @Comments({"Conferencia 5: recusa se algum chunk da origem ou do destino (caixa alargada em 1 bloco) nao esta carregado.",
+        "A consulta so le o mapa de chunks carregados: nunca carrega nem gera chunk."})
+    public boolean chromaticraft_chunks = true;
+
+    @Comments({"Mensagem de chat para o jogador cuja acao foi recusada. {motivo} vira o texto do motivo. Vazio = nao manda mensagem."})
+    public String chromaticraft_mensagem = "Mover area recusado: {motivo}.";
+
+    @Comments({"Registra no log todo 'mover area' que demorar pelo menos tantos milissegundos (0 = nao mede nem registra).",
+        "A medicao e uma segunda correcao embutida (envolve duas chamadas do metodo em pontes protegidas; so mede, e as chamadas originais acontecem do mesmo jeito)."})
+    public int chromaticraft_loglento = 50;
+
+    @Comments({"No maximo uma linha de log de recusa por jogador a cada tantos segundos (minimo 1); as demais so entram na conta."})
+    public int chromaticraft_logsegundos = 10;
+
     // ---------------------------------------------------------------- leitura
 
     private static volatile HoshiestarConfig atual;

@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Mon, 23 Nov 2026 07:00:35 +0000
+Subject: [PATCH 15/16] build: o source set dos ganchos de mods nao e
+ configurado antes do setupCrucible (o build do zero com --mods falhava:
+ projeto sem o plugin java)
+
+
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 58f6277d..cf8d75b3 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -187,7 +187,9 @@ if (hoshiestarTemFontesDeMods) {
+     // (mods trazem copias de bibliotecas, ex. LWJGL, que passariam na frente das do Minecraft).
+     // As classes compiladas entram no jar do projeto do servidor e passam pela mesma reofuscacao.
+     project(":eclipse:cauldron").afterEvaluate {
+-        val conjuntos = extensions.getByType(SourceSetContainer::class.java)
++        // Antes do setupCrucible o projeto ainda nao tem build.gradle (nem o plugin java): nada a configurar
++        // nessa fase (o build do zero roda setupCrucible com a mesma opcao -Phoshiestar.mods)
++        val conjuntos = extensions.findByType(SourceSetContainer::class.java) ?: return@afterEvaluate
+         val principal = conjuntos.getByName("main")
+         val ganchosDeMods = conjuntos.create("hoshiestarMods")
+         ganchosDeMods.java.srcDir(hoshiestarFontesDeMods)

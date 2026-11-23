@@ -2,7 +2,7 @@
 # Hoshiestar - testes isolados (rodam fora do jogo, sem servidor).
 #
 # Uso:
-#   servidor/test.sh <workspace-do-fork>
+#   servidor/test.sh <workspace-do-fork> [--completo]
 #
 # <workspace-do-fork> e a arvore do Crucible com o servidor/ aplicado (a que o build.sh prepara).
 # As fontes vem dela: src/main/java (so as partes do Hoshiestar que nao dependem do Minecraft, mais o
@@ -15,7 +15,11 @@
 #   4. com HOSHIE_MODS=<pasta mods/>: os scripts src/test/mods/*.bash (testes de correcoes embutidas com
 #      as classes reais dos mods; precisam do jar construido com --mods). Extensao .bash e nao .sh porque o
 #      .gitignore do upstream ignora *.sh (o script sumiria na exportacao).
-# Saida 0 = tudo passou.
+#   5. os scripts de teste de cada recurso, src/test/<recurso>/teste-*.bash (chunkmap, parada, vigia,
+#      medidor e os que vierem). Cada um compila e roda as proprias classes no JDK 8 e no 21 e recebe o
+#      workspace. Modo RAPIDO por padrao: quem aceita a opcao --rapido (menos repeticoes) a recebe;
+#      com --completo, roda tudo na dose cheia. A saida de cada um vai para <saida>/<recurso>/.
+# Saida 0 = tudo passou. No fim sai a contagem de falhas.
 #
 # Variaveis: JAVA8_HOME (padrao /usr/lib/jvm/java-8-openjdk-amd64), JAVA21_HOME (padrao
 # /usr/lib/jvm/java-21-openjdk-amd64), HOSHIE_LIBS (pasta libraries/ de um servidor, onde procurar os
@@ -23,6 +27,15 @@
 set -euo pipefail
 
 W="$(cd "${1:?informe o workspace do fork (arvore do Crucible com o servidor/ aplicado)}" && pwd)"
+shift
+MODO=rapido
+for a in "$@"; do
+  case "$a" in
+    --completo) MODO=completo ;;
+    --rapido) MODO=rapido ;;
+    *) echo "opcao desconhecida: $a (use --completo ou nada)" >&2; exit 2 ;;
+  esac
+done
 J8="${JAVA8_HOME:-/usr/lib/jvm/java-8-openjdk-amd64}"
 J21="${JAVA21_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}"
 OUT="${HOSHIE_SAIDA:-$(mktemp -d)}"
@@ -114,6 +127,25 @@ if [[ -n "${HOSHIE_MODS:-}" && $rodados -eq 0 ]]; then
   falhas=$((falhas + 1))
   echo "[test] FALHOU: HOSHIE_MODS definido mas nenhum src/test/mods/*.bash foi encontrado em $W"
 fi
+# 5. scripts de teste de cada recurso (src/test/<recurso>/teste-*.bash), em modo rapido ou completo
+for velho in "$W"/src/test/*/teste-*.sh; do
+  [[ -f "$velho" ]] || continue
+  falhas=$((falhas + 1))
+  echo "[test] FALHOU: $velho tem extensao .sh, que o .gitignore do upstream ignora (sumiria na exportacao); use .bash"
+done
+recursos=0
+for script in "$W"/src/test/*/teste-*.bash; do
+  [[ -f "$script" ]] || continue
+  recurso="$(basename "$(dirname "$script")")"
+  opc=()
+  if [[ $MODO == rapido ]] && grep -q -- '--rapido)' "$script"; then opc=(--rapido); fi
+  recursos=$((recursos + 1))
+  echo "[test] recurso $recurso: $(basename "$script") ${opc[*]:-} ($MODO)"
+  if HOSHIE_SAIDA="$OUT/$recurso" bash "$script" "$W" "${opc[@]}"; then :; else
+    falhas=$((falhas + 1)); echo "[test] FALHOU: $script"
+  fi
+done
+echo "[test] $recursos script(s) de recurso rodados (modo $MODO)"
 if [[ $falhas -eq 0 && $pulados -gt 0 ]]; then
   echo "[test] TODOS OS TESTES RODADOS PASSARAM ($pulados teste(s) com mods PULADOS: defina HOSHIE_MODS)"
   exit 0

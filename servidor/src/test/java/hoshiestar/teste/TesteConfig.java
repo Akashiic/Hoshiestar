@@ -43,7 +43,11 @@ public final class TesteConfig {
         v.sim(c.avisos().isEmpty() && !c.usouPadroes(), "ausente: sem avisos");
 
         // valido e completo: valor do admin vale e o arquivo NAO e regravado (comentario dele fica)
-        String valido = "# comentario do admin\nautoteste:\n  ligado: true\n";
+        // (o arquivo completo sai dos padroes, para o caso valer com qualquer campo novo, ex.: chunkmap)
+        File completo = new File(dir, "completo-base.yml");
+        completo.delete();
+        HoshiestarConfig.carregar(completo);
+        String valido = "# comentario do admin\n" + ler(completo).replaceFirst("\n  ligado: false\n", "\n  ligado: true\n");
         f = arquivo(dir, "valido.yml", valido);
         long mtime = f.lastModified() - 5000;
         f.setLastModified(mtime);

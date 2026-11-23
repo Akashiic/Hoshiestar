@@ -1,0 +1,125 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Sun, 22 Nov 2026 14:49:50 +0000
+Subject: [PATCH 08/16] ChunkBlockHashMap: cache de ultima consulta (chunkmap),
+ so a thread do servidor grava
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+index 9fa8c4c2..ac48f32d 100644
+--- a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
++++ b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+@@ -38,6 +38,31 @@ public class ChunkBlockHashMap {
+ 		return bunch;
+ 	}*/
+     private Chunk last1, last2, last3, last4;
++    // Hoshiestar start: recurso chunkmap (cache de ultima consulta, src/docs/chunkmap.md); desligado = so o codigo original
++    private static final boolean HOSHIE_CHUNKMAP = hoshieChunkmapLigado();
++    private hoshiestar.chunkmap.CacheDeChunks hoshieCache = HOSHIE_CHUNKMAP ? hoshieNovoCache() : null;
++    private static boolean hoshieChunkmapLigado() {
++        try {
++            return hoshiestar.chunkmap.ChunkMap.ligado();
++        } catch (Throwable t) {
++            return false;
++        }
++    }
++    private hoshiestar.chunkmap.CacheDeChunks hoshieNovoCache() {
++        try {
++            return hoshiestar.chunkmap.CacheDeChunks.novo(this.map);
++        } catch (Throwable t) {
++            return null;
++        }
++    }
++    private void hoshieFalhou(hoshiestar.chunkmap.CacheDeChunks hoshie, Throwable t) {
++        this.hoshieCache = null;
++        try {
++            hoshie.desligarPorErro(t);
++        } catch (Throwable ignorado) {
++        }
++    }
++    // Hoshiestar end
+ 
+     public LongObjMap<Chunk[][]> raw() {
+         return this.map;
+@@ -103,6 +128,18 @@ public class ChunkBlockHashMap {
+     }
+ 
+     public Chunk get(int x, int z) {
++        // Hoshiestar start
++        if (HOSHIE_CHUNKMAP) {
++            hoshiestar.chunkmap.CacheDeChunks hoshie = this.hoshieCache;
++            if (hoshie != null && hoshie.ativo()) {
++                try {
++                    return hoshie.get(x, z);
++                } catch (Throwable t) {
++                    hoshieFalhou(hoshie, t);
++                }
++            }
++        }
++        // Hoshiestar end
+         if (last1 != null && last1.xPosition == x && last1.zPosition == z) {
+             return last1;
+         }
+@@ -133,6 +170,16 @@ public class ChunkBlockHashMap {
+     }
+ 
+     public void put(Chunk chunk) {
++        // Hoshiestar start
++        hoshiestar.chunkmap.CacheDeChunks hoshie = HOSHIE_CHUNKMAP ? this.hoshieCache : null;
++        if (hoshie != null && hoshie.ativo()) {
++            try {
++                hoshie.antesDeMudar(chunk, true);
++            } catch (Throwable t) {
++                hoshieFalhou(hoshie, t);
++            }
++        }
++        // Hoshiestar end
+         if (chunk == null)
+             return;
+         size++;
+@@ -161,9 +208,28 @@ public class ChunkBlockHashMap {
+             last2 = last1;
+             last1 = chunk;
+         }
++        // Hoshiestar start
++        if (hoshie != null && hoshie.ativo()) {
++            try {
++                hoshie.depoisDePor(chunk);
++            } catch (Throwable t) {
++                hoshieFalhou(hoshie, t);
++            }
++        }
++        // Hoshiestar end
+     }
+ 
+     public void remove(Chunk chunk) {
++        // Hoshiestar start
++        hoshiestar.chunkmap.CacheDeChunks hoshie = HOSHIE_CHUNKMAP ? this.hoshieCache : null;
++        if (hoshie != null && hoshie.ativo()) {
++            try {
++                hoshie.antesDeMudar(chunk, false);
++            } catch (Throwable t) {
++                hoshieFalhou(hoshie, t);
++            }
++        }
++        // Hoshiestar end
+         int x = chunk.xPosition, z = chunk.zPosition;
+         Chunk[][] temp_chunk_bunch = this.map.get((((long) (x >> 4)) << 32L) ^ (z >> 4));
+ 
+@@ -200,5 +266,14 @@ public class ChunkBlockHashMap {
+         if (last4 != null && last4.xPosition == chunk.xPosition && last4.zPosition == chunk.zPosition) {
+             last4 = null;
+         }
++        // Hoshiestar start
++        if (hoshie != null && hoshie.ativo()) {
++            try {
++                hoshie.depoisDeTirar(chunk);
++            } catch (Throwable t) {
++                hoshieFalhou(hoshie, t);
++            }
++        }
++        // Hoshiestar end
+     }
+ }

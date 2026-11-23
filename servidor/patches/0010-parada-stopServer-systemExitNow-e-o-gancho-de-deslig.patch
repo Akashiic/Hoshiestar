@@ -1,0 +1,349 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Sun, 22 Nov 2026 18:44:17 +0000
+Subject: [PATCH 10/16] parada: stopServer, systemExitNow e o gancho de
+ desligamento delegam a maquina (D-24)
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/patches/net/minecraft/server/MinecraftServer.java.patch b/patches/net/minecraft/server/MinecraftServer.java.patch
+index 2002b55a..7e3add52 100644
+--- a/patches/net/minecraft/server/MinecraftServer.java.patch
++++ b/patches/net/minecraft/server/MinecraftServer.java.patch
+@@ -379,7 +379,7 @@
+          this.clearCurrentTask();
+      }
+  
+-@@ -292,46 +513,65 @@
++@@ -292,46 +513,86 @@
+      {
+          this.currentTask = null;
+          this.percentDone = 0;
+@@ -442,6 +442,27 @@
+ -    public void stopServer()
+ +    public void stopServer() throws MinecraftException // CraftBukkit - added throws
+      {
+++        // Hoshiestar start - parada (D-24): um so salvamento de parada por vez; quem chega com outro salvando espera e nao salva de novo; desligado = 0 = caminho original
+++        int hoshieParada = 0;
+++        try
+++        {
+++            if (hoshiestar.parada.Parada.ligado())
+++            {
+++                hoshieParada = hoshiestar.parada.Parada.entrar(!this.worldIsBeingDeleted && Loader.instance().hasReachedState(LoaderState.SERVER_STARTED) && !serverStopped);
+++            }
+++        }
+++        catch (Throwable hoshieErro)
+++        {
+++            hoshieParada = 0; // falha nossa: caminho original
+++        }
+++        if (hoshieParada == 2)
+++        {
+++            return; // outra thread ja fez (ou esta fazendo ha mais que o limite) o salvamento de parada
+++        }
+++        boolean hoshieOk = false;
+++        try
+++        {
+++        // Hoshiestar end
+          if (!this.worldIsBeingDeleted && Loader.instance().hasReachedState(LoaderState.SERVER_STARTED) && !serverStopped) // make sure the save is valid and we don't save twice
+          {
+              logger.info("Stopping server");
+@@ -457,7 +478,7 @@
+              if (this.func_147137_ag() != null)
+              {
+                  this.func_147137_ag().terminateEndpoints();
+-@@ -347,7 +587,14 @@
++@@ -347,7 +608,14 @@
+              if (this.worldServers != null)
+              {
+                  logger.info("Saving worlds");
+@@ -473,7 +494,32 @@
+  
+                  for (int i = 0; i < this.worldServers.length; ++i)
+                  {
+-@@ -380,8 +627,16 @@
++@@ -368,6 +636,24 @@
++                 this.usageSnooper.stopSnooper();
++             }
++         }
+++        // Hoshiestar start - parada: avisa a maquina de estados que o salvamento terminou (ou falhou) e acorda quem espera
+++        hoshieOk = true;
+++        }
+++        finally
+++        {
+++            if (hoshieParada == 1)
+++            {
+++                try
+++                {
+++                    hoshiestar.parada.Parada.sair(hoshieOk);
+++                }
+++                catch (Throwable hoshieErro)
+++                {
+++                    // nunca esconde a excecao original
+++                }
+++            }
+++        }
+++        // Hoshiestar end
++     }
++ 
++     public boolean isServerRunning()
++@@ -380,8 +666,16 @@
+          this.serverRunning = false;
+      }
+  
+@@ -490,7 +536,7 @@
+          try
+          {
+              if (this.startServer())
+-@@ -392,45 +647,56 @@
++@@ -392,45 +686,56 @@
+                  this.field_147147_p.func_151315_a(new ChatComponentText(this.motd));
+                  this.field_147147_p.func_151321_a(new ServerStatusResponse.MinecraftProtocolVersionIdentifier("1.7.10", 5));
+                  this.func_147138_a(this.field_147147_p);
+@@ -574,7 +620,7 @@
+                  FMLCommonHandler.instance().handleServerStopping();
+                  FMLCommonHandler.instance().expectServerStopped(); // has to come before finalTick to avoid race conditions
+              }
+-@@ -448,6 +714,14 @@
++@@ -448,6 +753,14 @@
+          catch (Throwable throwable1)
+          {
+              logger.error("Encountered an unexpected exception", throwable1);
+@@ -589,7 +635,7 @@
+              CrashReport crashreport = null;
+  
+              if (throwable1 instanceof ReportedException)
+-@@ -477,6 +751,7 @@
++@@ -477,6 +790,7 @@
+          {
+              try
+              {
+@@ -597,7 +643,7 @@
+                  this.stopServer();
+                  this.serverStopped = true;
+              }
+-@@ -486,6 +761,16 @@
++@@ -486,6 +800,16 @@
+              }
+              finally
+              {
+@@ -614,7 +660,7 @@
+                  FMLCommonHandler.instance().handleServerStopped();
+                  this.serverStopped = true;
+                  this.systemExitNow();
+-@@ -497,6 +782,11 @@
++@@ -497,6 +821,11 @@
+      {
+          File file1 = this.getFile("server-icon.png");
+  
+@@ -626,7 +672,7 @@
+          if (file1.isFile())
+          {
+              ByteBuf bytebuf = Unpooled.buffer();
+-@@ -532,8 +822,15 @@
++@@ -532,8 +861,15 @@
+  
+      public void tick()
+      {
+@@ -642,7 +688,7 @@
+          ++this.tickCounter;
+  
+          if (this.startProfiling)
+-@@ -562,11 +859,18 @@
++@@ -562,11 +898,18 @@
+              this.field_147147_p.func_151318_b().func_151330_a(agameprofile);
+          }
+  
+@@ -663,7 +709,7 @@
+              this.theProfiler.endSection();
+          }
+  
+-@@ -575,25 +879,58 @@
++@@ -575,25 +918,58 @@
+          this.theProfiler.endSection();
+          this.theProfiler.startSection("snooper");
+  
+@@ -724,7 +770,7 @@
+          int i;
+  
+          Integer[] ids = DimensionManager.getIDs(this.tickCounter % 200 == 0);
+-@@ -602,19 +939,21 @@
++@@ -602,19 +978,21 @@
+              int id = ids[x];
+              long j = System.nanoTime();
+  
+@@ -749,7 +795,7 @@
+  
+                  this.theProfiler.startSection("tick");
+                  FMLCommonHandler.instance().onPreWorldTick(worldserver);
+-@@ -622,22 +961,46 @@
++@@ -622,22 +1000,46 @@
+  
+                  try
+                  {
+@@ -798,7 +844,7 @@
+                      worldserver.addWorldInfoToCrashReport(crashreport);
+                      throw new ReportedException(crashreport);
+                  }
+-@@ -645,10 +1008,12 @@
++@@ -645,10 +1047,12 @@
+                  FMLCommonHandler.instance().onPostWorldTick(worldserver);
+                  this.theProfiler.endSection();
+                  this.theProfiler.startSection("tracker");
+@@ -812,7 +858,7 @@
+  
+              worldTickTimes.get(id)[this.tickCounter % 100] = System.nanoTime() - j;
+          }
+-@@ -656,15 +1021,21 @@
++@@ -656,15 +1060,21 @@
+          this.theProfiler.endStartSection("dim_unloading");
+          DimensionManager.unloadWorlds(worldTickTimes);
+          this.theProfiler.endStartSection("connection");
+@@ -834,7 +880,7 @@
+  
+          this.theProfiler.endSection();
+      }
+-@@ -699,6 +1070,13 @@
++@@ -699,6 +1109,13 @@
+  
+      public WorldServer worldServerForDimension(int p_71218_1_)
+      {
+@@ -848,7 +894,7 @@
+          WorldServer ret = DimensionManager.getWorld(p_71218_1_);
+          if (ret == null)
+          {
+-@@ -784,13 +1162,14 @@
++@@ -784,13 +1201,14 @@
+  
+      public List getPossibleCompletions(ICommandSender p_71248_1_, String p_71248_2_)
+      {
+@@ -867,7 +913,7 @@
+  
+              if (list != null)
+              {
+-@@ -798,40 +1177,25 @@
++@@ -798,40 +1216,25 @@
+  
+                  while (iterator.hasNext())
+                  {
+@@ -916,7 +962,7 @@
+      }
+  
+      public static MinecraftServer getServer()
+-@@ -1034,7 +1398,7 @@
++@@ -1034,7 +1437,7 @@
+  
+      public boolean isServerInOnlineMode()
+      {
+@@ -925,7 +971,7 @@
+      }
+  
+      public void setOnlineMode(boolean p_71229_1_)
+-@@ -1124,7 +1488,7 @@
++@@ -1124,7 +1527,7 @@
+  
+      public NetworkSystem func_147137_ag()
+      {
+@@ -934,7 +980,7 @@
+      }
+  
+      @SideOnly(Side.CLIENT)
+-@@ -1257,10 +1621,14 @@
++@@ -1257,10 +1660,14 @@
+      @SideOnly(Side.SERVER)
+      public static void main(String[] p_main_0_)
+      {
+@@ -949,7 +995,7 @@
+              boolean flag = true;
+              String s = null;
+              String s1 = ".";
+-@@ -1356,16 +1724,34 @@
++@@ -1356,16 +1763,34 @@
+              {
+                  dedicatedserver.setGuiEnabled();
+              }
+@@ -990,7 +1036,7 @@
+          }
+          catch (Exception exception)
+          {
+-@@ -1400,15 +1786,70 @@
++@@ -1400,15 +1825,70 @@
+      @SideOnly(Side.SERVER)
+      public String getPlugins()
+      {
+@@ -1066,7 +1112,7 @@
+      }
+  
+      @SideOnly(Side.SERVER)
+-@@ -1455,9 +1896,213 @@
++@@ -1455,9 +1935,213 @@
+          return this.serverStopped;
+      }
+  
+diff --git a/patches/net/minecraft/server/dedicated/DedicatedServer.java.patch b/patches/net/minecraft/server/dedicated/DedicatedServer.java.patch
+index 9bc44167..e10427bd 100644
+--- a/patches/net/minecraft/server/dedicated/DedicatedServer.java.patch
++++ b/patches/net/minecraft/server/dedicated/DedicatedServer.java.patch
+@@ -237,7 +237,24 @@
+      public boolean canStructuresSpawn()
+      {
+          return this.canSpawnStructures;
+-@@ -364,11 +444,19 @@
++@@ -326,6 +406,16 @@
++ 
++     protected void systemExitNow()
++     {
+++        // Hoshiestar start - parada: a thread do servidor chegou na saida (o gancho de desligamento para de esperar)
+++        try
+++        {
+++            hoshiestar.parada.Parada.saindo();
+++        }
+++        catch (Throwable hoshieErro)
+++        {
+++            // falha nossa: segue para a saida
+++        }
+++        // Hoshiestar end
++         System.exit(0);
++     }
++ 
++@@ -364,11 +454,19 @@
+  
+      public void executePendingCommands()
+      {
+diff --git a/src/main/java/org/bukkit/craftbukkit/v1_7_R4/util/ServerShutdownThread.java b/src/main/java/org/bukkit/craftbukkit/v1_7_R4/util/ServerShutdownThread.java
+index 0499a07f..86b59948 100644
+--- a/src/main/java/org/bukkit/craftbukkit/v1_7_R4/util/ServerShutdownThread.java
++++ b/src/main/java/org/bukkit/craftbukkit/v1_7_R4/util/ServerShutdownThread.java
+@@ -12,11 +12,32 @@ public class ServerShutdownThread extends Thread {
+ 
+     @Override
+     public void run() {
++        // Hoshiestar start - parada (D-24): pede ao laco de tick que pare e espera a thread do servidor salvar e sair; desligado = nada
++        try {
++            if (hoshiestar.parada.Parada.ligado()) {
++                hoshiestar.parada.Parada.ganchoAntes(server.primaryThread, new Runnable() {
++                    @Override
++                    public void run() {
++                        server.initiateShutdown();
++                    }
++                });
++            }
++        } catch (Throwable hoshieErro) {
++            // falha nossa: segue o caminho original abaixo
++        }
++        // Hoshiestar end
+         try {
+             server.stopServer();
+         } catch (MinecraftException ex) {
+             ex.printStackTrace();
+         } finally {
++            // Hoshiestar start - parada: folga curta para a thread do servidor terminar o fechamento depois do salvamento
++            try {
++                hoshiestar.parada.Parada.ganchoDepois(server.primaryThread);
++            } catch (Throwable hoshieErro) {
++                // falha nossa: segue o caminho original abaixo
++            }
++            // Hoshiestar end
+             try {
+                 server.reader.getTerminal().restore();
+             } catch (Exception e) {

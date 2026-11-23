@@ -26,6 +26,9 @@ public final class GanchosTeste {
     public static Object receptor;
     public static Object[] args;
     public static boolean decisao;
+    /** formato 3 protegido: quantas vezes o gancho aoFalhar foi chamado e com que Throwable. */
+    public static int falhas;
+    public static Throwable ultimaFalha;
 
     private GanchosTeste() {
     }
@@ -35,6 +38,8 @@ public final class GanchosTeste {
         receptor = null;
         args = null;
         decisao = false;
+        falhas = 0;
+        ultimaFalha = null;
     }
 
     private static boolean reg(Object r, Object... a) {
@@ -98,6 +103,38 @@ public final class GanchosTeste {
         return 1;
     }
 
+    // ---- formato 1 protegido
+    /** gancho "inicio" que lanca (bug do gancho). */
+    public static void inicioFazerQuebra(Object alvo, int a, String s) {
+        chamadas++;
+        throw new IllegalStateException("inicioFazerQuebra");
+    }
+
+    public static boolean pularLacoQuebra(Object alvo, int n) {
+        chamadas++;
+        throw new IllegalStateException("pularLacoQuebra");
+    }
+
+    /** "pular" que manda sair (true) para o "valor" que lanca ser alcancado. */
+    public static boolean pularLacoSai(Object alvo, int n) {
+        chamadas++;
+        return true;
+    }
+
+    public static int valorLacoQuebra(Object alvo, int n) {
+        throw new IllegalStateException("valorLacoQuebra");
+    }
+
+    public static boolean pularEstaticoQuebra(String s, double d, boolean b, char c, byte[] arr) {
+        chamadas++;
+        throw new IllegalStateException("pularEstaticoQuebra");
+    }
+
+    public static boolean pularSemDesvioQuebra(Object alvo, long a) {
+        chamadas++;
+        throw new IllegalStateException("pularSemDesvioQuebra");
+    }
+
     // ---- formato 2
     public static int trocaSize(List<?> l) {
         reg(l);
@@ -142,5 +179,42 @@ public final class GanchosTeste {
     /** chamada estatica Util.marcar(Alvo): sem receptor, o argumento tem o tipo exato. */
     public static boolean deveMarcar(Alvo a) {
         return reg(a);
+    }
+
+    // ---- formato 3 protegido
+    /** o gancho aoFalhar: so anota. */
+    public static void falhou(Throwable t) {
+        falhas++;
+        ultimaFalha = t;
+    }
+
+    /** gancho "deve" que lanca (bug do gancho). */
+    public static boolean deveQuebra(int x) {
+        chamadas++;
+        throw new IllegalStateException("deveQuebra");
+    }
+
+    /** gancho "deve" que manda pular (false), para o "sem" que lanca ser alcancado. */
+    public static boolean devePula(int x) {
+        chamadas++;
+        return false;
+    }
+
+    /** gancho "sem" que lanca. */
+    public static int semQuebra(int x) {
+        throw new IllegalStateException("semQuebra");
+    }
+
+    public static boolean deveQuebraVoid(Alvo a) {
+        throw new IllegalStateException("deveQuebraVoid");
+    }
+
+    public static boolean devePulaVoid(Alvo a) {
+        return false;
+    }
+
+    /** aoFalhar com descritor errado de proposito (devolve int). */
+    public static int falhouErrado(Throwable t) {
+        return 1;
     }
 }

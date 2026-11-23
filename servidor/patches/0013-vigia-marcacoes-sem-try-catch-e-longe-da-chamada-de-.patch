@@ -1,0 +1,137 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Mon, 23 Nov 2026 01:05:05 +0000
+Subject: [PATCH 13/16] vigia: marcacoes sem try/catch e longe da chamada de
+ update (o Opis casa padrao exato ali e o try/catch quebrou o boot);
+ entidade/tile anotados no comeco da volta do laco e limpos no fim do laco
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/patches/net/minecraft/entity/player/EntityPlayerMP.java.patch b/patches/net/minecraft/entity/player/EntityPlayerMP.java.patch
+index 5a37654c..628f67d7 100644
+--- a/patches/net/minecraft/entity/player/EntityPlayerMP.java.patch
++++ b/patches/net/minecraft/entity/player/EntityPlayerMP.java.patch
+@@ -270,7 +270,7 @@
+  
+      public void onUpdateEntity()
+      {
+-+        try { hoshiestar.vigia.Marcas.entidade(this); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia: anota o jogador em atualizacao (chamado pelo pacote de movimento)
+++        hoshiestar.vigia.Marcas.entidade(this); // Hoshiestar - vigia: anota o jogador em atualizacao (chamado pelo pacote de movimento)
+          try
+          {
+              super.onUpdate();
+@@ -356,7 +356,7 @@
+              this.addEntityCrashInfo(crashreportcategory);
+              throw new ReportedException(crashreport);
+          }
+-+        try { hoshiestar.vigia.Marcas.entidade(null); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia
+++        hoshiestar.vigia.Marcas.entidade(null); // Hoshiestar - vigia
+      }
+  
+      protected void func_147098_j()
+diff --git a/patches/net/minecraft/server/MinecraftServer.java.patch b/patches/net/minecraft/server/MinecraftServer.java.patch
+index f60ca5c8..994acb44 100644
+--- a/patches/net/minecraft/server/MinecraftServer.java.patch
++++ b/patches/net/minecraft/server/MinecraftServer.java.patch
+@@ -678,7 +678,7 @@
+      public void tick()
+      {
+ +        ++hoshiestar.api.Relogio.ticks; // Hoshiestar - relogio de ticks proprio (um so escritor: esta thread)
+-+        try { hoshiestar.vigia.Marcas.inicioTick(); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia: anota o inicio do tick (so escreve um campo; desligado = nada)
+++        hoshiestar.vigia.Marcas.inicioTick(); // Hoshiestar - vigia: anota o inicio do tick (so escreve campos; nunca lanca; desligado = nada)
+ +        TimingsManager.FULL_SERVER_TICK.startTiming();
+ +        WatchdogThread.tick(); // Thermos - be a good little WatchDog and actually restart if there's a problem!
+          long i = System.nanoTime();
+@@ -735,7 +735,7 @@
+ +        CrucibleTimings.forgePostTick.stopTiming();
+ +        callingForgeTick = false; // Cauldron end
+ +        TimingsManager.FULL_SERVER_TICK.stopTiming();
+-+        try { hoshiestar.vigia.Marcas.fimTick(); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia: anota o fim do tick
+++        hoshiestar.vigia.Marcas.fimTick(); // Hoshiestar - vigia: anota o fim do tick
+      }
+  
+      public void updateTimeLightAndEntities()
+diff --git a/patches/net/minecraft/world/World.java.patch b/patches/net/minecraft/world/World.java.patch
+index 58ad2378..6366eee3 100644
+--- a/patches/net/minecraft/world/World.java.patch
++++ b/patches/net/minecraft/world/World.java.patch
+@@ -980,7 +980,7 @@
+              try
+              {
+                  ++entity.ticksExisted;
+-@@ -1862,10 +2413,15 @@
++@@ -1862,10 +2413,16 @@
+  
+          this.unloadedEntityList.clear();
+          this.theProfiler.endStartSection("regular");
+@@ -996,23 +996,22 @@
+ +        for (entityLimiter.initTick(); entitiesThisCycle < loadedEntityList.size() && (entitiesThisCycle % 10 == 0 || entityLimiter.shouldContinue()); tickPosition++, entitiesThisCycle++) {
+ +            tickPosition = (tickPosition < loadedEntityList.size()) ? tickPosition : 0;
+ +            entity = (Entity)this.loadedEntityList.get(this.tickPosition);
+++            hoshiestar.vigia.Marcas.entidade(entity); // Hoshiestar - vigia: anota a entidade da vez (so escreve um campo; longe da chamada de update, que Opis e firewall casam por padrao exato)
+  
+              if (entity.ridingEntity != null)
+              {
+-@@ -1884,7 +2440,12 @@
++@@ -1884,7 +2441,10 @@
+              {
+                  try
+                  {
+ +                    ++TimingHistory.entityTicks; // Paper //TODO Crucible: Is this the right place? I think so
+ +                    MinecraftTimings.tickEntityTimer.startTiming(); // Spigot
+-+                    try { hoshiestar.vigia.Marcas.entidade(entity); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia: anota a entidade em atualizacao
+                      this.updateEntity(entity);
+-+                    try { hoshiestar.vigia.Marcas.entidade(null); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia
+ +                    MinecraftTimings.tickEntityTimer.stopTiming(); // Spigot
+                  }
+                  catch (Throwable throwable1)
+                  {
+-@@ -1916,30 +2477,84 @@
++@@ -1916,30 +2476,84 @@
+                  {
+                      this.getChunkFromChunkCoords(j, l).removeEntity(entity);
+                  }
+@@ -1026,6 +1025,7 @@
+  
+              this.theProfiler.endSection();
+          }
+++        hoshiestar.vigia.Marcas.entidade(null); // Hoshiestar - vigia: fim do laco de entidades
+  
+ +        timings.entityTick.stopTiming(); // Spigot
+          this.theProfiler.endStartSection("blockEntities");
+@@ -1066,6 +1066,7 @@
+ +        for (tileLimiter.initTick(); tilesThisCycle < loadedTileEntityList.size() && (tilesThisCycle % 10 == 0 || tileLimiter.shouldContinue()); tileTickPosition++, tilesThisCycle++) {
+ +            tileTickPosition = (tileTickPosition < loadedTileEntityList.size()) ? tileTickPosition : 0;
+ +            TileEntity tileentity = (TileEntity) this.loadedTileEntityList.get(tileTickPosition);
+++            hoshiestar.vigia.Marcas.tile(tileentity); // Hoshiestar - vigia: anota o tile da vez (antes do trecho que o DragonAPI reescreve e da chamada que o firewall troca)
+ +
+ +            // Spigot start
+ +            if (tileentity == null)
+@@ -1093,9 +1094,7 @@
+                  {
+ +                    tileentity.tickTimer.startTiming(); // Spigot
+ +                    tilesTicked++;
+-+                    try { hoshiestar.vigia.Marcas.tile(tileentity); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia: anota o tile em atualizacao (a chamada abaixo fica como esta: o Akashic-WorldFirewall a troca)
+                      tileentity.updateEntity();
+-+                    try { hoshiestar.vigia.Marcas.tile(null); } catch (Throwable hoshieErro) { } // Hoshiestar - vigia
+ +                    tileentity.tickTimer.stopTiming(); // Spigot
+                  }
+                  catch (Throwable throwable)
+@@ -1104,7 +1103,7 @@
+                      crashreport = CrashReport.makeCrashReport(throwable, "Ticking block entity");
+                      crashreportcategory = crashreport.makeCategory("Block entity being ticked");
+                      tileentity.func_145828_a(crashreportcategory);
+-@@ -1955,23 +2570,13 @@
++@@ -1955,23 +2569,14 @@
+                      }
+                  }
+              }
+@@ -1124,6 +1123,7 @@
+ -                }
+ -            }
+          }
+++        hoshiestar.vigia.Marcas.tile(null); // Hoshiestar - vigia: fim do laco de tiles
+  
+ +        timings.tileEntityTick.stopTiming(); // Spigot
+ +        timings.tileEntityPending.startTiming(); // Spigot

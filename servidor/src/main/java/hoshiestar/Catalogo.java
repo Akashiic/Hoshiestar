@@ -32,6 +32,14 @@ public final class Catalogo {
 
     static void registrar(HoshiestarConfig cfg, Correcoes correcoes) {
         Autoteste.registrar(cfg, correcoes);
+        hoshiestar.chunkmap.ChunkMap.registrar(cfg, correcoes);
+        hoshiestar.parada.Parada.registrar(cfg, correcoes);
+        hoshiestar.vigia.Vigia.registrar(cfg, correcoes);
+        hoshiestar.medidor.RegistroMedidor.registrar(cfg, correcoes);
+        hoshiestar.mekanism.Mekanism.registrar(cfg, correcoes);
+        hoshiestar.betterquesting.BetterQuesting.registrar(cfg, correcoes);
+        hoshiestar.arsmagica.ArsMagica.registrar(cfg, correcoes);
+        hoshiestar.chromaticraft.ChromatiCraft.registrar(cfg, correcoes);
         // Proximos recursos (cada um no proprio pacote), por exemplo:
         // ChunkMap.registrar(cfg);                 patch em thermos.wrapper.ChunkBlockHashMap
         // Parada.registrar(cfg);                   patches em MinecraftServer/DedicatedServer

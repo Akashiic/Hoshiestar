@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Sun, 22 Nov 2026 10:34:18 +0000
-Subject: [PATCH 2/7] liga o Hoshiestar no boot do Crucible
+Subject: [PATCH 02/16] liga o Hoshiestar no boot do Crucible
 
 CrucibleCoremodHook le o hoshiestar.yml e registra o transformador antes dos
 transformadores do Crucible e de qualquer coremod/Mixin; CrucibleModContainer
