@@ -10,8 +10,8 @@ Atualizado em 2026-11-22 (correção de rumo do admin: o Hoshiestar é um `serve
 | Etapa 0 – Medição | 🔄 falta só o admin rodar o medidor em produção (0.9) |
 | Etapa 1 (revista) – Ganhos baratos medidos, "Degrau 0" | ✅ construída e testada na cópia de teste; 🧑 falta o admin testar. `server.jar` do Hoshiestar com oito recursos embutidos (`servidor/`, roteiro em `servidor/ROTEIRO-ADMIN.md`). **Ganho não medido**: sem carga de produção no teste |
 | Etapa 2 – Observador | ✅ feita e testada na cópia de teste com carga sintética (`docs/05-plano-etapa-2.md`, `docs/06-relatorio-observador.md`). Jar `7161f795…a9668` |
-| Portão "vai / não vai" | 🧑 **aguardando decisão do admin.** Recomendação: seguir com o orçamento de tick por região (Degrau A) primeiro e a fase paralela sincronizada (Degrau B) depois (`docs/06-relatorio-observador.md`, seção do portão). Nenhum código das Etapas 2.5 em diante foi escrito |
-| Etapa 2.5 – Orçamento de tick por região | ⏳ |
+| Portão "vai / não vai" | ✅ decidido pelo admin em 2026-11-25: vai, Degrau A primeiro e B depois (decisão 36) |
+| Etapa 2.5 – Orçamento de tick por região (Degrau A) | 🔄 em andamento; plano em `docs/07-plano-etapa-2.5.md` |
 | Etapa 3 – Regiões, thread global, correio | ⏳ |
 | Etapa 4 – Adapter de plugins | ⏳ |
 | Etapa 5 – Módulos por mod | ⏳ |
@@ -54,7 +54,7 @@ Segunda orientação do admin (2026-11-22): controle total dos ambientes de test
 2. **Saída de `/forge tps` no pico.** Dá o tempo por dimensão, que o spark não dá.
 3. **Arquivos de produção que não vieram no pacote**: `spigot.yml`, `cauldron.yml`, `Crucible.yml`, `tileentities.yml`, `entities.yml`, `bukkit.yml`, `server.properties`.
 4. **Rodar o medidor (0.9) em produção**: jar `Hoshiestar-Medidor-1.0.4-serveronly.jar` entregue; seguir `medidor/ROTEIRO-ADMIN.md` (backup, conferir relógio, aquecimento de 10 s, medição de 600 s no pico) e mandar os dois arquivos.
-5. **Aceitar que base pesada tenha máquinas mais lentas** (Degrau A) como forma de isolar o lag.
+5. ✅ aceito pelo admin em 2026-11-25 (decisão 36): base pesada pode ter máquinas mais lentas.
 6. Opcional: arquivos de região de 3 a 5 bases pesadas e o `level.dat`; código-fonte dos mods `Akashic-*` de desempenho; um segundo perfil do spark com mais jogadores.
 7. Conferir o agente `Akashic-nChat-ChainColor`: ele se desliga no boot por esperar o nChat 2.0.4 (D-28).
 7c. **Perguntas do estudo Folia x NeoFolia** (`docs/pesquisa/folia-neofolia.md` §10; não bloqueiam a Etapa 1): **P1** regiões independentes (Degrau C) só nas dimensões em que todos os handlers globais de mods que mexem nela estão liberados, o resto fica na fase paralela sincronizada (Degrau B): concorda? **P2** erro no tick de uma região: parar o servidor de forma limpa (proposta) ou rebaixar a dimensão para série e seguir? **P3** as bases pesadas ficam a mais de 48 a 63 chunks (770 a 1.000 blocos) umas das outras? Mais perto que isso, viram uma região só.
@@ -116,6 +116,7 @@ Segunda orientação do admin (2026-11-22): controle total dos ambientes de test
 | 33 | P2 (padrão reversível): erro no tick de uma região = parada limpa do servidor; "rebaixar a dimensão para série e seguir" fica como opção no config, desligada | padrão dado pelo admin |
 | 34 | P3 (distância entre bases) e "como a produção é parada": desconhecidos. Não assumir: observador e medidor produzem o dado de distância; o recurso `parada` segue desligado e nada depende dele | padrão dado pelo admin |
 | 35 | Leitura principal de "sincronização em tempo real e sintonia": o Degrau B (regiões em paralelo, em passo, com barreira). Ideia a avaliar depois, sem código agora: ajuste automático com o servidor rodando (número de threads, juntar ou desacelerar regiões conforme a carga) | interesse do admin |
+| 36 | **Decisão do admin no portão (2026-11-25): vai, com o Degrau A primeiro e o Degrau B depois.** O admin aceita que as máquinas da base que estourar o orçamento fiquem mais lentas, como forma de isolar o lag (fecha a pendência 5). Etapa 2.5 numa thread só; ao terminar, apresentar o plano do Degrau B em poucas linhas, sem implementar | decisão do portão "vai / não vai" |
 | 11 | Seguir os hábitos do upstream (patch gerado, `// Hoshiestar`, opções em `Crucible.yml`, JDK 8) e mandar correções genéricas como pull request ao Crucible | manter o fork fácil de atualizar (`docs/04-estudo-crucible.md` §5) |
 
 ## Plugins desligados na cópia de teste
