@@ -444,6 +444,53 @@ paralela por causa dele.
 "outro" sem origem (3.372 com pilha do hodgepodge), 74 em `jogador_rede`, 0 em tile/entidade. Carga vinda do disco
 continua fora (D-41).
 
+## 8e. Orçamento de tick por região, Etapa 2.5 (2026-11-26, carga sintética)
+
+Completo em `docs/08-relatorio-etapa-2.5.md`. Jar `fc377b79…eb622`. Todo número de servidor é de carga sintética:
+**indicação, não medição de produção**.
+
+**D-54. O orçamento isola a base pesada.** Base forçada a 150,7 ms por rodada: cortada para 1 tick a cada 25; demais
+regiões 19,3 a 19,8 TPS; servidor inteiro p95 21,3 ms, p99 164, máx 575,9 (sem corte: 6,3 TPS, 159 ms). O p99 é a
+rodada da base cortada: numa thread só, ela continua longa em ~4% dos ticks.
+
+**D-55. A fornalha vanilla do Crucible não fica mais lenta sob corte.** O patch do CraftBukkit usa `elapsedTicks =
+MinecraftServer.currentTick - lastTick` (`TileEntityFurnace.java:240-264` do fonte decompilado): fornalhas cortadas a
+1/25 fizeram ~10 lingotes por mil ticks, igual ao controle. Sem perda (soma minério + lingote constante). Outras máquinas
+que contam pelo relógio: não levantadas.
+
+**D-56. Região cortada que se une à região protegida do spawn perde o corte.** A proteção vale para a região inteira:
+com um bot ligando a base pesada ao spawn, o servidor caiu a 5,4 a 6,8 TPS por 70 a 90 s. No layout a, o spawn já cai
+dentro de uma das 4 bases. Em produção, base pesada perto do spawn (ou ligada a ele por chunks carregados) nunca é cortada.
+
+**D-57. Ao trocar de `medir` para `cortar`, o corte começa sem alerta novo** quando o alerta "passaria a ticar 1 a cada
+N" já saiu no modo medir (o estado "corte avisado" não distingue os modos; `Nucleo.avaliar`). Menor.
+
+**D-58. Limites da ferramenta de teste (só com `-D`).** `hoshie regioes foto` quebra no modpack (EndlessIDs recusa
+`getBlockLSBArray`); `contar` só soma tiles que ticam (não vê as células da matriz) e conta tiles de estruturas do
+mundo; na divisão de região, as duas partes herdam a espera forçada (`Estado.esperaMs`) e passam a pagar 150 ms. Ids de
+região mudam a cada recálculo.
+
+**D-59. Defeitos das ferramentas de carga sintética.** No 1.7.10, `/setblock` ignora id de item por nome no NBT: os
+baús e fornalhas de `tools/carga_sintetica.py` nasciam vazios (as cargas anteriores só tinham as máquinas trabalhando);
+`docs/mekanism.md` do fork usa `electricityStored:4.0E8d`, que o `/setblock` não lê (vale `400000000.0d`). Neste mundo
+os chunks do spawn não ficam carregados sem jogador; um plugin leva jogador novo ao spawn dele ~4 s após o login;
+`save-all` trava o tick por 1 a 4 s.
+
+**D-60. Ticks isolados longos sem causa achada** (575,9, 356,2, 421,6 e 779,7 ms) em ticks em que a base cortada não
+rodou e nenhuma região passou de 40 ms: fora do orçamento; sem JFR nesses testes. Também 4 `NullPointerException` do
+WorldGuard em `PlayerTeleportEvent.getTo()` nulo num teleporte do teste (fora do orçamento).
+
+**D-61. Revisão do orçamento: 4 achados importantes e 5 menores, nenhum de perda.** Todos corrigidos antes do jar
+testado (`169e0eeb` a `f422aad4`), 21 casos adversários verdes nos JDKs 8 e 21. As correções não tiveram segunda
+revisão; `a00aeac6` mexe na fila entre a thread do comando e a do servidor.
+
+**D-62. Desligado, o jar novo fica dentro do ruído.** Medianas 9,98 × 11,03, 10,25 × 9,46 e 6,99 × 7,03 ms (novo ×
+anterior); a diferença acompanha a ordem das medidas, não o jar. Ligado sem corte: custo não medido no modpack.
+
+**D-63. Um teste antigo do chunkmap é instável.** `TesteChunkmapAdversario` T2 (JDK 21, `-XX:-TieredCompilation`)
+exige estouro de pilha em `remove`, `put` e `get` na mesma rodada; no build do zero só o `get` estourou e ele falhou;
+passou ao repetir. Não é do orçamento.
+
 ## 9. A máquina de produção
 
 7 vCores e 17 GB de RAM, com heap de 14 GB (`-Xms14336M -Xmx14336M`). Sobram cerca de 3 GB

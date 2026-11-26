@@ -78,6 +78,8 @@ as máquinas daquela base andam mais devagar, o resto do servidor fica a 20 TPS.
 - **Limite medido**: neste perfil, tirar do tick uma base com metade da carga ainda deixa 56 ms. O Degrau A isola a base pesada, mas não leva o servidor a 20 TPS sozinho.
 - O Crucible já tem um mecanismo parecido por **tipo** de máquina (`tileentities.yml`), que não serve para isolar uma base (D-25). O Degrau A é o mesmo efeito por **lugar**, escalonado para não fazer pico.
 - Não protege contra uma chamada única muito longa (o caso do stall): orçamento age entre ticks, não interrompe.
+- (Etapa 2.5) **Medido em carga sintética (indicação):** base forçada a 150 ms cortada para 1 tick a cada 25 (não 2, 3, 4: a regra do pico leva a rodada acima de 40 ms para N ≥ 25); demais regiões 19,3 a 19,8 TPS, p95 do servidor 21,3 ms. A rodada da base cortada continua longa e cai em ~4% dos ticks (p99 164 ms): numa thread, o A espalha o pico, não o divide (D-54).
+- (Etapa 2.5) Máquina que conta o tempo pelo relógio não fica mais lenta sob corte; a fornalha vanilla do próprio Crucible é uma delas (D-55).
 
 ### Degrau B: fase paralela sincronizada
 Cada tick do servidor vira três fases:
@@ -229,6 +231,7 @@ Regras do estudo Folia x NeoFolia (2026-11-22), detalhes em `docs/pesquisa/folia
 
 ### (8) Extras
 - Spawn: nunca entra no corte de orçamento; no Degrau C ganha thread com prioridade.
+  (Etapa 2.5) A proteção vale para a região inteira do spawn: região pesada que se une a ela deixa de ser cortada (D-56). A decidir antes de produção: proteger por área em volta do spawn.
 - Alerta: região acima do limite gera aviso no console e para o admin, com dimensão, coordenada, dono do claim (GriefPreventionPlus) e as tile entities que mais pesam.
 
 ### (9) Vigia e modo seguro
