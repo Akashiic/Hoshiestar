@@ -4,9 +4,10 @@
 > **Todo número de servidor abaixo é indicação de carga sintética (mundo plano, bases por comando, bots, 4 núcleos,
 > 8 GB), não medição de produção.** Achados numerados: `DIAGNOSTICO.md` §8e (D-54 a D-63).
 
-**Jar:** `Hoshiestar-1.7.10-1.0.0-dev-server.jar`, sha256 `fc377b799c2536756339d0f41b28a7e194cf5ee5ac320ddfd0c2d74c615eb622`
-(build do zero a partir dos 24 patches exportados do fork, branch `hoshiestar`, último commit `f422aad4`; já com as
-correções da revisão). Recurso `orcamento` desligado por padrão (`ligado: false`).
+**Jar:** `Hoshiestar-1.7.10-1.0.0-dev-server.jar`, sha256 `c8125bf60bfc4745ef0f0072d1dd25a351802a3b60e749ba1f230e97f06701e5`
+(build do zero a partir dos 24 patches exportados do fork, branch `hoshiestar`, último commit `c2558bc2`; já com as
+correções das duas revisões). Os testes de conservação, diferencial, bordas e sem-regressão (§3 a §6) foram feitos no jar
+anterior, `fc377b79...eb622` (último commit `f422aad4`), e **não foram repetidos** no jar novo; só o reteste curto da §1. Recurso `orcamento` desligado por padrão (`ligado: false`).
 
 **Em uma frase:** com uma base forçada a 150 ms por rodada, o orçamento a cortou para 1 tick a cada 25 e o resto do
 servidor ficou a 19,3 a 19,8 TPS com p95 de 21,3 ms (sem o corte: 6,3 TPS e 159 ms); nenhuma perda de item ou energia;
@@ -28,6 +29,13 @@ Critério (A ≥ 150 ms; demais ≥ 19 TPS; p95 ≤ 50 ms): cumprido. Entrada no
 `cortar`; volta a N = 1 em ~30 s depois de tirar a carga. O alerta no log diz dimensão, caixa, centro, chunks, tiles,
 entidades, ms e a ação. O máximo de 575,9 ms caiu num tick em que A **não** rodou e nenhuma região passou de 40 ms:
 fora do orçamento, causa não investigada (D-60).
+
+**Reteste curto no jar novo `c8125bf6`** (cópia nova, mesma carga, `etapa25/teste/RESULTADO-C.md`; a região A é a #13; os números
+acima são do jar `fc377b79`): (a) modo medir, A a 150 ms, 3 min: A em N 25 "estouraria | PESADA", 0 cortadas, servidor 160,5 ms;
+(b) modo cortar, 5 min: A cortada N 25 (1 a cada 23,7 no CSV), outras regiões 19,6 a 19,7 TPS, servidor inteiro média 16,7,
+**p95 19,7** (≤ 50), p99 163,8, máx 257,4 ms; (c) em medir, A de 150 para 20 ms: N 25 → 12 → 3 → **1 em ~80 s** e, em cortar,
+A **não** cortada (0 regiões cortadas em ~2,5 min; era o achado 1); (d) PESADA já na primeira leitura, 11 s depois de ligar a
+carga (achado 3). Parada com `stop`, sem crash-report, sem exceção do hoshiestar; sem `kill`. Indicação de carga sintética.
 
 ## 2. O que custou para a base cortada
 
@@ -81,11 +89,36 @@ Não medido no modpack com o recurso ligado e sem corte. Indicações sem Minecr
 
 ## 8. Revisão
 
-Revisor diferente: 4 achados importantes (região que não voltava a N = 1; regiões cortadas juntas rodando no mesmo
-tick; teto dos ticks agendados atrasando região não cortada; alerta perdido) e 5 menores. Nenhuma perda ou duplicação.
-Todos corrigidos em 6 commits antes do jar testado, cada um com teste que falhava antes. As correções **não** passaram
-por segunda revisão; uma delas mexe na fila entre a thread do comando e a do servidor (`a00aeac6`) e, pela regra do
-projeto, precisa de revisão curta de concorrência por outro agente (D-61).
+**Primeira revisão** (agente diferente): 4 achados importantes (região que não voltava a N = 1; regiões cortadas juntas
+rodando no mesmo tick; teto dos ticks agendados atrasando região não cortada; alerta perdido) e 5 menores. Nenhuma perda ou
+duplicação. Todos corrigidos em 6 commits, cada um com teste que falhava antes.
+
+**Segunda revisão** (agente diferente do que escreveu e do primeiro revisor): aprovou com **1 achado importante e 3 menores**,
+corrigidos em commits próprios (`f82e6306` modo medir não soma o próprio custo de novo na descida; `6d426c37` classificação
+de "acúmulo" fixada no começo da seleção; `6441a9e1` `pesada` separada de `avisadaPesada`; `c2558bc2` fase própria para cada
+parte nova na divisão), cada um com teste, e **revistos por um terceiro agente**. Resultado da terceira revisão:
+
+- Resumo: nenhum achado sério nem importante; 3 menores confirmados por experimento e 1 menor só por leitura. As 4 correções
+  fazem o que dizem.
+- **Perda/duplicação de tick agendado: não há.** A seleção só lê a `TreeSet`; cada entrada vai uma única vez para a lista de
+  saída ou para o acúmulo, e quem tira da `TreeSet`/`HashSet` continua sendo o patch, com as três chamadas do original. No
+  experimento com erro na rodada e sobra no teto: saída `[A1,B1,A2,B2,A3,B3,A4,B4,B5,B6]`, 0 duplicadas. Sem erro o caminho é
+  igual ao de antes (a cópia tirada no começo da seleção tem os mesmos valores de `emCorte` e `decisao`, que só mudam dentro da
+  seleção por `falhaNoPonto`).
+- **Estado entre threads: correto.** O campo novo `avisadaPesada` e as mudanças em `pesada` ficam só no `Estado`, lido e escrito
+  só pela thread do servidor. O `Retrato` continua imutável (campos `final`), montado inteiro em `publicar()` e publicado por um
+  único campo `volatile`; `cortar` é `volatile` e só muda pela fila de pedidos na thread do servidor. `acumuloNaSelecao` é
+  campo comum usado só na thread do servidor.
+- **Quatro menores, abertos de propósito** (decisão 28: só achado menor não abre nova rodada; nenhum perde nada; pendência 21
+  do `PROGRESSO.md`): (1) `Nucleo.java:848`: uma suspensão curta que cai no tick da avaliação faz o N descer sem a previsão
+  (simulação: N 4 → 2 e o servidor a 40 ms, acima dos 36 ms que a regra promete; no pior caso um ciclo de corta/solta por
+  evento, não contínuo); (2) `Nucleo.java:441-453`: com erro interno nosso num gancho **fora** da rodada da região, a ordem
+  dos ticks agendados dela ainda pode trocar naquele tick; (3) `Estado.java:176`: a parte nova de uma região dividida pode
+  esperar até 2N+1 ticks uma vez (N 25 → 51 ticks) antes de voltar a N ou N+1; (4) `Estado.java:158` (só leitura): na junção
+  de uma região pesada com alerta segurado com outra que tinha "voltou ao normal" segurado, o alerta "começou a pesar" pode
+  não sair.
+
+O reteste do jar novo (§1) confirma as correções 1 e 3 no servidor real de teste.
 
 ## 9. Não verificado / não verificável aqui
 
@@ -108,7 +141,8 @@ com limitador; a ferramenta de teste de carga por região, o registro por tick e
 offline (`tools/mundo_*.py`).
 
 Antes de ligar em produção (decisões do coordenador ou do admin): proteção do spawn por área e não pela região inteira
-(D-56); revisão curta das correções pós-revisão (D-61); corrigir a foto da ferramenta de teste (D-58).
+(D-56); corrigir a foto da ferramenta de teste (D-58). (D-61, revisão das correções pós-revisão, está cumprido: ver §8; restam os
+quatro menores abertos.)
 
 ## Plano do Degrau B em poucas linhas
 
