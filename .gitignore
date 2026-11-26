@@ -17,3 +17,5 @@ out/
 .idea/
 *.iml
 __pycache__/
+# workspace de build criado por servidor/build.sh sem --work
+/hoshiestar-work/
