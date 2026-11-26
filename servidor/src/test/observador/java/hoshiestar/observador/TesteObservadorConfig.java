@@ -1,5 +1,6 @@
 package hoshiestar.observador;
 
+import hoshiestar.regioes.FotoMundo;
 import hoshiestar.api.Recursos;
 import hoshiestar.config.HoshiestarConfig;
 import hoshiestar.embutidos.Correcoes;

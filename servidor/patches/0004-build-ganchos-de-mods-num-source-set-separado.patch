@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Sun, 22 Nov 2026 11:05:10 +0000
-Subject: [PATCH 04/20] build: ganchos de mods num source set separado
+Subject: [PATCH 04/24] build: ganchos de mods num source set separado
 
 Com os jars dos mods no classpath do proprio servidor a compilacao quebrava
 (mods trazem copias de bibliotecas, ex. LWJGL). Os ganchos de src/mods/java

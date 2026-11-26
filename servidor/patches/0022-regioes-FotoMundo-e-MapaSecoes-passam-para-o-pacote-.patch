@@ -1,0 +1,211 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Wed, 25 Nov 2026 20:45:39 +0000
+Subject: [PATCH 22/24] regioes: FotoMundo e MapaSecoes passam para o pacote
+ publico hoshiestar.regioes (Etapa 2.5, passo 1); observador usa o novo
+ pacote; testes do observador verdes
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/src/main/java/hoshiestar/observador/FotoMundo.java b/src/main/java/hoshiestar/observador/FotoMundo.java
+deleted file mode 100644
+index f38ab80a..00000000
+--- a/src/main/java/hoshiestar/observador/FotoMundo.java
++++ /dev/null
+@@ -1,72 +0,0 @@
+-/*
+- * Hoshiestar: servidor hibrido Forge + Bukkit para Minecraft 1.7.10, fork do Crucible.
+- * Copyright (C) 2026 Projeto Hoshiestar
+- *
+- * Este programa e software livre: voce pode redistribui-lo e/ou modifica-lo sob os termos da
+- * GNU General Public License publicada pela Free Software Foundation, versao 3 da Licenca ou
+- * (a seu criterio) qualquer versao posterior. Distribuido SEM QUALQUER GARANTIA.
+- * Veja <https://www.gnu.org/licenses/>.
+- *
+- * SPDX-License-Identifier: GPL-3.0-or-later
+- */
+-package hoshiestar.observador;
+-
+-/**
+- * O que o jogo entrega ao observador para a foto de um mundo (so numeros, nenhum objeto do jogo): os chunks carregados,
+- * a posicao (em blocos) de cada tile entity e de cada entidade. Quem preenche e o {@link Jogo}; os testes preenchem
+- * a mao. Os vetores podem ser maiores que a contagem (vale {@code nXxx}).
+- */
+-public final class FotoMundo {
+-
+-    /** Numero da dimensao (provider.dimensionId). */
+-    public final int dim;
+-    public int[] chunksX = new int[0];
+-    public int[] chunksZ = new int[0];
+-    public int nChunks;
+-    public int[] tilesX = new int[0];
+-    public int[] tilesZ = new int[0];
+-    public int nTiles;
+-    public int[] entX = new int[0];
+-    public int[] entZ = new int[0];
+-    public int nEnt;
+-
+-    public FotoMundo(int dim) {
+-        this.dim = dim;
+-    }
+-
+-    /** Atalho para testes: acrescenta um chunk. */
+-    public FotoMundo chunk(int cx, int cz) {
+-        if (nChunks == chunksX.length) {
+-            int c = Math.max(16, nChunks * 2);
+-            chunksX = java.util.Arrays.copyOf(chunksX, c);
+-            chunksZ = java.util.Arrays.copyOf(chunksZ, c);
+-        }
+-        chunksX[nChunks] = cx;
+-        chunksZ[nChunks++] = cz;
+-        return this;
+-    }
+-
+-    /** Atalho para testes: acrescenta uma tile entity na posicao (bloco x, bloco z). */
+-    public FotoMundo tile(int x, int z) {
+-        if (nTiles == tilesX.length) {
+-            int c = Math.max(16, nTiles * 2);
+-            tilesX = java.util.Arrays.copyOf(tilesX, c);
+-            tilesZ = java.util.Arrays.copyOf(tilesZ, c);
+-        }
+-        tilesX[nTiles] = x;
+-        tilesZ[nTiles++] = z;
+-        return this;
+-    }
+-
+-    /** Atalho para testes: acrescenta uma entidade na posicao (bloco x, bloco z). */
+-    public FotoMundo entidade(int x, int z) {
+-        if (nEnt == entX.length) {
+-            int c = Math.max(16, nEnt * 2);
+-            entX = java.util.Arrays.copyOf(entX, c);
+-            entZ = java.util.Arrays.copyOf(entZ, c);
+-        }
+-        entX[nEnt] = x;
+-        entZ[nEnt++] = z;
+-        return this;
+-    }
+-}
+diff --git a/src/main/java/hoshiestar/observador/MapaSecoes.java b/src/main/java/hoshiestar/observador/MapaSecoes.java
+deleted file mode 100644
+index e22b93e0..00000000
+--- a/src/main/java/hoshiestar/observador/MapaSecoes.java
++++ /dev/null
+@@ -1,117 +0,0 @@
+-/*
+- * Hoshiestar: servidor hibrido Forge + Bukkit para Minecraft 1.7.10, fork do Crucible.
+- * Copyright (C) 2026 Projeto Hoshiestar
+- *
+- * Este programa e software livre: voce pode redistribui-lo e/ou modifica-lo sob os termos da
+- * GNU General Public License publicada pela Free Software Foundation, versao 3 da Licenca ou
+- * (a seu criterio) qualquer versao posterior. Distribuido SEM QUALQUER GARANTIA.
+- * Veja <https://www.gnu.org/licenses/>.
+- *
+- * SPDX-License-Identifier: GPL-3.0-or-later
+- */
+-package hoshiestar.observador;
+-
+-/**
+- * Mapa de secoes (chave long = dimensao, secao X, secao Z) para um numero de "vaga" 0..n-1, com tres contadores por
+- * vaga (chunks, tiles, entidades). E a foto das secoes que tem chunk carregado. Sem boxing.
+- *
+- * <p>Chave: 8 bits de indice de dimensao, 28 bits de X e 28 bits de Z da secao (com sinal). Uma secao tem
+- * 16x16 chunks (256x256 blocos): secao = chunk &gt;&gt; 4 = bloco &gt;&gt; 8.
+- */
+-final class MapaSecoes {
+-
+-    private int[] tab;      // vaga + 1 (0 = livre)
+-    private int mascara;
+-    private long[] chaves;  // por vaga
+-    int[] chunks;
+-    int[] tiles;
+-    int[] ents;
+-    private int n;
+-
+-    MapaSecoes(int capacidadeInicial) {
+-        int cap = 16;
+-        while (cap < capacidadeInicial * 2) {
+-            cap <<= 1;
+-        }
+-        tab = new int[cap];
+-        mascara = cap - 1;
+-        int v = Math.max(8, capacidadeInicial);
+-        chaves = new long[v];
+-        chunks = new int[v];
+-        tiles = new int[v];
+-        ents = new int[v];
+-    }
+-
+-    static long chave(int dimIdx, int secX, int secZ) {
+-        return ((long) (dimIdx & 0xFF) << 56) | ((long) (secX & 0xFFFFFFF) << 28) | (long) (secZ & 0xFFFFFFF);
+-    }
+-
+-    static int dimDe(long chave) {
+-        return (int) (chave >>> 56) & 0xFF;
+-    }
+-
+-    static int xDe(long chave) {
+-        return ((int) (chave >>> 28) & 0xFFFFFFF) << 4 >> 4;
+-    }
+-
+-    static int zDe(long chave) {
+-        return ((int) chave & 0xFFFFFFF) << 4 >> 4;
+-    }
+-
+-    /** A vaga da chave, ou -1 se a secao nao esta no mapa. */
+-    int vaga(long chave) {
+-        int i = TabelaContagem.espalhar(chave) & mascara;
+-        while (tab[i] != 0) {
+-            if (chaves[tab[i] - 1] == chave) {
+-                return tab[i] - 1;
+-            }
+-            i = (i + 1) & mascara;
+-        }
+-        return -1;
+-    }
+-
+-    /** A vaga da chave; cria se nao existe. */
+-    int criar(long chave) {
+-        int i = TabelaContagem.espalhar(chave) & mascara;
+-        while (tab[i] != 0) {
+-            if (chaves[tab[i] - 1] == chave) {
+-                return tab[i] - 1;
+-            }
+-            i = (i + 1) & mascara;
+-        }
+-        if (n == chaves.length) {
+-            int nn = n << 1;
+-            chaves = java.util.Arrays.copyOf(chaves, nn);
+-            chunks = java.util.Arrays.copyOf(chunks, nn);
+-            tiles = java.util.Arrays.copyOf(tiles, nn);
+-            ents = java.util.Arrays.copyOf(ents, nn);
+-        }
+-        chaves[n] = chave;
+-        tab[i] = n + 1;
+-        n++;
+-        if (n * 2 > tab.length) {
+-            refazer();
+-        }
+-        return n - 1;
+-    }
+-
+-    private void refazer() {
+-        tab = new int[tab.length << 1];
+-        mascara = tab.length - 1;
+-        for (int v = 0; v < n; v++) {
+-            int i = TabelaContagem.espalhar(chaves[v]) & mascara;
+-            while (tab[i] != 0) {
+-                i = (i + 1) & mascara;
+-            }
+-            tab[i] = v + 1;
+-        }
+-    }
+-
+-    int tamanho() {
+-        return n;
+-    }
+-
+-    long chaveDaVaga(int v) {
+-        return chaves[v];
+-    }
+-}

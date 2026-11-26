@@ -65,6 +65,7 @@ FONTES=$( (cd "$W/src/main/java" && find io/github/crucible/util/config -name '*
           ls io/github/crucible/util/HashedArrayList.java
           ls hoshiestar/Hoshiestar.java hoshiestar/api/*.java hoshiestar/config/*.java \
              hoshiestar/embutidos/*.java hoshiestar/embutidos/asm/*.java hoshiestar/vigia/IndiceDeJars.java
+          ls hoshiestar/regioes/*.java
           ls hoshiestar/observador/*.java | grep -v -e GanchosObservador -e ComandoObservador) \
           | sort | sed "s|^|$W/src/main/java/|")
 "$J8/bin/javac" -nowarn -encoding UTF-8 -source 1.8 -target 1.8 -cp "$CP" -d "$OUT/observador-classes" \

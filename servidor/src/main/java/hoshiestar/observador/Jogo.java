@@ -11,6 +11,7 @@
  */
 package hoshiestar.observador;
 
+import hoshiestar.regioes.FotoMundo;
 import java.io.File;
 
 /** O que o observador pede ao jogo (nada do Minecraft aparece aqui: os testes entregam um falso). */

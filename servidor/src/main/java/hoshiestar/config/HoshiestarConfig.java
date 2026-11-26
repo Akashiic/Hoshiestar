@@ -321,6 +321,88 @@ public final class HoshiestarConfig extends YamlConfig {
     @Path("observador.lista")
     public boolean observador_lista = false;
 
+    // ---- orcamento ----
+    @Comments({"Orcamento de tick por regiao (Etapa 2.5, Degrau A): mede o tempo de cada regiao do mapa (secoes de 16x16 chunks;",
+        "regioes a ate 3 secoes uma da outra se juntam), mostra TPS e ms por regiao ('hoshie regioes'), avisa os operadores quando",
+        "uma regiao comeca a pesar e diz onde e. No modo 'cortar' a regiao que passa do orcamento (com o servidor acima do alvo)",
+        "roda 1 tick a cada N, inteira (tiles, entidades, ticks agendados e aleatorios), para isolar o lag; as maquinas dela ficam N",
+        "vezes mais lentas. Numeros de carga sintetica sao indicacao, nao medicao de producao.",
+        "ligado: false = nenhum gancho faz nada alem de um teste de variavel (comportamento original). Lido so no boot."})
+    public boolean orcamento_ligado = false;
+
+    @Comments({"Orcamento: modo inicial. 'medir' (padrao) calcula e avisa sem cortar nada; 'cortar' aplica o corte (jogadores,",
+        "spawn e areas protegidas nunca sao cortados). Troca em jogo: 'hoshie regioes modo medir|cortar'."})
+    @Path("orcamento.modo")
+    public String orcamento_modo = "medir";
+
+    @Comments({"Orcamento: so age quando a media do tick do servidor, em 100 ticks, passa deste valor em ms (10 a 50)."})
+    @Path("orcamento.alvo_tick_ms")
+    public double orcamento_alvoTickMs = 45.0;
+
+    @Comments({"Orcamento: quanto uma regiao pode usar por tick real, em ms (0,5 a 50). Acima disso, e com o servidor acima do alvo,",
+        "ela passa a ticar 1 vez a cada N = ceil(custo por rodada / este valor), entre 2 e n_maximo."})
+    @Path("orcamento.regiao_ms")
+    public double orcamento_regiaoMs = 10.0;
+
+    @Comments({"Orcamento: rodada acima de tantos ms (5 a 1000) obriga N a ser pelo menos 100 / pico_fracao_pct: a rodada pesada",
+        "cai em no maximo pico_fracao_pct por cento dos ticks e o p95 do servidor nao a ve."})
+    @Path("orcamento.pico_ms")
+    public double orcamento_picoMs = 40.0;
+
+    @Comments({"Orcamento: porcentagem maxima de ticks com a rodada pesada (1 a 50)."})
+    @Path("orcamento.pico_fracao_pct")
+    public int orcamento_picoFracaoPct = 4;
+
+    @Comments({"Orcamento: maior N (2 a 200): a regiao nunca roda menos que 1 vez a cada n_maximo ticks."})
+    @Path("orcamento.n_maximo")
+    public int orcamento_nMaximo = 40;
+
+    @Comments({"Orcamento: de quantos em quantos ticks o mapa de regioes e recalculado (40 a 2400). Tambem recalcula antes (no minimo",
+        "20 ticks depois) quando acha tile, entidade ou tick agendado numa secao que nao esta no mapa."})
+    @Path("orcamento.recalculo_ticks")
+    public int orcamento_recalculoTicks = 100;
+
+    @Comments({"Orcamento: true = a regiao do spawn da dimensao 0 nunca e cortada."})
+    @Path("orcamento.proteger_spawn")
+    public boolean orcamento_protegerSpawn = true;
+
+    @Comments({"Orcamento: dimensoes que nunca entram no corte, numeros separados por virgula (ex.: 0,-1). Vazio = nenhuma."})
+    @Path("orcamento.nunca_cortar_dimensoes")
+    public String orcamento_nuncaCortarDimensoes = "";
+
+    @Comments({"Orcamento: areas (ex.: de eventos) que nunca entram no corte: dim:x1,z1,x2,z2 em blocos, varias separadas por ';'.",
+        "A regiao inteira que tocar a area fica protegida. Vazio = nenhuma."})
+    @Path("orcamento.nunca_cortar_areas")
+    public String orcamento_nuncaCortarAreas = "";
+
+    @Comments({"Orcamento: mods cujas regioes nunca sao cortadas: pedacos do nome do jar, separados por virgula, sem diferenca entre",
+        "maiusculas e minusculas (ex.: teleporter,entangloporter). Serve para ligacoes sem fio, cujas pontas podem ficar em regioes",
+        "diferentes. Vazio = nenhum."})
+    @Path("orcamento.nunca_cortar_mods")
+    public String orcamento_nuncaCortarMods = "";
+
+    @Comments({"Orcamento: dimensoes que viram UMA regiao so (ex.: uma dimensao de mineracao pequena), separadas por virgula. Vazio = nenhuma."})
+    @Path("orcamento.sempre_junto_dimensoes")
+    public String orcamento_sempreJuntoDimensoes = "";
+
+    @Comments({"Orcamento: true = a regiao com jogador dentro tambem pode ser cortada (o jogador em si nunca e cortado).",
+        "false = regiao com jogador nunca e cortada."})
+    @Path("orcamento.cortar_com_jogador")
+    public boolean orcamento_cortarComJogador = true;
+
+    @Comments({"Orcamento: alerta quando o custo de uma regiao passa de tantos ms por rodada (1 a 1000): o que ela custaria por tick",
+        "sem corte. No log e para os operadores online; diz a dimensao, a caixa em blocos e o centro. Nunca nome de jogador nem IP."})
+    @Path("orcamento.alerta_ms")
+    public double orcamento_alertaMs = 25.0;
+
+    @Comments({"Orcamento: no minimo tantos minutos (1 a 1440) entre dois alertas iguais da mesma regiao (e no maximo 10 por minuto no total)."})
+    @Path("orcamento.alerta_intervalo_min")
+    public int orcamento_alertaIntervaloMin = 5;
+
+    @Comments({"Orcamento: true = o alerta tambem vai para os operadores online (alem do log). false = so no log."})
+    @Path("orcamento.alerta_ops")
+    public boolean orcamento_alertaOps = true;
+
     // ---------------------------------------------------------------- leitura
 
     private static volatile HoshiestarConfig atual;

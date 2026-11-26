@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Mon, 23 Nov 2026 07:00:35 +0000
-Subject: [PATCH 15/20] build: o source set dos ganchos de mods nao e
+Subject: [PATCH 15/24] build: o source set dos ganchos de mods nao e
  configurado antes do setupCrucible (o build do zero com --mods falhava:
  projeto sem o plugin java)
 

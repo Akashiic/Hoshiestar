@@ -1,0 +1,748 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Wed, 25 Nov 2026 21:31:25 +0000
+Subject: [PATCH 23/24] orcamento: chaves do hoshiestar.yml (bloco orcamento,
+ ligado false), registro no Catalogo, comando hoshie regioes, adaptador do
+ jogo e ferramentas de teste (so com -D); ganchos so de medicao em
+ MinecraftServer.tick, World.updateEntities e WorldServer (tickUpdates e
+ func_147456_g) atras de static final; o corte do tick fica para o proximo
+ passo
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/patches/net/minecraft/server/MinecraftServer.java.patch b/patches/net/minecraft/server/MinecraftServer.java.patch
+index 0bce1d36..2901c4ba 100644
+--- a/patches/net/minecraft/server/MinecraftServer.java.patch
++++ b/patches/net/minecraft/server/MinecraftServer.java.patch
+@@ -675,7 +675,7 @@
+          if (file1.isFile())
+          {
+              ByteBuf bytebuf = Unpooled.buffer();
+-@@ -532,8 +864,20 @@
++@@ -532,8 +864,21 @@
+  
+      public void tick()
+      {
+@@ -683,6 +683,7 @@
+ +        hoshiestar.vigia.Marcas.inicioTick(); // Hoshiestar - vigia: anota o inicio do tick (so escreve campos; nunca lanca; desligado = nada)
+ +        try { hoshiestar.medidor.Medidor.inicioTickServidor(); } catch (Throwable hoshieErro) { } // Hoshiestar - medidor: pedidos do comando e relogio do tick (usa a leitura do vigia)
+ +        try { hoshiestar.observador.Observador.inicioTickServidor(); } catch (Throwable hoshieErro) { } // Hoshiestar - observador: pedidos do comando e inicio do tick do observador
+++        if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.inicioTick(); // Hoshiestar - orcamento: recalculo do mapa de regioes, decisao de quem roda e relogio do tick (desligado = so este teste de campo; nunca lanca)
+ +        TimingsManager.FULL_SERVER_TICK.startTiming();
+ +        WatchdogThread.tick(); // Thermos - be a good little WatchDog and actually restart if there's a problem!
+          long i = System.nanoTime();
+@@ -696,7 +697,7 @@
+          ++this.tickCounter;
+  
+          if (this.startProfiling)
+-@@ -562,11 +906,18 @@
++@@ -562,11 +907,18 @@
+              this.field_147147_p.func_151318_b().func_151330_a(agameprofile);
+          }
+  
+@@ -717,7 +718,7 @@
+              this.theProfiler.endSection();
+          }
+  
+-@@ -575,25 +926,65 @@
++@@ -575,25 +927,66 @@
+          this.theProfiler.endSection();
+          this.theProfiler.startSection("snooper");
+  
+@@ -746,6 +747,7 @@
+ +        hoshiestar.vigia.Marcas.fimTick(); // Hoshiestar - vigia: anota o fim do tick
+ +        try { hoshiestar.medidor.Medidor.fimTickServidor(); } catch (Throwable hoshieErro) { } // Hoshiestar - medidor: valvula, autoteste, fim por tempo (usa a leitura do vigia)
+ +        try { hoshiestar.observador.Observador.fimTickServidor(); } catch (Throwable hoshieErro) { } // Hoshiestar - observador: foto das regioes, valvula e fim por tempo
+++        if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.fimTick(); // Hoshiestar - orcamento: tempo do tick, custo por regiao, avaliacao e alertas (nunca lanca)
+      }
+  
+      public void updateTimeLightAndEntities()
+@@ -785,7 +787,7 @@
+          int i;
+  
+          Integer[] ids = DimensionManager.getIDs(this.tickCounter % 200 == 0);
+-@@ -602,53 +993,85 @@
++@@ -602,53 +995,85 @@
+              int id = ids[x];
+              long j = System.nanoTime();
+  
+@@ -877,7 +879,7 @@
+  
+              worldTickTimes.get(id)[this.tickCounter % 100] = System.nanoTime() - j;
+          }
+-@@ -656,15 +1079,23 @@
++@@ -656,15 +1081,23 @@
+          this.theProfiler.endStartSection("dim_unloading");
+          DimensionManager.unloadWorlds(worldTickTimes);
+          this.theProfiler.endStartSection("connection");
+@@ -901,7 +903,7 @@
+  
+          this.theProfiler.endSection();
+      }
+-@@ -699,6 +1130,13 @@
++@@ -699,6 +1132,13 @@
+  
+      public WorldServer worldServerForDimension(int p_71218_1_)
+      {
+@@ -915,7 +917,7 @@
+          WorldServer ret = DimensionManager.getWorld(p_71218_1_);
+          if (ret == null)
+          {
+-@@ -784,13 +1222,14 @@
++@@ -784,13 +1224,14 @@
+  
+      public List getPossibleCompletions(ICommandSender p_71248_1_, String p_71248_2_)
+      {
+@@ -934,7 +936,7 @@
+  
+              if (list != null)
+              {
+-@@ -798,40 +1237,25 @@
++@@ -798,40 +1239,25 @@
+  
+                  while (iterator.hasNext())
+                  {
+@@ -983,7 +985,7 @@
+      }
+  
+      public static MinecraftServer getServer()
+-@@ -1034,7 +1458,7 @@
++@@ -1034,7 +1460,7 @@
+  
+      public boolean isServerInOnlineMode()
+      {
+@@ -992,7 +994,7 @@
+      }
+  
+      public void setOnlineMode(boolean p_71229_1_)
+-@@ -1124,7 +1548,7 @@
++@@ -1124,7 +1550,7 @@
+  
+      public NetworkSystem func_147137_ag()
+      {
+@@ -1001,7 +1003,7 @@
+      }
+  
+      @SideOnly(Side.CLIENT)
+-@@ -1257,10 +1681,14 @@
++@@ -1257,10 +1683,14 @@
+      @SideOnly(Side.SERVER)
+      public static void main(String[] p_main_0_)
+      {
+@@ -1016,7 +1018,7 @@
+              boolean flag = true;
+              String s = null;
+              String s1 = ".";
+-@@ -1356,16 +1784,34 @@
++@@ -1356,16 +1786,34 @@
+              {
+                  dedicatedserver.setGuiEnabled();
+              }
+@@ -1057,7 +1059,7 @@
+          }
+          catch (Exception exception)
+          {
+-@@ -1400,15 +1846,70 @@
++@@ -1400,15 +1848,70 @@
+      @SideOnly(Side.SERVER)
+      public String getPlugins()
+      {
+@@ -1133,7 +1135,7 @@
+      }
+  
+      @SideOnly(Side.SERVER)
+-@@ -1455,9 +1956,213 @@
++@@ -1455,9 +1958,213 @@
+          return this.serverStopped;
+      }
+  
+diff --git a/patches/net/minecraft/world/World.java.patch b/patches/net/minecraft/world/World.java.patch
+index 8cfae269..3f575101 100644
+--- a/patches/net/minecraft/world/World.java.patch
++++ b/patches/net/minecraft/world/World.java.patch
+@@ -1011,7 +1011,7 @@
+              try
+              {
+                  ++entity.ticksExisted;
+-@@ -1862,10 +2421,16 @@
++@@ -1862,10 +2421,17 @@
+  
+          this.unloadedEntityList.clear();
+          this.theProfiler.endStartSection("regular");
+@@ -1028,10 +1028,11 @@
+ +            tickPosition = (tickPosition < loadedEntityList.size()) ? tickPosition : 0;
+ +            entity = (Entity)this.loadedEntityList.get(this.tickPosition);
+ +            hoshiestar.vigia.Marcas.entidade(entity); // Hoshiestar - vigia: anota a entidade da vez (so escreve um campo; longe da chamada de update, que Opis e firewall casam por padrao exato)
+++            if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.entidade(this, entity); // Hoshiestar - orcamento: troca a regiao da vez (mede o tempo por regiao; longe da chamada de update)
+  
+              if (entity.ridingEntity != null)
+              {
+-@@ -1884,10 +2449,14 @@
++@@ -1884,10 +2450,14 @@
+              {
+                  try
+                  {
+@@ -1046,7 +1047,7 @@
+                      crashreport = CrashReport.makeCrashReport(throwable1, "Ticking entity");
+                      crashreportcategory = crashreport.makeCategory("Entity being ticked");
+                      entity.addEntityCrashInfo(crashreportcategory);
+-@@ -1916,30 +2485,94 @@
++@@ -1916,30 +2486,96 @@
+                  {
+                      this.getChunkFromChunkCoords(j, l).removeEntity(entity);
+                  }
+@@ -1062,6 +1063,7 @@
+          }
+ +        hoshiestar.vigia.Marcas.entidade(null); // Hoshiestar - vigia: fim do laco de entidades
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimEntidade(true); // Hoshiestar - observador: fim do laco de entidades (nada de contexto de entidade sobra para o resto do tick)
+++        if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.fimLaco(); // Hoshiestar - orcamento: fim do laco de entidades (o tempo que sobra e da regiao da vez)
+  
+ +        timings.entityTick.stopTiming(); // Spigot
+          this.theProfiler.endStartSection("blockEntities");
+@@ -1134,6 +1136,7 @@
+                  {
+ +                    if (hoshiestar.medidor.Medidor.ATIVO) hoshiestar.medidor.GanchosMedidor.inicioTE(this, tileentity); // Hoshiestar - medidor: antes do update (sem try/catch e nao na linha da chamada: Opis casa [linha, ALOAD, chamada] exato; o firewall troca a chamada)
+ +                    if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.tile(this, tileentity); // Hoshiestar - observador: contexto "tile da vez" (mesmo lugar do medidor: antes do update, sem try/catch, fora da linha da chamada)
+++                    if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.tile(this, tileentity); // Hoshiestar - orcamento: troca a regiao da vez (mesmo lugar do medidor; sem try/catch, fora da linha da chamada de update)
+ +                    tileentity.tickTimer.startTiming(); // Spigot
+ +                    tilesTicked++;
+                      tileentity.updateEntity();
+@@ -1148,7 +1151,7 @@
+                      crashreport = CrashReport.makeCrashReport(throwable, "Ticking block entity");
+                      crashreportcategory = crashreport.makeCategory("Block entity being ticked");
+                      tileentity.func_145828_a(crashreportcategory);
+-@@ -1955,23 +2588,15 @@
++@@ -1955,23 +2591,16 @@
+                      }
+                  }
+              }
+@@ -1170,6 +1173,7 @@
+          }
+ +        hoshiestar.vigia.Marcas.tile(null); // Hoshiestar - vigia: fim do laco de tiles
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimTile(); // Hoshiestar - observador: fim do laco de tiles (limpa sobra de update que lancou excecao)
+++        if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.fimLaco(); // Hoshiestar - orcamento: fim do laco de tiles
+  
+ +        timings.tileEntityTick.stopTiming(); // Spigot
+ +        timings.tileEntityPending.startTiming(); // Spigot
+@@ -1179,7 +1183,7 @@
+          if (!this.field_147483_b.isEmpty())
+          {
+              for (Object tile : field_147483_b)
+-@@ -1981,6 +2606,7 @@
++@@ -1981,6 +2610,7 @@
+              this.loadedTileEntityList.removeAll(this.field_147483_b);
+              this.field_147483_b.clear();
+          }
+@@ -1187,7 +1191,7 @@
+  
+          this.field_147481_N = false;
+  
+-@@ -1992,14 +2618,14 @@
++@@ -1992,14 +2622,14 @@
+              {
+                  TileEntity tileentity1 = (TileEntity)this.addedTileEntityList.get(k);
+  
+@@ -1204,7 +1208,7 @@
+                  {
+                      if (this.chunkExists(tileentity1.xCoord >> 4, tileentity1.zCoord >> 4))
+                      {
+-@@ -2015,18 +2641,29 @@
++@@ -2015,18 +2645,29 @@
+  
+              this.addedTileEntityList.clear();
+          }
+@@ -1237,7 +1241,7 @@
+      }
+  
+      public void updateEntity(Entity p_72870_1_)
+-@@ -2036,11 +2673,18 @@
++@@ -2036,11 +2677,18 @@
+  
+      public void updateEntityWithOptionalForce(Entity p_72866_1_, boolean p_72866_2_)
+      {
+@@ -1259,7 +1263,7 @@
+  
+          if (!canUpdate)
+          {
+-@@ -2048,9 +2692,34 @@
++@@ -2048,9 +2696,34 @@
+              MinecraftForge.EVENT_BUS.post(event);
+              canUpdate = event.canUpdate;
+          }
+@@ -1295,7 +1299,7 @@
+              p_72866_1_.lastTickPosX = p_72866_1_.posX;
+              p_72866_1_.lastTickPosY = p_72866_1_.posY;
+              p_72866_1_.lastTickPosZ = p_72866_1_.posZ;
+-@@ -2134,7 +2803,10 @@
++@@ -2134,7 +2807,10 @@
+                      p_72866_1_.riddenByEntity = null;
+                  }
+              }
+@@ -1306,7 +1310,7 @@
+      }
+  
+      public boolean checkNoEntityCollision(AxisAlignedBB p_72855_1_)
+-@@ -2517,6 +3189,16 @@
++@@ -2517,6 +3193,16 @@
+              int l;
+              TileEntity tileentity1;
+  
+@@ -1323,7 +1327,7 @@
+              if (this.field_147481_N)
+              {
+                  for (l = 0; l < this.addedTileEntityList.size(); ++l)
+-@@ -2555,6 +3237,7 @@
++@@ -2555,6 +3241,7 @@
+                  }
+              }
+  
+@@ -1331,7 +1335,7 @@
+              return tileentity;
+          }
+          else
+-@@ -2565,12 +3248,13 @@
++@@ -2565,12 +3252,13 @@
+  
+      public void setTileEntity(int p_147455_1_, int p_147455_2_, int p_147455_3_, TileEntity p_147455_4_)
+      {
+@@ -1346,7 +1350,7 @@
+          {
+              if (this.field_147481_N)
+              {
+-@@ -2591,7 +3275,9 @@
++@@ -2591,7 +3279,9 @@
+              }
+              else
+              {
+@@ -1356,7 +1360,7 @@
+              }
+          }
+          Chunk chunk = this.getChunkFromChunkCoords(p_147455_1_ >> 4, p_147455_3_ >> 4);
+-@@ -2605,14 +3291,35 @@
++@@ -2605,14 +3295,35 @@
+  
+      public void removeTileEntity(int p_147475_1_, int p_147475_2_, int p_147475_3_)
+      {
+@@ -1393,7 +1397,7 @@
+      }
+  
+      public boolean func_147469_q(int p_147469_1_, int p_147469_2_, int p_147469_3_)
+-@@ -2718,7 +3425,15 @@
++@@ -2718,7 +3429,15 @@
+  
+                      if (i <= 0)
+                      {
+@@ -1410,7 +1414,7 @@
+                      }
+                  }
+  
+-@@ -2754,7 +3469,15 @@
++@@ -2754,7 +3473,15 @@
+  
+                      if (j <= 0)
+                      {
+@@ -1427,7 +1431,7 @@
+                      }
+                  }
+  
+-@@ -2777,8 +3500,41 @@
++@@ -2777,8 +3504,41 @@
+      protected void setActivePlayerChunksAndCheckLight()
+      {
+          this.activeChunkSet.clear();
+@@ -1470,7 +1474,7 @@
+          int i;
+          EntityPlayer entityplayer;
+          int j;
+-@@ -2788,17 +3544,28 @@
++@@ -2788,17 +3548,28 @@
+          for (i = 0; i < this.playerEntities.size(); ++i)
+          {
+              entityplayer = (EntityPlayer)this.playerEntities.get(i);
+@@ -1505,7 +1509,7 @@
+          }
+  
+          this.theProfiler.endSection();
+-@@ -2810,7 +3577,7 @@
++@@ -2810,7 +3581,7 @@
+  
+          this.theProfiler.startSection("playerCheckLight");
+  
+@@ -1514,7 +1518,7 @@
+          {
+              i = this.rand.nextInt(this.playerEntities.size());
+              entityplayer = (EntityPlayer)this.playerEntities.get(i);
+-@@ -3034,9 +3801,9 @@
++@@ -3034,9 +3805,9 @@
+          }
+      }
+  
+@@ -1526,7 +1530,7 @@
+          {
+              return false;
+          }
+-@@ -3166,6 +3933,28 @@
++@@ -3166,6 +3937,28 @@
+                  }
+              }
+  
+@@ -1555,7 +1559,7 @@
+              this.theProfiler.endSection();
+              return true;
+          }
+-@@ -3188,7 +3977,7 @@
++@@ -3188,7 +3981,7 @@
+  
+      public List getEntitiesWithinAABBExcludingEntity(Entity p_94576_1_, AxisAlignedBB p_94576_2_, IEntitySelector p_94576_3_)
+      {
+@@ -1564,7 +1568,7 @@
+          int i = MathHelper.floor_double((p_94576_2_.minX - MAX_ENTITY_RADIUS) / 16.0D);
+          int j = MathHelper.floor_double((p_94576_2_.maxX + MAX_ENTITY_RADIUS) / 16.0D);
+          int k = MathHelper.floor_double((p_94576_2_.minZ - MAX_ENTITY_RADIUS) / 16.0D);
+-@@ -3219,7 +4008,7 @@
++@@ -3219,7 +4012,7 @@
+          int j = MathHelper.floor_double((p_82733_2_.maxX + MAX_ENTITY_RADIUS) / 16.0D);
+          int k = MathHelper.floor_double((p_82733_2_.minZ - MAX_ENTITY_RADIUS) / 16.0D);
+          int l = MathHelper.floor_double((p_82733_2_.maxZ + MAX_ENTITY_RADIUS) / 16.0D);
+@@ -1573,7 +1577,7 @@
+  
+          for (int i1 = i; i1 <= j; ++i1)
+          {
+-@@ -3284,8 +4073,21 @@
++@@ -3284,8 +4077,21 @@
+          {
+              Entity entity = (Entity)this.loadedEntityList.get(j);
+  
+@@ -1596,7 +1600,7 @@
+                  ++i;
+              }
+          }
+-@@ -3298,6 +4100,7 @@
++@@ -3298,6 +4104,7 @@
+          for (int i = 0; i < p_72868_1_.size(); ++i)
+          {
+              Entity entity = (Entity)p_72868_1_.get(i);
+@@ -1604,7 +1608,7 @@
+              if (!MinecraftForge.EVENT_BUS.post(new EntityJoinWorldEvent(entity, this)))
+              {
+                  loadedEntityList.add(entity);
+-@@ -3314,8 +4117,17 @@
++@@ -3314,8 +4121,17 @@
+      public boolean canPlaceEntityOnSide(Block p_147472_1_, int p_147472_2_, int p_147472_3_, int p_147472_4_, boolean p_147472_5_, int p_147472_6_, Entity p_147472_7_, ItemStack p_147472_8_)
+      {
+          Block block1 = this.getBlock(p_147472_2_, p_147472_3_, p_147472_4_);
+@@ -1623,7 +1627,7 @@
+      }
+  
+      public PathEntity getPathEntityToEntity(Entity p_72865_1_, Entity p_72865_2_, float p_72865_3_, boolean p_72865_4_, boolean p_72865_5_, boolean p_72865_6_, boolean p_72865_7_)
+-@@ -3464,6 +4276,12 @@
++@@ -3464,6 +4280,12 @@
+          for (int i = 0; i < this.playerEntities.size(); ++i)
+          {
+              EntityPlayer entityplayer1 = (EntityPlayer)this.playerEntities.get(i);
+@@ -1636,7 +1640,7 @@
+              double d5 = entityplayer1.getDistanceSq(p_72977_1_, p_72977_3_, p_72977_5_);
+  
+              if ((p_72977_7_ < 0.0D || d5 < p_72977_7_ * p_72977_7_) && (d4 == -1.0D || d5 < d4))
+-@@ -3489,7 +4307,12 @@
++@@ -3489,7 +4311,12 @@
+          for (int i = 0; i < this.playerEntities.size(); ++i)
+          {
+              EntityPlayer entityplayer1 = (EntityPlayer)this.playerEntities.get(i);
+@@ -1650,7 +1654,7 @@
+              if (!entityplayer1.capabilities.disableDamage && entityplayer1.isEntityAlive())
+              {
+                  double d5 = entityplayer1.getDistanceSq(p_72846_1_, p_72846_3_, p_72846_5_);
+-@@ -3660,6 +4483,18 @@
++@@ -3660,6 +4487,18 @@
+  
+      public void updateAllPlayersSleepingFlag() {}
+  
+@@ -1669,7 +1673,7 @@
+      public float getWeightedThunderStrength(float p_72819_1_)
+      {
+          return (this.prevThunderingStrength + (this.thunderingStrength - this.prevThunderingStrength) * p_72819_1_) * this.getRainStrength(p_72819_1_);
+-@@ -3932,11 +4767,14 @@
++@@ -3932,11 +4771,14 @@
+       */
+      public void addTileEntity(TileEntity entity)
+      {
+@@ -1686,7 +1690,7 @@
+      }
+  
+      /**
+-@@ -4029,4 +4867,132 @@
++@@ -4029,4 +4871,132 @@
+          }
+          return count;
+      }
+diff --git a/patches/net/minecraft/world/WorldServer.java.patch b/patches/net/minecraft/world/WorldServer.java.patch
+index 70a7e29d..075d1f55 100644
+--- a/patches/net/minecraft/world/WorldServer.java.patch
++++ b/patches/net/minecraft/world/WorldServer.java.patch
+@@ -300,7 +300,7 @@
+              return false;
+          }
+          else
+-@@ -302,15 +440,29 @@
++@@ -302,15 +440,30 @@
+          super.func_147456_g();
+          int i = 0;
+          int j = 0;
+@@ -326,6 +326,7 @@
+ +                continue;
+ +            }
+ +            // Spigot end
+++            if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.chunkAleatorio(this, chunkX, chunkZ); // Hoshiestar - orcamento: troca a regiao da vez (tick aleatorio do chunk)
+ +            // ChunkCoordIntPair chunkcoordintpair = (ChunkCoordIntPair) iterator.next();
+ +            int k = chunkX * 16;
+ +            int l = chunkZ * 16;
+@@ -336,7 +337,7 @@
+              this.func_147467_a(k, l, chunk);
+              this.theProfiler.endStartSection("tickChunk");
+              chunk.func_150804_b(false);
+-@@ -346,12 +498,32 @@
++@@ -346,12 +499,32 @@
+  
+                  if (this.isBlockFreezableNaturally(j1 + k, l1 - 1, k1 + l))
+                  {
+@@ -371,7 +372,7 @@
+                  }
+  
+                  if (this.isRaining())
+-@@ -388,14 +560,24 @@
++@@ -388,14 +561,25 @@
+                          if (block.getTickRandomly())
+                          {
+                              ++i;
+@@ -386,6 +387,7 @@
+ +            if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimTickAleatorio(); // Hoshiestar - observador: fim do contexto de tick aleatorio, por chunk (a luz e o func_147467_a do chunk seguinte nao sao do ultimo bloco sorteado)
+              this.theProfiler.endSection();
+          }
+++        if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.fimLaco(); // Hoshiestar - orcamento: fim do laco de ticks aleatorios
+ +        // Spigot Start
+ +        if (this.getSpigotConfig().clearChunksOnTick) // Cauldron
+ +        {
+@@ -396,7 +398,7 @@
+      }
+  
+      public boolean isBlockTickScheduledThisTick(int p_147477_1_, int p_147477_2_, int p_147477_3_, Block p_147477_4_)
+-@@ -411,6 +593,7 @@
++@@ -411,6 +595,7 @@
+  
+      public void scheduleBlockUpdateWithPriority(int p_147454_1_, int p_147454_2_, int p_147454_3_, Block p_147454_4_, int p_147454_5_, int p_147454_6_)
+      {
+@@ -404,7 +406,7 @@
+          NextTickListEntry nextticklistentry = new NextTickListEntry(p_147454_1_, p_147454_2_, p_147454_3_, p_147454_4_);
+          //Keeping here as a note for future when it may be restored.
+          //boolean isForced = getPersistentChunks().containsKey(new ChunkCoordIntPair(nextticklistentry.xCoord >> 4, nextticklistentry.zCoord >> 4));
+-@@ -427,7 +610,7 @@
++@@ -427,7 +612,7 @@
+                  {
+                      Block block1 = this.getBlock(nextticklistentry.xCoord, nextticklistentry.yCoord, nextticklistentry.zCoord);
+  
+@@ -413,7 +415,7 @@
+                      {
+                          block1.updateTick(this, nextticklistentry.xCoord, nextticklistentry.yCoord, nextticklistentry.zCoord, this.rand);
+                      }
+-@@ -457,6 +640,7 @@
++@@ -457,6 +642,7 @@
+  
+      public void func_147446_b(int p_147446_1_, int p_147446_2_, int p_147446_3_, Block p_147446_4_, int p_147446_5_, int p_147446_6_)
+      {
+@@ -421,7 +423,7 @@
+          NextTickListEntry nextticklistentry = new NextTickListEntry(p_147446_1_, p_147446_2_, p_147446_3_, p_147446_4_);
+          nextticklistentry.setPriority(p_147446_6_);
+  
+-@@ -474,7 +658,7 @@
++@@ -474,7 +660,7 @@
+  
+      public void updateEntities()
+      {
+@@ -430,7 +432,7 @@
+          {
+              if (this.updateEntityTick++ >= 1200)
+              {
+-@@ -487,6 +671,7 @@
++@@ -487,6 +673,7 @@
+          }
+  
+          super.updateEntities();
+@@ -438,7 +440,7 @@
+      }
+  
+      public void resetUpdateEntityTick()
+-@@ -494,19 +679,60 @@
++@@ -494,19 +681,60 @@
+          this.updateEntityTick = 0;
+      }
+  
+@@ -504,7 +506,7 @@
+              }
+  
+              this.theProfiler.startSection("cleaning");
+-@@ -534,6 +760,7 @@
++@@ -534,6 +762,7 @@
+              {
+                  nextticklistentry = (NextTickListEntry)iterator.next();
+                  iterator.remove();
+@@ -512,19 +514,21 @@
+                  //Keeping here as a note for future when it may be restored.
+                  //boolean isForced = getPersistentChunks().containsKey(new ChunkCoordIntPair(nextticklistentry.xCoord >> 4, nextticklistentry.zCoord >> 4));
+                  //byte b0 = isForced ? 0 : 8;
+-@@ -545,6 +772,7 @@
++@@ -545,6 +774,8 @@
+  
+                      if (block.getMaterial() != Material.air && Block.isEqualTo(block, nextticklistentry.func_151351_a()))
+                      {
+ +                        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.tickAgendado(this, nextticklistentry.xCoord, nextticklistentry.zCoord, block); // Hoshiestar - observador: contexto "tick agendado" (por entrada; o laco inteiro termina em fimTickAgendado)
+++                        if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.agendado(this, nextticklistentry.xCoord, nextticklistentry.zCoord); // Hoshiestar - orcamento: troca a regiao da vez (tick agendado)
+                          try
+                          {
+                              block.updateTick(this, nextticklistentry.xCoord, nextticklistentry.yCoord, nextticklistentry.zCoord, this.rand);
+-@@ -575,19 +803,18 @@
++@@ -575,19 +806,19 @@
+                  }
+              }
+  
+ +            if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimTickAgendado(); // Hoshiestar - observador: fim do contexto de tick agendado
+++            if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.fimLaco(); // Hoshiestar - orcamento: fim do laco de ticks agendados
+              this.theProfiler.endSection();
+              this.pendingTickListEntriesThisTick.clear();
+ -            return !this.pendingTickListEntriesTreeSet.isEmpty();
+@@ -546,7 +550,7 @@
+          int l = k + 16 + 2;
+  
+          for (int i1 = 0; i1 < 2; ++i1)
+-@@ -617,19 +844,24 @@
++@@ -617,19 +848,24 @@
+                      if (p_72920_2_)
+                      {
+                          this.pendingTickListEntriesHashSet.remove(nextticklistentry);
+@@ -573,7 +577,7 @@
+          return arraylist;
+      }
+  
+-@@ -651,7 +883,37 @@
++@@ -651,7 +887,37 @@
+      protected IChunkProvider createChunkProvider()
+      {
+          IChunkLoader ichunkloader = this.saveHandler.getChunkLoader(this.provider);
+@@ -612,7 +616,7 @@
+          return this.theChunkProviderServer;
+      }
+  
+-@@ -659,29 +921,38 @@
++@@ -659,29 +925,38 @@
+      {
+          ArrayList arraylist = new ArrayList();
+  
+@@ -666,7 +670,7 @@
+          return arraylist;
+      }
+  
+-@@ -704,7 +975,7 @@
++@@ -704,7 +979,7 @@
+  
+          if (this.pendingTickListEntriesHashSet == null)
+          {
+@@ -675,7 +679,7 @@
+          }
+  
+          if (this.pendingTickListEntriesTreeSet == null)
+-@@ -733,7 +1004,28 @@
++@@ -733,7 +1008,28 @@
+              int i = 0;
+              int j = this.provider.getAverageGroundLevel();
+              int k = 0;
+@@ -704,7 +708,7 @@
+              if (chunkposition != null)
+              {
+                  i = chunkposition.chunkPosX;
+-@@ -799,14 +1091,18 @@
++@@ -799,14 +1095,18 @@
+                  p_73044_2_.displayProgressMessage("Saving level");
+              }
+  
+@@ -723,7 +727,7 @@
+              MinecraftForge.EVENT_BUS.post(new WorldEvent.Save(this));
+              ArrayList arraylist = Lists.newArrayList(this.theChunkProviderServer.func_152380_a());
+              Iterator iterator = arraylist.iterator();
+-@@ -876,6 +1172,20 @@
++@@ -876,6 +1176,20 @@
+  
+      public boolean addWeatherEffect(Entity p_72942_1_)
+      {
+@@ -744,7 +748,7 @@
+          if (super.addWeatherEffect(p_72942_1_))
+          {
+              this.mcServer.getConfigurationManager().sendToAllNear(p_72942_1_.posX, p_72942_1_.posY, p_72942_1_.posZ, 512.0D, this.provider.dimensionId, new S2CPacketSpawnGlobalEntity(p_72942_1_));
+-@@ -894,13 +1204,24 @@
++@@ -894,13 +1208,24 @@
+  
+      public Explosion newExplosion(Entity p_72885_1_, double p_72885_2_, double p_72885_4_, double p_72885_6_, float p_72885_8_, boolean p_72885_9_, boolean p_72885_10_)
+      {
+@@ -770,7 +774,7 @@
+          if (!p_72885_10_)
+          {
+              explosion.affectedBlockPositions.clear();
+-@@ -923,6 +1244,7 @@
++@@ -923,6 +1248,7 @@
+  
+      public void addBlockEvent(int p_147452_1_, int p_147452_2_, int p_147452_3_, Block p_147452_4_, int p_147452_5_, int p_147452_6_)
+      {
+@@ -778,7 +782,7 @@
+          BlockEventData blockeventdata = new BlockEventData(p_147452_1_, p_147452_2_, p_147452_3_, p_147452_4_, p_147452_5_, p_147452_6_);
+          Iterator iterator = this.field_147490_S[this.blockEventCacheIndex].iterator();
+          BlockEventData blockeventdata1;
+-@@ -942,6 +1264,7 @@
++@@ -942,6 +1268,7 @@
+  
+      private void func_147488_Z()
+      {
+@@ -786,7 +790,7 @@
+          while (!this.field_147490_S[this.blockEventCacheIndex].isEmpty())
+          {
+              int i = this.blockEventCacheIndex;
+-@@ -960,6 +1283,7 @@
++@@ -960,6 +1287,7 @@
+  
+              this.field_147490_S[i].clear();
+          }
+@@ -794,7 +798,7 @@
+      }
+  
+      private boolean func_147485_a(BlockEventData p_147485_1_)
+-@@ -977,7 +1301,8 @@
++@@ -977,7 +1305,8 @@
+      {
+          boolean flag = this.isRaining();
+          super.updateWeather();
+@@ -804,7 +808,7 @@
+          if (this.prevRainingStrength != this.rainingStrength)
+          {
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(7, this.rainingStrength), this.provider.dimensionId);
+-@@ -987,11 +1312,9 @@
++@@ -987,11 +1316,9 @@
+          {
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(8, this.thunderingStrength), this.provider.dimensionId);
+          }
+@@ -818,7 +822,7 @@
+          if (flag != this.isRaining())
+          {
+              if (flag)
+-@@ -1006,6 +1329,33 @@
++@@ -1006,6 +1333,33 @@
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(7, this.rainingStrength), this.provider.dimensionId);
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(8, this.thunderingStrength), this.provider.dimensionId);
+          }
+@@ -852,7 +856,7 @@
+      }
+  
+      protected int func_152379_p()
+-@@ -1069,4 +1419,53 @@
++@@ -1069,4 +1423,53 @@
+                  this();
+              }
+          }

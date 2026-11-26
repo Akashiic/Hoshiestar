@@ -63,6 +63,11 @@ public final class Servidor {
             Log.erro("nao consegui instalar o observador (hoshie observar)", t);
         }
         try {
+            hoshiestar.orcamento.ComandoOrcamento.instalar(); // orcamento de tick por regiao: 'hoshie regioes'
+        } catch (Throwable t) {
+            Log.erro("nao consegui instalar o orcamento (hoshie regioes)", t);
+        }
+        try {
             hoshiestar.mekanism.Mekanism.aoIniciarServidor(); // subcomando "hoshie mekanism"
         } catch (Throwable t) {
             Log.erro("nao consegui registrar o subcomando hoshie mekanism", t);

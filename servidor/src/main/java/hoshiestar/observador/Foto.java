@@ -11,6 +11,7 @@
  */
 package hoshiestar.observador;
 
+import hoshiestar.regioes.MapaSecoes;
 import java.util.ArrayList;
 import java.util.List;
 

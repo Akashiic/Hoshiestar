@@ -11,6 +11,7 @@
  */
 package hoshiestar.observador;
 
+import hoshiestar.regioes.FotoMundo;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;

@@ -11,6 +11,7 @@
  */
 package hoshiestar.observador;
 
+import hoshiestar.regioes.FotoMundo;
 import hoshiestar.api.ThreadServidor;
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;

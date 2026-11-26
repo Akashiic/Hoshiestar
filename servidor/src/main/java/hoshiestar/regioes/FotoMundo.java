@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-package hoshiestar.observador;
+package hoshiestar.regioes;
 
 /**
  * O que o jogo entrega ao observador para a foto de um mundo (so numeros, nenhum objeto do jogo): os chunks carregados,
@@ -25,6 +25,8 @@ public final class FotoMundo {
     public int nChunks;
     public int[] tilesX = new int[0];
     public int[] tilesZ = new int[0];
+    /** Opcional: nome da classe de cada tile entity (mesmo tamanho de tilesX; null = nao informado). */
+    public String[] tilesClasse;
     public int nTiles;
     public int[] entX = new int[0];
     public int[] entZ = new int[0];

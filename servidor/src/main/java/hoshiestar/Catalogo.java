@@ -41,6 +41,7 @@ public final class Catalogo {
         hoshiestar.arsmagica.ArsMagica.registrar(cfg, correcoes);
         hoshiestar.chromaticraft.ChromatiCraft.registrar(cfg, correcoes);
         hoshiestar.observador.RegistroObservador.registrar(cfg, correcoes);
+        hoshiestar.orcamento.RegistroOrcamento.registrar(cfg, correcoes);
         // Proximos recursos (cada um no proprio pacote), por exemplo:
         // ChunkMap.registrar(cfg);                 patch em thermos.wrapper.ChunkBlockHashMap
         // Parada.registrar(cfg);                   patches em MinecraftServer/DedicatedServer

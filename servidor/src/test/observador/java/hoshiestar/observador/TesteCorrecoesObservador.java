@@ -1,6 +1,7 @@
 // Hoshiestar
 package hoshiestar.observador;
 
+import hoshiestar.regioes.FotoMundo;
 import hoshiestar.api.ThreadServidor;
 import hoshiestar.teste.Verifica;
 

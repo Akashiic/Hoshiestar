@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-package hoshiestar.observador;
+package hoshiestar.regioes;
 
 /**
  * Mapa de secoes (chave long = dimensao, secao X, secao Z) para um numero de "vaga" 0..n-1, com tres contadores por
@@ -18,17 +18,17 @@ package hoshiestar.observador;
  * <p>Chave: 8 bits de indice de dimensao, 28 bits de X e 28 bits de Z da secao (com sinal). Uma secao tem
  * 16x16 chunks (256x256 blocos): secao = chunk &gt;&gt; 4 = bloco &gt;&gt; 8.
  */
-final class MapaSecoes {
+public final class MapaSecoes {
 
     private int[] tab;      // vaga + 1 (0 = livre)
     private int mascara;
     private long[] chaves;  // por vaga
-    int[] chunks;
-    int[] tiles;
-    int[] ents;
+    public int[] chunks;
+    public int[] tiles;
+    public int[] ents;
     private int n;
 
-    MapaSecoes(int capacidadeInicial) {
+    public MapaSecoes(int capacidadeInicial) {
         int cap = 16;
         while (cap < capacidadeInicial * 2) {
             cap <<= 1;
@@ -42,25 +42,25 @@ final class MapaSecoes {
         ents = new int[v];
     }
 
-    static long chave(int dimIdx, int secX, int secZ) {
+    public static long chave(int dimIdx, int secX, int secZ) {
         return ((long) (dimIdx & 0xFF) << 56) | ((long) (secX & 0xFFFFFFF) << 28) | (long) (secZ & 0xFFFFFFF);
     }
 
-    static int dimDe(long chave) {
+    public static int dimDe(long chave) {
         return (int) (chave >>> 56) & 0xFF;
     }
 
-    static int xDe(long chave) {
+    public static int xDe(long chave) {
         return ((int) (chave >>> 28) & 0xFFFFFFF) << 4 >> 4;
     }
 
-    static int zDe(long chave) {
+    public static int zDe(long chave) {
         return ((int) chave & 0xFFFFFFF) << 4 >> 4;
     }
 
     /** A vaga da chave, ou -1 se a secao nao esta no mapa. */
-    int vaga(long chave) {
-        int i = TabelaContagem.espalhar(chave) & mascara;
+    public int vaga(long chave) {
+        int i = espalhar(chave) & mascara;
         while (tab[i] != 0) {
             if (chaves[tab[i] - 1] == chave) {
                 return tab[i] - 1;
@@ -71,8 +71,8 @@ final class MapaSecoes {
     }
 
     /** A vaga da chave; cria se nao existe. */
-    int criar(long chave) {
-        int i = TabelaContagem.espalhar(chave) & mascara;
+    public int criar(long chave) {
+        int i = espalhar(chave) & mascara;
         while (tab[i] != 0) {
             if (chaves[tab[i] - 1] == chave) {
                 return tab[i] - 1;
@@ -95,11 +95,21 @@ final class MapaSecoes {
         return n - 1;
     }
 
+    /** Mistura os bits da chave (a mesma funcao da TabelaContagem do observador). */
+    static int espalhar(long k) {
+        k ^= (k >>> 33);
+        k *= 0xff51afd7ed558ccdL;
+        k ^= (k >>> 33);
+        k *= 0xc4ceb9fe1a85ec53L;
+        k ^= (k >>> 33);
+        return (int) k;
+    }
+
     private void refazer() {
         tab = new int[tab.length << 1];
         mascara = tab.length - 1;
         for (int v = 0; v < n; v++) {
-            int i = TabelaContagem.espalhar(chaves[v]) & mascara;
+            int i = espalhar(chaves[v]) & mascara;
             while (tab[i] != 0) {
                 i = (i + 1) & mascara;
             }
@@ -107,11 +117,11 @@ final class MapaSecoes {
         }
     }
 
-    int tamanho() {
+    public int tamanho() {
         return n;
     }
 
-    long chaveDaVaga(int v) {
+    public long chaveDaVaga(int v) {
         return chaves[v];
     }
 }

@@ -1,5 +1,7 @@
 package hoshiestar.observador;
 
+import hoshiestar.regioes.FotoMundo;
+import hoshiestar.regioes.MapaSecoes;
 import hoshiestar.teste.Verifica;
 import teste.moda.Chamador;
 
