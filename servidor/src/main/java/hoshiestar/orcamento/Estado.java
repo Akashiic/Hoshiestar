@@ -30,7 +30,10 @@ final class Estado {
     double acc;
     /** Ticks seguidos em que o custo pedia menos que N (para descer). */
     int ticksMenor;
+    /** Custo por rodada acima de alerta_ms (com histerese na volta); e o que o comando mostra como PESADA. */
     boolean pesada;
+    /** O ultimo alerta de peso que saiu disse "comecou a pesar" (e nao "voltou ao normal"). */
+    boolean avisadaPesada;
     /** O ultimo alerta de corte que saiu disse "em corte" (CORTE) e nao "voltou" (FIM_CORTE). */
     boolean avisadoCorte;
     int periodosLeves;
@@ -153,6 +156,7 @@ final class Estado {
         }
         ticksMenor = Math.max(ticksMenor, o.ticksMenor);
         pesada |= o.pesada;
+        avisadaPesada |= o.avisadaPesada;
         avisadoCorte |= o.avisadoCorte;
         periodosLeves = Math.max(periodosLeves, o.periodosLeves);
         custoRodadaMs = Math.max(custoRodadaMs, o.custoRodadaMs);
@@ -162,13 +166,17 @@ final class Estado {
         nascMs = Math.min(nascMs, o.nascMs);
     }
 
-    /** Copia o que a divisao passa para cada parte (id novo). */
+    /**
+     * Copia o que a divisao passa para cada parte (id novo). Parte com N &gt; 1 recebe a fase do id novo: com o mesmo
+     * acumulador as partes rodariam sempre no mesmo tick (achado 4 da segunda revisao).
+     */
     Estado paraDivisao(long novoId, long agoraMs) {
         Estado e = new Estado(novoId, agoraMs);
         e.n = n;
-        e.acc = acc;
+        e.acc = n > 1 ? Cadencia.faseInicial(novoId) : acc;
         e.ticksMenor = ticksMenor;
         e.pesada = pesada;
+        e.avisadaPesada = avisadaPesada;
         e.avisadoCorte = avisadoCorte;
         e.periodosLeves = periodosLeves;
         e.custoRodadaMs = custoRodadaMs;

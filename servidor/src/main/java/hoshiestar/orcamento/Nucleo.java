@@ -75,6 +75,8 @@ public final class Nucleo {
     private boolean[] decisao = new boolean[0];
     /** A regiao esta em corte (N &gt; 1, sem protecao) neste tick: na rodada dela, os agendados dela usam a sobra do teto. */
     private boolean[] emCorte = new boolean[0];
+    /** Copia de emCorte e decisao tirada no comeco de cada selecao dos agendados (o erro num gancho nao a muda). */
+    private boolean[] acumuloNaSelecao = new boolean[0];
     /** Alguma regiao nao roda neste tick? (sem corte nenhum, a puxada dos ticks agendados usa o laco original) */
     private boolean algumCortado;
     /** Selecao da puxada dos ticks agendados (vive so durante a puxada de um mundo). */
@@ -425,12 +427,27 @@ public final class Nucleo {
             if (!cortaNesteTick()) {
                 return false;
             }
+            // a classificacao "acumulo" de cada regiao vale para a selecao inteira (segunda revisao, achado 2: antes, erro
+            // num gancho no meio da selecao tirava a regiao do corte e as entradas dela depois do erro passavam a contar como
+            // normais, trocando a ordem dos agendados dela; e a entrada do erro era classificada pela regiao velha da vez)
+            if (acumuloNaSelecao.length != emCorte.length) {
+                acumuloNaSelecao = new boolean[emCorte.length];
+            }
+            for (int i = 0; i < emCorte.length; i++) {
+                acumuloNaSelecao[i] = emCorte[i] && decisao[i];
+            }
             PuxadaAgendada.selecionar(fila, teto, agora, acesso, new PuxadaAgendada.Decisor() {
+                private boolean ultimaAcumulada;
+
                 @Override
                 public boolean roda(int x, int z) {
                     try {
-                        return trocar(dim, x, z, false);
+                        boolean r = trocar(dim, x, z, false);
+                        int a = atual; // logo depois do trocar: a regiao da vez e a do ponto
+                        ultimaAcumulada = r && a >= 0 && a < acumuloNaSelecao.length && acumuloNaSelecao[a];
+                        return r;
                     } catch (Throwable t) {
+                        ultimaAcumulada = acumuladaNoPonto(dim, x, z);
                         falhaNoPonto(dim, x, z, t);
                         return true;
                     }
@@ -438,9 +455,7 @@ public final class Nucleo {
 
                 @Override
                 public boolean acumulada(int x, int z) {
-                    // logo depois de roda(x, z): a regiao da vez e a do ponto
-                    int a = atual;
-                    return a >= 0 && a < emCorte.length && emCorte[a] && decisao[a];
+                    return ultimaAcumulada; // so e chamada logo depois de roda(x, z)
                 }
             }, selecionadas);
             return true;
@@ -462,6 +477,17 @@ public final class Nucleo {
         selecionadas.clear();
         posSelecionada = 0;
         return null;
+    }
+
+    /** A classificacao "acumulo" da regiao do ponto na selecao atual, sem o trocar (depois de um erro nele). Nunca lanca. */
+    private boolean acumuladaNoPonto(int dim, int x, int z) {
+        try {
+            Mapa m = mapa;
+            int r = m == null ? -1 : m.regiaoNoBloco(dim, x, z);
+            return r >= 0 && r < acumuloNaSelecao.length && acumuloNaSelecao[r];
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     /** Quantas entradas ainda estao na selecao (para os testes: 0 depois do fim da puxada). */
@@ -786,6 +812,7 @@ public final class Nucleo {
         boolean descer = folgaTicks >= Parametros.FOLGA_TICKS;
         // previsao do servidor (ms por tick) com as descidas ja decididas nesta avaliacao
         double previsao = media;
+        boolean cortarAgora = cortar;
         for (int i = 0; i < est.length; i++) {
             Estado e = est[i];
             e.fecharPeriodo();
@@ -814,36 +841,42 @@ public final class Nucleo {
                 // servidor com o N novo continua abaixo de 80% do alvo (senao o corte oscilaria: a regiao voltaria a rodar
                 // todo tick, o servidor estouraria e ela seria cortada de novo); nunca abaixo do N que a regra do pico
                 // obriga. Sem caber, desce so ate o N que o custo da regiao pede.
+                // So muda a previsao a regiao que esta de fato cortada (modo cortar, sem suspensao): no modo medir, ou
+                // suspensa, ela ja roda todo tick e a media ja inclui o custo dela (segunda revisao, achado 1: antes, no modo
+                // medir, a previsao somava o custo de novo e a regiao ficava presa em "estouraria" para sempre).
                 if (descer && !subiu && e.n > 1 && e.n == antes) {
+                    boolean cortadaDeFato = cortarAgora && !e.suspensa && !suspenderTodas;
                     int piso = pico ? p.nDoPico() : 1;
                     int novo = Math.max(piso, metade(e.n, 1));
-                    double delta = e.custoRodadaMs * (1.0 / novo - 1.0 / e.n);
+                    double delta = cortadaDeFato ? e.custoRodadaMs * (1.0 / novo - 1.0 / e.n) : 0;
                     if (novo < e.n && previsao + delta < p.alvoTickMs * Parametros.FOLGA_FRACAO) {
                         e.n = novo;
                         previsao += delta;
                     } else if (desejado < e.n) {
                         int m = metade(e.n, desejado);
-                        previsao += e.custoRodadaMs * (1.0 / m - 1.0 / e.n);
+                        previsao += cortadaDeFato ? e.custoRodadaMs * (1.0 / m - 1.0 / e.n) : 0;
                         e.n = m;
                     }
                 }
             }
             // alerta de peso (custo por rodada: o que a regiao custaria por tick sem corte)
-            // o estado so muda quando o alerta sai: alerta segurado pelo limitador e tentado de novo na proxima avaliacao
-            // (achado 4 da revisao: antes, "comecou a pesar" segurado pelo limite global se perdia para sempre)
+            // o estado (pesada) muda com a histerese; o aviso (avisadaPesada) so muda quando o alerta sai: alerta segurado
+            // pelo limitador e tentado de novo na proxima avaliacao (achado 4 da revisao) e o comando mostra PESADA mesmo
+            // com o alerta segurado (achado 3 da segunda revisao: antes 'pesada' so virava true quando o alerta saia)
             if (e.temMedida) {
                 if (e.custoRodadaMs > p.alertaMs) {
                     e.periodosLeves = 0;
-                    if (!e.pesada && alertar(ALERTA_PESADA, i, media)) {
-                        e.pesada = true;
-                    }
+                    e.pesada = true;
                 } else if (e.pesada && e.custoRodadaMs < p.alertaMs * Parametros.FOLGA_FRACAO) {
-                    if (++e.periodosLeves >= 2 && alertar(ALERTA_NORMAL, i, media)) {
+                    if (++e.periodosLeves >= 2) {
                         e.pesada = false;
                         e.periodosLeves = 0;
                     }
                 } else {
                     e.periodosLeves = 0;
+                }
+                if (e.pesada != e.avisadaPesada && alertar(e.pesada ? ALERTA_PESADA : ALERTA_NORMAL, i, media)) {
+                    e.avisadaPesada = e.pesada;
                 }
             }
             if (antes == 1 && e.n > 1) {

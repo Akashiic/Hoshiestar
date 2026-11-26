@@ -35,10 +35,15 @@ public final class TesteOrcamento {
         long ns = 5_000_000_000_000L;
         long passo;
         int chamadas;
+        /** Erro de proposito na chamada de numero {@code lancarNaChamada} (simula erro nosso dentro de um gancho). */
+        long lancarNaChamada = -1;
 
         @Override
         public long nano() {
             chamadas++;
+            if (chamadas == lancarNaChamada) {
+                throw new IllegalStateException("erro de proposito no relogio");
+            }
             long r = ns;
             ns += passo;
             return r;

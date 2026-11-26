@@ -32,7 +32,8 @@ public final class TesteAdversario {
     public static void main(String[] args) throws Exception {
         Verifica v = new Verifica("TesteAdversario");
         try {
-            nuncaVolta(v);
+            nuncaVolta(v, true);
+            nuncaVolta(v, false);
             fasesAlinhadas(v, true);
             fasesAlinhadas(v, false);
             tetoFome(v, true);
@@ -41,6 +42,9 @@ public final class TesteAdversario {
             alertaPerdido(v, false);
             alertaPerdido(v, true);
             filaSemDono(v);
+            erroNaSelecao(v);
+            pesadaSegurada(v);
+            divisaoFases(v);
         } catch (Throwable t) {
             v.erro("excecao", t);
         }
@@ -50,10 +54,14 @@ public final class TesteAdversario {
     /**
      * Achado 1 (plano 2: "servidor folgado: os cortados descem, ate 1"). A custa 25 ms por rodada; com o resto pesado ela
      * e cortada; depois o resto fica leve (servidor a ~14 ms; sem corte seria ~30 ms, abaixo de 80% de 45). A volta a
-     * N = 1 e, sem corte, o servidor fica abaixo do alvo (nao volta a cortar: nao oscila).
+     * N = 1 e, sem corte, o servidor fica abaixo do alvo (nao volta a cortar: nao oscila). {@code cortar} false (segunda
+     * revisao, achado 1): no modo medir A roda todo tick e a media ja inclui o custo dela; antes a previsao somava o custo
+     * de novo e A ficava presa em "estouraria" para sempre (e era cortada na hora ao trocar para cortar, com o servidor
+     * abaixo do alvo).
      */
-    static void nuncaVolta(Verifica v) {
-        TesteCorte.Mundo m = TesteCorte.tresBases(true, true, 25.0);
+    static void nuncaVolta(Verifica v, boolean cortar) {
+        String nome = cortar ? "cortar" : "medir";
+        TesteCorte.Mundo m = TesteCorte.tresBases(true, cortar, 25.0);
         m.baseMs = 30.0;
         m.ticks(3000);
         Retrato.Regiao a = m.n.retrato().emBloco(0, 20, 20);
@@ -62,17 +70,21 @@ public final class TesteAdversario {
         m.ticks(20000);
         a = m.n.retrato().emBloco(0, 20, 20);
         int nLeve = a == null ? -1 : a.n;
+        if (!cortar) {
+            m.n.pedirModo(true); // medir -> cortar com o servidor abaixo do alvo: A nao pode ser cortada
+        }
         int maxDepois = 0;
         for (int i = 0; i < 50; i++) {
             m.ticks(100);
             Retrato.Regiao g = m.n.retrato().emBloco(0, 20, 20);
             maxDepois = Math.max(maxDepois, g == null ? -1 : g.n);
         }
-        System.out.println("  info  nuncaVolta: N com o resto pesado = " + nPesado + "; N depois de 20000 ticks com o servidor a "
+        System.out.println("  info  nuncaVolta(" + nome + "): N com o resto pesado = " + nPesado + "; N depois de 20000 ticks com o servidor a "
                 + String.format("%.1f", m.n.retrato().servidorMediaMs) + " ms = " + nLeve);
-        v.sim(nPesado > 1, "(volta) A entrou em corte com o servidor pesado: N=" + nPesado);
-        v.sim(nLeve == 1, "(volta) A volta a N=1 com o servidor folgado e custo sem corte abaixo do alvo: N=" + nLeve);
-        v.igual(1, maxDepois, "(volta) depois de voltar, A nao volta a ser cortada (servidor sem corte abaixo do alvo)");
+        v.sim(nPesado > 1, "(volta, " + nome + ") A entrou em corte (ou estouraria) com o servidor pesado: N=" + nPesado);
+        v.sim(nLeve == 1, "(volta, " + nome + ") A volta a N=1 com o servidor folgado e custo sem corte abaixo do alvo: N=" + nLeve);
+        v.igual(1, maxDepois, "(volta, " + nome + ") depois de voltar, A nao volta a ser cortada (servidor sem corte abaixo do alvo"
+                + (cortar ? "" : "; ja no modo cortar") + ")");
     }
 
     /**
@@ -340,5 +352,120 @@ public final class TesteAdversario {
         System.out.println("  info  filaSemDono: pedidos na fila depois de desligar = " + tam);
         v.igual(0, tam, "(fila) pedidos nao se acumulam com o nucleo desligado");
         v.sim(!m.n.ativo(), "(fila) o nucleo segue desligado");
+    }
+
+    /**
+     * Segunda revisao, achado 2: erro nosso (no relogio, dentro do trocar) no meio da selecao dos agendados, na rodada de A
+     * (cortada). Fila: A1 B1 A2 B2 ... A20 B20, todas vencidas, teto 10; o erro cai na entrada A5. Antes, as entradas de A
+     * antes do erro iam para o acumulo (so a sobra do teto) e as depois do erro contavam como normais (o erro tira A do
+     * corte, e a entrada do erro era classificada pela regiao velha da vez, B): saiam A5, A6, A7 com A1..A4 ficando na
+     * fila (ordem dos agendados de A trocada). Agora a classificacao vale para a selecao inteira: nenhuma entrada de A sai
+     * antes de outra de A mais velha.
+     */
+    static void erroNaSelecao(Verifica v) {
+        TesteCorte.Mundo m = TesteCorte.tresBases(true, true, 60.0);
+        m.ticks(101);
+        boolean achou = false;
+        List<Long> saida = new ArrayList<Long>();
+        int errosAntes = m.n.errosGancho();
+        for (int k = 0; k < 60 && !achou; k++) {
+            m.n.inicioTick();
+            Retrato.Regiao a = m.n.retrato().emBloco(0, 20, 20);
+            if (m.n.cortaNesteTick() && a != null && a.n > 1 && m.n.rodaEm(0, 20, 20)) {
+                achou = true; // rodada de A, cortada
+                TreeSet<TesteCorte.Ag> fila = new TreeSet<TesteCorte.Ag>();
+                for (int i = 1; i <= 20; i++) {
+                    fila.add(new TesteCorte.Ag(20 + (i % 8), 64, 30, "a", 0, 0, 100 + i));      // A_i
+                    fila.add(new TesteCorte.Ag(20 * 256 + 20 + (i % 8), 64, 30, "b", 0, 0, 200 + i)); // B_i
+                }
+                // cada entrada troca a regiao da vez: uma leitura do relogio por entrada; a 9a e a de A5
+                m.t.lancarNaChamada = m.t.chamadas + 9;
+                boolean sel = m.n.selecionarAgendados(0, fila, 10, 1, TesteCorte.ACESSO);
+                m.t.lancarNaChamada = -1;
+                v.sim(sel, "(erro na selecao) a selecao com corte aconteceu");
+                Object o;
+                while ((o = m.n.proximaAgendada()) != null) {
+                    saida.add(((TesteCorte.Ag) o).marca);
+                }
+            }
+            m.n.fimLaco();
+            m.n.fimTick();
+        }
+        // as entradas de A que sairam tem de ser as mais velhas de A (A1, A2, ... sem buraco)
+        int esperadoA = 101;
+        boolean ordemA = true;
+        for (long mc : saida) {
+            if (mc < 200) {
+                ordemA &= mc == esperadoA++;
+            }
+        }
+        System.out.println("  info  erroNaSelecao: saida " + saida + "; erros de gancho " + (m.n.errosGancho() - errosAntes));
+        v.sim(achou, "(erro na selecao) achou uma rodada de A cortada");
+        v.igual(1, m.n.errosGancho() - errosAntes, "(erro na selecao) o erro aconteceu (1 erro de gancho)");
+        v.sim(m.n.ativo(), "(erro na selecao) o orcamento segue ligado");
+        v.sim(ordemA, "(erro na selecao) nenhuma entrada de A sai antes de outra de A mais velha: " + saida);
+        v.igual(10, saida.size(), "(erro na selecao) o teto e usado inteiro");
+    }
+
+    /**
+     * Segunda revisao, achado 3: 12 bases pesadas (30 ms, acima de alerta_ms 25) ao mesmo tempo; o limitador global segura
+     * parte dos "comecou a pesar". Antes, 'pesada' do retrato so ficava true quando o alerta saia, e o comando mostrava a
+     * regiao sem PESADA enquanto o limitador segurava. Agora o estado (pesada) e o aviso (avisadaPesada) sao separados.
+     */
+    static void pesadaSegurada(Verifica v) {
+        TesteCorte.Mundo m = new TesteCorte.Mundo(Parametros.padrao(), true, false);
+        for (int r = 0; r < 12; r++) {
+            int bx = r * 20 * 256;
+            m.chunk(bx >> 4, 1);
+            m.tiles.add(new TesteCorte.Tile("t" + r, bx + 20, 20, 30.0));
+        }
+        m.ticks(150); // uma avaliacao (tick 100)
+        int alertas = regioesCom(m, "comecou a pesar").size();
+        int pesadas = 0;
+        for (Retrato.Regiao g : m.n.retrato().regioes) {
+            if (g.pesada) {
+                pesadas++;
+            }
+        }
+        System.out.println("  info  pesadaSegurada: 'comecou a pesar' saiu para " + alertas + " de 12; regioes PESADA no retrato " + pesadas);
+        v.sim(alertas < 12, "(pesada segurada) o limitador segurou parte dos alertas: " + alertas);
+        v.igual(12, pesadas, "(pesada segurada) o retrato (e o comando) mostra as 12 como PESADA mesmo com o alerta segurado");
+    }
+
+    /**
+     * Segunda revisao, achado 4: as partes de uma regiao dividida (Estado.paraDivisao, chamado pela Heranca para cada parte)
+     * herdavam o mesmo acumulador e o mesmo N e rodavam sempre no mesmo tick. Agora cada parte com N &gt; 1 recebe a fase
+     * do id novo. Com N = 1 o acumulador nao importa (nao ha corte) e segue copiado.
+     */
+    static void divisaoFases(Verifica v) {
+        Estado velha = new Estado(7, 0); // a parte maior fica com este objeto (Heranca); as outras recebem copias
+        velha.n = 25;
+        velha.acc = 0.3;
+        Estado a = velha.paraDivisao(40, 0), b = velha.paraDivisao(41, 0);
+        Estado[] partes = {velha, a, b};
+        double[] acc = {velha.acc, a.acc, b.acc};
+        int rodadas = 0, juntas = 0;
+        for (int k = 0; k < 2500; k++) {
+            int q = 0;
+            for (int i = 0; i < 3; i++) {
+                if (Cadencia.tica(acc[i], partes[i].n)) {
+                    q++;
+                }
+                acc[i] = Cadencia.depois(acc[i], partes[i].n);
+            }
+            if (q > 0) {
+                rodadas++;
+            }
+            if (q > 1) {
+                juntas++;
+            }
+        }
+        System.out.println("  info  divisaoFases: N=" + velha.n + "/" + a.n + "/" + b.n + "; acc " + velha.acc + " / " + a.acc + " / "
+                + b.acc + "; ticks com rodada " + rodadas + ", com 2+ partes juntas " + juntas);
+        v.sim(a.n == 25 && b.n == 25, "(divisao) as partes herdam N");
+        v.sim(juntas * 4 < rodadas, "(divisao) as partes cortadas nao rodam sempre no mesmo tick: juntas=" + juntas + " de " + rodadas);
+        Estado leve = new Estado(8, 0);
+        leve.acc = 0.3;
+        v.sim(leve.paraDivisao(42, 0).acc == 0.3, "(divisao) com N = 1 o acumulador segue copiado");
     }
 }

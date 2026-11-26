@@ -38,7 +38,11 @@ documento é de relógio falso ou de carga sintética: **indicação, não medi�
     com o N novo (média + custo por rodada × (1/N novo − 1/N)) continue abaixo de 80% do alvo** e nunca abaixo do N que a
     regra do pico obriga (25 para rodada acima de 40 ms). Sem caber, desce só até o N que o custo da região pede. Assim a
     região volta ao normal quando o servidor aguenta, sem oscilar (uma região de 150 ms não é solta pela folga; há teste
-    para os dois casos: `TesteOrcamento.regiaoPesadaNaoOscila` e `TesteAdversario.nuncaVolta`, achado 1 da revisão);
+    para os dois casos: `TesteOrcamento.regiaoPesadaNaoOscila` e `TesteAdversario.nuncaVolta`, achado 1 da revisão).
+    Região que não está de fato cortada (modo medir, ou suspensa) já roda todo tick e a média já inclui o custo dela: a
+    previsão não soma nada por ela (antes, no modo medir, somava o custo de novo e a região ficava em "estouraria" para
+    sempre, e era cortada na hora ao trocar para `cortar` com o servidor abaixo do alvo; achado 1 da segunda revisão,
+    `TesteAdversario.nuncaVolta` no modo medir);
   - entre 80% e 100% do alvo nada muda (faixa de histerese).
 - **Sem fase fixa** (`Cadencia`): a região não roda em `tick % N == 0`. Um acumulador soma `1 ÷ (N + 0,0618…)`; os
   intervalos entre rodadas são N ou N+1 e as rodadas caem em todos os restos de qualquer módulo (sequência de Beatty).
@@ -59,14 +63,18 @@ documento é de relógio falso ou de carga sintética: **indicação, não medi�
 - **Estado entre recálculos** (`Heranca`): os números das regiões mudam a cada mapa, então o estado fica preso às seções.
   Região idêntica à velha mantém o objeto (id e estatística); na **junção** vale o maior N e as maiores medidas e o menor id;
   na **divisão** a parte com mais seções fica com o id, as outras recebem cópia com id novo e o mesmo N (a histerese tira o
-  corte de quem não pesa); a estatística recomeça em qualquer mudança de forma.
+  corte de quem não pesa) e, com N > 1, a fase do id novo (`Cadencia.faseInicial`; antes herdavam o mesmo acumulador e
+  rodavam sempre no mesmo tick: achado 4 da segunda revisão, `TesteAdversario.divisaoFases`); a estatística recomeça em
+  qualquer mudança de forma.
 - **Alerta** (log + operadores online, `alerta_ops`): quando o custo por rodada passa de `alerta_ms` (25) e quando a
   região volta (duas avaliações abaixo de 80%); também quando começa e quando termina um corte. Texto: dimensão, caixa
   e centro em blocos, chunks/tiles/entidades, ms por rodada, ms do servidor e a ação ("esta ticando 1 a cada N", "só
   medindo: ticaria 1 a cada N", "protegida (...)"). Limitador: 1 por (região, tipo) a cada `alerta_intervalo_min` (5) e
-  no máximo 10 por minuto no total. Alerta segurado pelo limitador **não se perde**: o estado (pesada, em corte) só muda
-  quando o alerta sai, então ele é tentado de novo a cada avaliação (100 ticks) até sair, se ainda vale (achado 4 da
-  revisão; `TesteAdversario.alertaPerdido`: 12 regiões pesadas juntas, antes só 5 recebiam, agora as 12, no 2º minuto).
+  no máximo 10 por minuto no total. Alerta segurado pelo limitador **não se perde**: o "último aviso que saiu" (pesada,
+  em corte) só muda quando o alerta sai, então ele é tentado de novo a cada avaliação (100 ticks) até sair, se ainda
+  vale (achado 4 da revisão; `TesteAdversario.alertaPerdido`: 12 regiões pesadas juntas, antes só 5 recebiam, agora as
+  12, no 2º minuto). O estado mostrado no comando (`PESADA`) é separado do aviso: aparece já na avaliação em que a região
+  passa de `alerta_ms`, mesmo com o alerta segurado (achado 3 da segunda revisão, `TesteAdversario.pesadaSegurada`).
   Nunca nome de jogador nem IP. (Diferença do plano: o custo do alerta é por **rodada**,
   o que a região custaria por tick sem corte; com a região cortada o custo por tick real cai e o alerta sumiria.)
 
@@ -127,7 +135,10 @@ desde aquele instante (inclusive no resto do tick: naquele tick a região pode r
 propósito, coberta por teste, achado 9 da revisão), e continua protegida nos recálculos seguintes; o erro vai para o log
 com limitador (1 por região a cada `alerta_intervalo_min`, no máximo 10 por minuto). Mais de 20 erros, erro sem região
 achada, erro no início/fim do tick ou na seleção da puxada: o orçamento inteiro desliga e tudo roda (o que já tinha sido
-pulado naquele tick roda no tick seguinte).
+pulado naquele tick roda no tick seguinte). Erro na decisão de uma entrada no meio da seleção dos agendados: a região
+daquela entrada volta a rodar como acima, mas a classificação "acúmulo" (só a sobra do teto) de cada região é fixada no
+começo da seleção e vale para ela inteira, então os agendados de uma região não trocam de ordem (achado 2 da segunda
+revisão, `TesteAdversario.erroNaSelecao`).
 
 **Aviso de boot:** se algum mundo tiver `max-tick-time` do Spigot abaixo de 1000 ms, sai um aviso (o limitador pode parar o
 laço no meio de uma rodada; o resto da região roda na rodada seguinte).
