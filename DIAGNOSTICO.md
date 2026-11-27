@@ -491,6 +491,47 @@ anterior); a diferença acompanha a ordem das medidas, não o jar. Ligado sem co
 exige estouro de pilha em `remove`, `put` e `get` na mesma rodada; no build do zero só o `get` estourou e ele falhou;
 passou ao repetir. Não é do orçamento.
 
+## 8f. Degrau B, passos 0, 1 e 5 (2026-11-26 e 27; leitura de bytecode e testes isolados, sem servidor ligado)
+
+**D-64. Lista fechada da primeira entrega: mesa de encantamento, baú (e baú-armadilha) e baú de ender. O funil fica fora.**
+Motivos do funil: bytes finais de `TileEntityHopper` não verificados (hodgepodge, EtFuturum e Cauldron injetam no mesmo
+método); mixins em `ItemStack`/`Item`/`CraftBlockState` não verificados; composter do EtFuturum; e ChestShop, WorldGuard e
+GriefPreventionPlus ouvem os eventos do funil, o que deixaria a região sempre inelegível em produção.
+
+**D-65. No caminho do tick da onda 1, todas as injeções lidas são só leitura** (hodgepodge, AkashicBellow, EndlessIDs,
+EtFuturum; 17 transformadores ASM com veredito). Condições: 3x3 chunks carregados e da mesma região; `ChunkRequestEvent`
+do DragonAPI com um só observador (`WorldGenInterceptionRegistry`) e profiler de geração desligado; watcher do
+`TileUpdateEvent` só o `EMPTileWatcher`. **Não verificado:** os bytes finais das classes (junção de todos os
+transformadores); precisa de um boot com dump de classes, que fica no passo 3.
+
+**D-66. Achados novos de leitura:** `Chunk.func_150806_e` remove do mapa do chunk o tile inválido (A1); `provideChunk`
+grava `lastAccessedTick` (A2); a mesa usa um `Random` estático, não o `world.rand` (A3); com o `TileUpdate` do DragonAPI
+ativo, `skip-tileentity-ticks` não age no laço (A4); o Opis troca as listas de tiles e entidades no construtor do `World`
+(A5). Leitura do mapa Koloboke não escreve. Nenhum plugin salva o mundo fora da thread do servidor. A previsão do
+orçamento soma o custo das regiões: com paralelo exagera, erro para o lado seguro.
+
+**D-67. H01 corrigido atrás de `chunkmap.cache4Seguro`.** Limite herdado que continua: uma thread de fora pode receber
+`null` ou chunk de outra coordenada enquanto o mapa Koloboke cresce (rehash) por um `put` da thread do servidor. A
+segurança depende de não carregar chunk durante a fase paralela e do contador de versão do mapa. Com a chave ligada, quem
+não é a thread do servidor confere a coordenada do que recebeu.
+
+**D-68. Núcleo de concorrência (sem Minecraft) revisado duas vezes por agente diferente.** A primeira revisão achou um
+defeito (`encerrar` largava a espera com interrupção pendente: 85 de 200 no JDK 8; depois da correção, 0 de 200) e três
+defeitos hipotéticos que os testes não pegavam; os dois corrigidos. Testes completos em JDK 8 e 21: 242 casos, carga de
+10^6 ticks por número de threads, sonda de 40 mil abortos em instante sorteado, zero problemas. 32 defeitos postos de
+propósito (mutações): 31 pegos sempre, 1 (`acorda_na_fase_vazia`) escapou uma vez com a máquina carregada.
+
+**D-69. Segunda revisão: código certo, mas três defeitos hipotéticos ainda passariam nos testes (I3):** `abortar` largar
+a espera com interrupção pendente; thread de fora interrompida passar pelo portão; `abortar` abrir o portão antes de os
+trabalhadores saírem do item. A fechar com testes antes do passo 6.
+
+**D-70. Limites conhecidos do núcleo (menores, abertos):** `Thread.stop` numa thread de região trava o servidor no Java 8
+(nada no fork chama; não suportado); operação delegada que não declara o monitor do gerenciador de plugins pode travar
+com thread de fora no portão (regra para o passo 6: toda guarda declara o monitor); operação delegada que espera o
+resultado de uma thread parada no portão espera sem fim (se a thread de E/S de chunks alcança alguma guarda: não
+verificado); a "confirmação do portão" só garante que a thread acordou. Tempos do núcleo com regiões falsas são
+indicação, não medição de servidor.
+
 ## 9. A máquina de produção
 
 7 vCores e 17 GB de RAM, com heap de 14 GB (`-Xms14336M -Xmx14336M`). Sobram cerca de 3 GB
