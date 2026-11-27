@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Thu, 26 Nov 2026 12:36:24 +0000
+Subject: [PATCH 28/30] chunkmap doc: H01 fix of the original 4-entry cache
+ (section 12)
+
+What changes, why parts 2 and 3 sit behind chunkmap.cache4Seguro, the
+correctness argument, tests, and what was not verified.
+
+diff --git a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+index 7d96c650..ee615bcd 100644
+--- a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
++++ b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+@@ -64,7 +64,7 @@ public class ChunkBlockHashMap {
+         }
+     }
+     // Hoshiestar end
+-    // Hoshiestar start: H01 partes 2 e 3, chave chunkmap.cache4Seguro (src/docs/chunkmap.md, secao 8). Desligado = o codigo original nos tres pontos marcados (get, put, remove). Vale com chunkmap.ligado true ou false: depois que o cache novo se desliga, o mapa volta para este codigo
++    // Hoshiestar start: H01 partes 2 e 3, chave chunkmap.cache4Seguro (src/docs/chunkmap.md, secao 12). Desligado = o codigo original nos tres pontos marcados (get, put, remove). Vale com chunkmap.ligado true ou false: depois que o cache novo se desliga, o mapa volta para este codigo
+     private static final boolean HOSHIE_CACHE4 = hoshieCache4Ligado();
+     private static boolean hoshieCache4Ligado() {
+         try {

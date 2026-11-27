@@ -37,12 +37,14 @@ chunkmap:
   ligado: false     # padrao. true = liga o cache (reinicie o servidor)
   bits: 6           # lado da tabela = 2^bits (4..7). 6 = 64x64 = 4096 casas, 16 KB por mundo
   conferir: false   # so para teste: confere cada acerto no mapa e conta divergencias
+  cache4Seguro: false   # correcao H01 do cache de 4 entradas do codigo ORIGINAL (secao 12); nao depende de "ligado"
 ```
 
 | Chave | Padrão | O que faz |
 |---|---|---|
 | `chunkmap.ligado` | `false` | Liga o cache. Desligado = código original (ver 4.1). Lido uma vez no boot. |
 | `chunkmap.bits` | `6` | Tamanho da tabela. Menor gasta menos memória e erra mais quando há jogadores longe uns dos outros. Fora de 4..7: usa 6 e avisa no log. |
+| `chunkmap.cache4Seguro` | `false` | Correção H01 (seção 12): no código original do mapa, consulta de thread que não é a do servidor não grava mais o cache de 4 entradas, e `remove`/`put` não deixam casa repetida. **Não depende de `chunkmap.ligado`.** Desligado = código original nesses pontos. Necessário para o recurso `paralelo`. |
 | `chunkmap.conferir` | `false` | Teste: a cada acerto do cache também faz a busca no mapa; se diferirem, conta, avisa (com limite de 5 por minuto), devolve o do mapa e corrige a casa. Custa mais que o original. |
 
 Linha no `hoshie status` (e no fim do boot), exemplo:
@@ -76,6 +78,10 @@ exatamente o mesmo objeto.
 
 Se a leitura do interruptor falhar (classe nossa ausente ou com erro), `HOSHIE_CHUNKMAP` fica `false`.
 Se a criação do cache falhar, o campo fica `null`: código original.
+
+Desde a correção H01 (seção 12) há duas mudanças **sem interruptor** no código original, as duas sem efeito
+numa thread só: o `get` lê cada `lastN` uma vez para uma variável local, e `put`/`remove` somam 1 num
+contador de versão que o código original não lê. O diferencial `desligado` continua dando tudo idêntico.
 
 ### 4.2 Quem escreve e quem lê (com o recurso ligado)
 
@@ -424,3 +430,152 @@ Uma cópia nova (`cmfix`), mesma sequência, logs em `fork/testes/chunkmap/fix/`
 | Achado | Correção | Teste |
 |---|---|---|
 | C1 `hoshieSoltar` zerava `last1..last4` de qualquer thread: `NullPointerException` (ou `null` para chunk carregado) na thread do servidor que já tinha voltado ao código original | variante C do revisor: o MRU fica vazio enquanto o cache está ativo (zerado no fim do `put` da thread do servidor) e `hoshieSoltar` só põe `hoshieCache = null` (4.5, regras 4 e 7) | T8 em `TesteChunkmapAdversario` (MRU vazio com o cache ativo; soltar de outra thread não apaga o MRU que a thread do servidor já usa): 7 ok no JDK 8 e no 21, nos dois modos; na classe de antes, 3 falhas. `RevSoltar` do revisor (20 000 rodadas) contra a classe corrigida: NPE na thread do servidor 0 e exceção no leitor de fora 0, no JDK 8 e no 21, com `-Xint` e no modo padrão (antes: 77 / 94 / 1 / 0). As "respostas erradas" que sobram também aparecem no upstream (corrida do próprio MRU do Crucible com leitores de fora). Suíte completa: todos os testes passaram. Logs: `fork/correcoes2/` no scratchpad da tarefa |
+
+## 12. Correção H01: o cache de 4 entradas do código original com várias threads (chave `cache4Seguro`)
+
+Pré-requisito do recurso `paralelo` (plano do Degrau B, §4 e achado 6 da §16). Vale para o **código
+original** do mapa, ou seja: com `chunkmap.ligado: false`, e também com ele ligado depois que o cache novo
+de um mundo se desliga por segurança. "Thread" = uma linha de execução do programa; a "thread do servidor"
+é a que roda o laço de ticks.
+
+### 12.1 O defeito
+
+O código original foi escrito para uma thread só. Com mais de uma:
+
+1. **Leitura dupla.** `get` fazia `if (last1 != null && last1.xPosition == x && ...) return last1;`: lê o
+   campo até 4 vezes. Se outra thread troca o campo no meio, o `get` devolve um chunk de **outra
+   coordenada** (bloco escrito no chunk errado), ou lança `NullPointerException`.
+2. **Quem lê também grava.** Toda consulta que não acha nas 4 casas empurra as casas
+   (`last4 = last3; last3 = last2; last2 = last1; last1 = achado`). Duas threads fazendo isso juntas podem
+   deixar o **mesmo chunk em duas casas**, por exemplo `[F, A, A, C]`.
+3. **`remove` só limpa uma casa.** Com `[F, A, A, C]`, `remove(A)` deixa `[F, A, C, null]`: A saiu do mapa
+   mas continua no cache, e `get` passa a devolver um chunk já descarregado (item posto nele se perde,
+   item tirado dele duplica, porque o disco já tem a cópia).
+
+### 12.2 A correção, em três partes mais um contador
+
+| Parte | O que muda | Interruptor |
+|---|---|---|
+| 1 | `get` lê cada `lastN` **uma vez** para uma variável local e confere/devolve a variável. As coordenadas do `Chunk` são `final`, então o que foi conferido é o que é devolvido | nenhum (numa thread só é idêntico) |
+| 2 | Na falta, **só a thread do servidor** grava `last1..last4`. Outra thread (ou qualquer thread enquanto a do servidor ainda não é conhecida) devolve o que achou no mapa sem gravar nada | `cache4Seguro` |
+| 3 | `remove` limpa **todas** as casas com a coordenada do chunk e junta as que sobraram no começo, na mesma ordem. `put` tira antes a casa com a mesma coordenada (o objeto velho de um put sobre posição ocupada), para o cache nunca ter duas casas da mesma coordenada | `cache4Seguro` |
+| contador | `hoshieVersao()`: soma 1 **antes** de cada `put` de chunk não nulo e de cada `remove`, de qualquer thread (`AtomicLong`). Dois valores iguais = nenhum `put`/`remove` começou entre as duas leituras | nenhum (o código original não lê) |
+
+As trocas de casas das partes 2 e 3 não têm chamada de método: um estouro de pilha não para no meio (o
+mesmo cuidado da seção 4.6).
+
+### 12.3 Por que as partes 2 e 3 ficam atrás de uma chave
+
+A regra do projeto: sem interruptor só se o comportamento numa thread for idêntico ao original. Não é:
+
+- **Parte 3:** numa thread só já existe casa repetida, pelo put sobre posição ocupada (seção 4.4, caminho
+  real: `//regen`). Aí o original devolve o chunk velho depois do `remove`, e a correção devolve o que o
+  mapa guarda. É a mesma diferença que o cache novo já tem (4.4), e é uma correção, mas é diferença.
+- **Parte 2:** uma consulta feita por outra thread, mesmo sem nenhuma corrida, empurra as casas no
+  original e não empurra na correção. O que as consultas seguintes devolvem só muda no caso acima (chunk
+  velho de put duplo, que fica mais ou menos tempo no cache), mas o diferencial `desligado`, que exige o
+  **mesmo objeto** em 24 milhões de operações com consultas de outra thread, acusaria.
+
+O que foi demonstrado como idêntico (e por isso ficou sem interruptor):
+
+- Parte 1: o `get` faz as mesmas comparações, na mesma ordem, e as mesmas gravações; só deixa de reler o
+  campo. `TesteChunkmapDiferencial desligado` (idêntico à original, inclusive no defeito do put duplo) e
+  `TesteChunkmapCache4`: nos 1296 estados possíveis das 4 casas, a consulta da thread do servidor deixa
+  resultado e casas iguais aos da classe original, com a chave ligada ou desligada.
+- Com a chave **ligada**, a diferença para a original só existe fora do "estado normal" (casas juntas no
+  começo e sem coordenada repetida): a partir de estado normal, `remove` deixa as casas iguais às da
+  original, e `put` também quando não há casa da mesma coordenada (mesmo teste, 1296 estados x 3 alvos).
+
+### 12.4 Por que é correto (chave ligada)
+
+Suposição, a mesma do mapa em si (o mapa Koloboke também não é protegido): **`put` e `remove` só rodam
+na thread do servidor**. No `paralelo` isso é regra (carga e descarga de chunk são proibidas na fase).
+
+1. **Um escritor só.** Com a parte 2, a única thread que grava `last1..last4` é a do servidor (em `get`
+   com falta, `put` e `remove`). Não há mais duas gravações se intercalando, que era a origem da casa
+   repetida.
+2. **Invariante** (vale ao fim de cada operação da thread do servidor): não há duas casas com a mesma
+   coordenada, e toda casa não nula guarda o chunk que o mapa tem naquela coordenada. `put` grava o
+   mapa, tira a casa da coordenada e empurra o chunk novo; `remove` tira do mapa e limpa todas as casas da
+   coordenada; `get` com falta empurra o que acabou de achar no mapa, e a falta garante que a coordenada
+   não estava em nenhuma casa.
+3. **Leitor de outra thread.** Lê cada casa uma vez; qualquer referência que ele veja é um `Chunk`
+   inteiro com coordenadas `final` (o Java garante campos `final` mesmo em publicação sem sincronização),
+   então ou as coordenadas batem e ele devolve aquele chunk, ou ele segue. Enquanto a thread do servidor
+   empurra as casas, o leitor pode ver um chunk duas vezes ou nenhuma: se não vê, vai ao mapa. No
+   caminho do mapa ele também confere as coordenadas do que achou (correção da revisão do passo 1,
+   achado I1): **nunca recebe chunk de outra coordenada**, nem pelas casas nem pelo mapa.
+   **Limite conhecido, que a chave não resolve:** enquanto um `put` da thread do servidor cria um bloco
+   de 16×16 novo e a tabela do mapa Koloboke cresce, o leitor de fora pode receber **`null` para um chunk
+   que está carregado**. Motivo, conferido no bytecode do Koloboke 1.0.0
+   (`MutableLHashSeparateKVLongObjMapGO.get`/`rehash`, `allocateArrays`): a consulta são duas leituras sem
+   trava (acha a posição na tabela de chaves, depois lê a tabela de valores nessa posição), e o
+   crescimento publica a tabela de chaves nova, depois a de valores nova, **ainda vazias**, e só então
+   copia as entradas. Tabela nova ainda sem a entrada = `null` falso; posição da tabela velha lida na
+   tabela de valores nova = bloco de outra chave (era o chunk de outra coordenada; agora vira `null`).
+   Vale também para a classe original e com a chave desligada, que além disso devolvem o chunk errado.
+   Quem depende de "chunk carregado nunca some para o leitor" precisa que **nenhum `put` de bloco novo
+   rode ao mesmo tempo**: no `paralelo` é a proibição de carga de chunk na fase, conferida pelo contador
+   de versão; para plugin que lê de outra thread fora da fase, o risco é o de sempre.
+4. **Depois de `remove(c)`.** Ao fim do `remove` nenhuma casa tem a coordenada de `c` e o mapa não tem
+   `c`; só a thread do servidor poderia pôr de volta, e só por um `put`. Uma leitura que comece depois do
+   fim do `remove` (com uma relação de ordem entre as threads: a barreira da fase do `paralelo`, o início
+   ou o fim de uma thread, um campo `volatile`) não devolve `c`. Uma leitura **simultânea** ao `remove`
+   pode devolver `c` ou `null`, como em qualquer estrutura: é uma leitura de antes.
+5. Os campos `last1..last4` continuam sem `volatile` (pô-lo custaria uma barreira de memória por
+   gravação no caminho mais quente, com a chave desligada também). Por isso o item 4 pede a relação de
+   ordem; sem ela o modelo de memória do Java permite ver valor antigo, como já permite no mapa.
+
+**O que a chave não cobre:** `put`/`remove` vindos de outra thread continuam gravando as casas (têm de
+limpar a coordenada) e podem correr com a thread do servidor, como no original. Com a chave desligada, o
+`remove` original ainda lê cada casa duas vezes: com um leitor de fora empurrando as casas ele pode
+lançar `NullPointerException` (visto no teste de controle, modo `-Xint`).
+
+### 12.5 Convivência com o cache novo (`chunkmap.ligado: true`)
+
+Com o cache novo ativo ninguém lê as 4 casas e o fim do `put` as zera (4.5); as partes 2 e 3 só entram
+em cena depois de um desligamento por segurança, quando o mapa volta ao código original. Diferencial
+`ligado-cache4`: mesma regra do `ligado`, 0 falha.
+
+### 12.6 Testes (JDK 8 e 21)
+
+`src/test/chunkmap/teste-chunkmap.bash` (chamado pelo `servidor/test.sh`):
+
+| Teste | O que confere |
+|---|---|
+| `TesteChunkmapDiferencial cache4` e `ligado-cache4` | original x nova com a chave ligada, numa thread (com consultas de outra thread em série): `put`/`remove`/`size`/`bulkCheck`/`raw`/exceções idênticos; `get` = o que o mapa guarda, sempre; `get` = original menos nos casos do defeito do put duplo, que são contados; nas rodadas sem put duplo, zero diferença |
+| `TesteChunkmapCache4 ligado` | `[F, A, A, C]` + `remove(A)` → `[F, C, null, null]` e `get(A)` = `null` (na original: A fica); os 1296 estados das 4 casas x `remove`, `put` e consulta; thread de fora faz 164 000 consultas e **nenhuma** casa muda; thread do servidor desconhecida não grava; contador de versão (inclusive 4 threads somando juntas, nenhuma soma perdida); 3 threads lendo enquanto a thread do servidor empurra as casas: nenhum chunk de outra coordenada, nenhuma exceção; `remove(c)` depois de 3 threads lendo: nenhuma casa com `c`, nenhum `get` devolve `c`; `remove`/`put` **com** 3 threads lendo: toda consulta que caiu inteira num trecho sem mudança devolve exatamente o esperado; **bloco trocado** (sem threads: a chave de um bloco apontando para o bloco de outro, o que a consulta ao mapa entrega durante o crescimento): a thread de fora recebe `null`, nunca o chunk de outra coordenada, e a thread do servidor fica idêntica à original; **mapa crescendo** (a thread do servidor faz 6000 `put` de bloco novo por mapa, 3 leitores de fora consultam chunks que não mudam): zero chunk de outra coordenada. O `null` para chunk carregado e as exceções dessa carga saem só como informação (limite conhecido, 12.4 item 3) |
+| `TesteChunkmapCache4 desligado` | controle: casas idênticas às da original em todos os 1296 estados (inclusive o defeito); a thread de fora muda as casas; a parte 1 vale (nenhum chunk errado com 3 leitores); bloco trocado: idêntico à original (devolve o chunk de outra coordenada). Os números do defeito de concorrência e do mapa crescendo saem como informação |
+
+Cada modo do `TesteChunkmapCache4` roda no modo padrão da JVM, com `-XX:-TieredCompilation` e com `-Xint`
+(interpretado), porque o compilador JIT muda as intercalações (lição do D-63). Nenhuma conferência depende
+de tempo ou de sorte: as conferências com threads só valem para leituras que o modelo de memória do Java
+garante (um campo `volatile` é escrito pela thread do servidor depois da mudança e lido pelo leitor antes
+e depois da consulta). Os controles (classe original e chave desligada, mesma carga) mostram que o teste
+acha o defeito. Na dose cheia (30 000 rodadas de tirar e repor, modo padrão e `-XX:-TieredCompilation`,
+JDK 8 e 21), a classe original devolveu chunk removido entre 33 000 e 84 000 vezes por execução, e a nova
+com a chave desligada entre 36 000 e 72 000; com a chave ligada, 0 em todas (2,5 a 4,1 milhões de
+consultas conferidas por execução). Na leitura com as casas mexendo, a original devolveu chunk errado de
+0 a 3289 vezes por execução (mais no `-Xint`); a nova, 0 com a chave ligada ou desligada. O cenário
+"N threads lendo antes, depois `remove`" quase não acha o defeito na original (0 a 2 rodadas em 1000): a
+janela é estreita, como o revisor do plano já tinha dito; a prova desse caso é o `[F, A, A, C]` montado
+à mão e os 1296 estados. Números de sorte, só para mostrar que os testes enxergam o defeito.
+
+### 12.7 Não verificado
+
+- Nada disto rodou num servidor: só testes isolados (o substituto de `Chunk` dos testes tem só as
+  coordenadas). Custo no tick com a chave desligada ou ligada: **não medido**.
+- Que `put`/`remove` do mapa só acontecem na thread do servidor no modpack real: não conferido aqui (o
+  cache novo conta e avisa quando vê um de outra thread; nos testes de servidor da seção 7 não viu).
+- Se a leitura do mapa Koloboke por várias threads é segura quando ninguém grava: suposição herdada
+  (item do passo 0 do plano); os testes de concorrência daqui leem o mapa de várias threads.
+- Leitura do mapa por outra thread **enquanto a thread do servidor grava bloco novo**: não é segura
+  (12.4 item 3). Medido só em teste forçado (teste "mapa crescendo", dose rápida, chave ligada, uma
+  execução por JDK: 8 a 16 milhões de consultas, 0,76 a 1,16 milhão de `null` falso, 0 chunk de outra
+  coordenada, 0 exceção; antes da conferência de coordenada, 4 e 5 chunks de outra coordenada). Quantas
+  vezes a tabela cresce por mundo num servidor e se existe leitor de fora no modpack: **não verificado**.
+  Exceção (`ArrayIndexOutOfBoundsException`) nessa leitura: nunca vista; o modelo de memória do Java não
+  a exclui (**não verificado**).
+- Tamanho do `get` depois da conferência de coordenada: 315 bytes de bytecode (era 284), abaixo do limite
+  de 325 que o JIT usa para embutir método quente; efeito no tick **não medido**.
+- Frequência do defeito num servidor real: não medida.

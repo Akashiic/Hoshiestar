@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Sun, 22 Nov 2026 10:34:18 +0000
-Subject: [PATCH 01/24] build: jar Hoshiestar com a identidade do Crucible fixa
+Subject: [PATCH 01/30] build: jar Hoshiestar com a identidade do Crucible fixa
 
 O nome do jar passa a ser Hoshiestar-1.7.10-<versao>-server.jar, com a versao
 numa constante unica (hoshiestar/Hoshiestar.java). A versao e os campos de git

@@ -29,6 +29,9 @@ public final class TesteChunkmapConfig {
         v.igual(false, c.chunkmap_ligado, "padrao: desligado");
         v.igual(6, c.chunkmap_bits, "padrao: bits 6");
         v.igual(false, c.chunkmap_conferir, "padrao: conferir desligado");
+        v.sim(t.contains("cache4Seguro: false") && !c.chunkmap_cache4Seguro, "padrao: cache4Seguro desligado, dentro da secao chunkmap ("
+                + (secaoChunkmapMudada(t).contains("cache4Seguro: true") ? "ok" : "FORA da secao") + ")");
+        v.sim(secaoChunkmapMudada(t).contains("cache4Seguro: true"), "cache4Seguro fica na secao chunkmap do arquivo gerado");
         v.sim(c.avisos().isEmpty(), "arquivo novo sem avisos (" + c.avisos() + ")");
 
         File f2 = new File(dir, "ligado.yml");
@@ -39,6 +42,7 @@ public final class TesteChunkmapConfig {
         v.igual(true, c.chunkmap_ligado, "admin liga");
         v.igual(5, c.chunkmap_bits, "admin muda bits");
         v.igual(true, c.chunkmap_conferir, "admin liga conferir");
+        v.igual(true, c.chunkmap_cache4Seguro, "admin liga cache4Seguro");
         v.sim(c.avisos().isEmpty() && f2.lastModified() == antes, "arquivo completo e valido nao e regravado");
 
         File f3 = new File(dir, "antigo.yml");
@@ -50,6 +54,15 @@ public final class TesteChunkmapConfig {
         escrever(f4, "autoteste:\n  ligado: false\nchunkmap:\n  ligado: sim\n  bits: 6\n  conferir: false\n");
         c = HoshiestarConfig.carregar(f4);
         v.sim(!c.chunkmap_ligado && !c.avisos().isEmpty(), "ligado: sim -> padrao (desligado) e aviso");
+
+        File f5 = new File(dir, "so-cache4.yml");
+        escrever(f5, t.replace("  cache4Seguro: false", "  cache4Seguro: true"));
+        c = HoshiestarConfig.carregar(f5);
+        v.sim(c.chunkmap_cache4Seguro && !c.chunkmap_ligado && c.avisos().isEmpty(), "cache4Seguro ligado com chunkmap.ligado desligado: aceito, sem aviso");
+        File f6 = new File(dir, "cache4-invalido.yml");
+        escrever(f6, t.replace("  cache4Seguro: false", "  cache4Seguro: talvez"));
+        c = HoshiestarConfig.carregar(f6);
+        v.sim(!c.chunkmap_cache4Seguro && !c.avisos().isEmpty(), "cache4Seguro: talvez -> padrao (desligado) e aviso");
 
         v.igual(6, ChunkMap.bitsValidos(3), "bits 3 -> 6");
         v.igual(6, ChunkMap.bitsValidos(8), "bits 8 -> 6");
@@ -63,8 +76,10 @@ public final class TesteChunkmapConfig {
         Recursos.Recurso r = Recursos.achar("chunkmap");
         v.sim(r != null && r.ligado, "registro: recurso chunkmap ligado");
         v.sim(ChunkMap.ligado() && ChunkMap.bits() == 5 && ChunkMap.conferir(), "registro fixa os valores do config");
+        v.sim(ChunkMap.cache4Seguro(), "registro fixa cache4Seguro do config");
         String linha = r == null ? null : r.linhaDeEstado();
-        v.sim(linha != null && linha.contains("tabela 32x32") && linha.contains("caches criados: 0"), "linha de estado: " + linha);
+        v.sim(linha != null && linha.contains("tabela 32x32") && linha.contains("caches criados: 0")
+                && linha.contains("cache de 4 entradas seguro (cache4Seguro): ligado"), "linha de estado: " + linha);
         v.fim();
     }
 
@@ -98,7 +113,7 @@ public final class TesteChunkmapConfig {
             fim = nl + 1;
         }
         String secao = gerado.substring(ini, fim).replace("  ligado: false", "  ligado: true")
-                .replace("  bits: 6", "  bits: 5").replace("  conferir: false", "  conferir: true");
+                .replace("  bits: 6", "  bits: 5").replace("  conferir: false", "  conferir: true").replace("  cache4Seguro: false", "  cache4Seguro: true");
         return gerado.substring(0, ini) + secao + gerado.substring(fim);
     }
 }

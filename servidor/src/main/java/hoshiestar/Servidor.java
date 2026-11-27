@@ -68,6 +68,11 @@ public final class Servidor {
             Log.erro("nao consegui instalar o orcamento (hoshie regioes)", t);
         }
         try {
+            hoshiestar.paralelo.ComandoParaleloJogo.instalar(); // paralelo (Degrau B): esqueleto de 'hoshie paralelo'
+        } catch (Throwable t) {
+            Log.erro("nao consegui registrar o subcomando hoshie paralelo", t);
+        }
+        try {
             hoshiestar.mekanism.Mekanism.aoIniciarServidor(); // subcomando "hoshie mekanism"
         } catch (Throwable t) {
             Log.erro("nao consegui registrar o subcomando hoshie mekanism", t);

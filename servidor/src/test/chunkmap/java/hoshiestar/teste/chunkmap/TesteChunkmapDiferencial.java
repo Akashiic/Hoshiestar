@@ -22,7 +22,9 @@ import java.util.concurrent.Executors;
  * hoshiestar.teste.chunkmap.original) contra a classe NOVA do fork (thermos.wrapper, com o patch
  * do chunkmap), recebendo exatamente as mesmas operacoes.
  *
- * <p>Uso: {@code TesteChunkmapDiferencial <desligado|ligado|conferir> [operacoes por rodada] [sementes]}.
+ * <p>Uso: {@code TesteChunkmapDiferencial <desligado|ligado|conferir|cache4|ligado-cache4> [operacoes por rodada] [sementes]}.
+ * "cache4" = chunkmap desligado e a chave chunkmap.cache4Seguro ligada (correcao H01 do cache de 4 entradas do
+ * codigo original): vale a regra de "ligado" (get = mapa sempre; igual ao original menos no defeito do put duplo).
  * O interruptor e um static final lido quando a classe carrega, entao cada modo roda numa JVM.
  *
  * <p>Regras conferidas:
@@ -49,9 +51,14 @@ public final class TesteChunkmapDiferencial {
         String modo = args.length > 0 ? args[0] : "ligado";
         int ops = args.length > 1 ? Integer.parseInt(args[1]) : 1000000;
         int sementes = args.length > 2 ? Integer.parseInt(args[2]) : 4;
-        boolean ligado = !modo.equals("desligado");
+        // modos "cache4" (chunkmap desligado) e "ligado-cache4": a chave chunkmap.cache4Seguro (correcao H01) ligada
+        boolean cache4 = modo.equals("cache4") || modo.equals("ligado-cache4");
+        boolean ligado = !modo.equals("desligado") && !modo.equals("cache4");
         boolean conferir = modo.equals("conferir");
+        // regra "get = o que o mapa guarda": vale com o cache novo e tambem com o cache de 4 entradas corrigido
+        boolean regraMapa = ligado || cache4;
         ChunkMap.configurarParaTeste(ligado, 6, conferir);
+        ChunkMap.configurarCache4ParaTeste(cache4);
         ThreadServidor.definir(Thread.currentThread());
         fora = Executors.newSingleThreadExecutor();
 
@@ -59,6 +66,7 @@ public final class TesteChunkmapDiferencial {
         thermos.wrapper.ChunkBlockHashMap teste = new thermos.wrapper.ChunkBlockHashMap();
         v.igual(ligado, Apoio.estatico(thermos.wrapper.ChunkBlockHashMap.class, "HOSHIE_CHUNKMAP"), "interruptor lido pelo patch");
         v.sim(ligado == (Apoio.cache(teste) != null), "cache existe so com o interruptor ligado");
+        v.igual(cache4, Apoio.estatico(thermos.wrapper.ChunkBlockHashMap.class, "HOSHIE_CACHE4"), "chave cache4Seguro lida pelo patch");
 
         long totalOps = 0;
         long totalGets = 0;
@@ -72,7 +80,7 @@ public final class TesteChunkmapDiferencial {
                     for (int dup = 0; dup < 2; dup++) {
                         ChunkMap.configurarParaTeste(ligado, bits, conferir); // bits vale para mapas novos
                         long semente = 1000L * s + 10 * dom + dup + 100000L * bits;
-                        Rodada r = new Rodada(ligado, dup == 1, dom, bits, semente);
+                        Rodada r = new Rodada(regraMapa, dup == 1, dom, bits, semente);
                         r.rodar(ops);
                         totalOps += r.ops;
                         totalGets += r.gets;
@@ -87,7 +95,7 @@ public final class TesteChunkmapDiferencial {
                                 System.out.println("      " + f);
                             }
                         }
-                        if (!ligado || dup == 0) {
+                        if (!regraMapa || dup == 0) {
                             v.igual(0L, r.conhecidas, nome + ": nenhuma diferenca de get com o original");
                         }
                         if (ligado) {
@@ -98,8 +106,8 @@ public final class TesteChunkmapDiferencial {
             }
         }
         v.sim(totalForaDoMapa > 0, "o caminho do defeito do original (put duplo + remove) foi exercitado: o original devolveu chunk"
-                + " fora do mapa " + totalForaDoMapa + " vez(es)" + (ligado ? "" : ", e o novo DESLIGADO devolveu exatamente o mesmo objeto em todas"));
-        if (ligado) {
+                + " fora do mapa " + totalForaDoMapa + " vez(es)" + (regraMapa ? "" : ", e o novo DESLIGADO devolveu exatamente o mesmo objeto em todas"));
+        if (regraMapa) {
             v.sim(totalConhecidas > 0, "o defeito conhecido do original apareceu e foi contado (" + totalConhecidas
                     + " gets em que o original devolveu chunk fora do mapa; o novo devolveu o do mapa)");
         }

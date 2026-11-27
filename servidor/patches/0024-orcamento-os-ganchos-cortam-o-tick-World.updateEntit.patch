@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Wed, 25 Nov 2026 22:00:23 +0000
-Subject: [PATCH 24/24] orcamento: os ganchos cortam o tick
+Subject: [PATCH 24/30] orcamento: os ganchos cortam o tick
  (World.updateEntities pula entidade e tile, WorldServer.func_147456_g pula o
  chunk, WorldServer.tickUpdates seleciona os agendados e tira com as chamadas
  do original no else) atras de Orcamento.LIGADO; teste de bytecode da forma do

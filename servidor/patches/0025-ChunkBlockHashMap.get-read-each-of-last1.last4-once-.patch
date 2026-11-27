@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Thu, 26 Nov 2026 12:21:59 +0000
+Subject: [PATCH 25/30] ChunkBlockHashMap.get: read each of last1..last4 once
+ into a local (H01 part 1)
+
+The original read the field up to four times per slot (null check, x, z,
+return). Another thread shifting the 4-entry cache in between made get()
+return a chunk of other coordinates, or throw NullPointerException.
+Chunk.xPosition/zPosition are final, so a validated local is always a
+chunk of the requested coordinates. Single-threaded behaviour is unchanged.
+
+diff --git a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+index 5fb28611..a10ea5e9 100644
+--- a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
++++ b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+@@ -146,18 +146,24 @@ public class ChunkBlockHashMap {
+             }
+         }
+         // Hoshiestar end
+-        if (last1 != null && last1.xPosition == x && last1.zPosition == z) {
+-            return last1;
++        // Hoshiestar start: H01 parte 1 (sem interruptor): cada lastN e lido UMA vez para variavel local; o original lia o campo ate 4 vezes (null, x, z, return) e outra thread podia troca-lo no meio (chunk de outra coordenada, ou NullPointerException). Numa thread so, identico ao original
++        Chunk hoshieL = last1;
++        if (hoshieL != null && hoshieL.xPosition == x && hoshieL.zPosition == z) {
++            return hoshieL;
+         }
+-        if (last2 != null && last2.xPosition == x && last2.zPosition == z) {
+-            return last2;
++        hoshieL = last2;
++        if (hoshieL != null && hoshieL.xPosition == x && hoshieL.zPosition == z) {
++            return hoshieL;
+         }
+-        if (last3 != null && last3.xPosition == x && last3.zPosition == z) {
+-            return last3;
++        hoshieL = last3;
++        if (hoshieL != null && hoshieL.xPosition == x && hoshieL.zPosition == z) {
++            return hoshieL;
+         }
+-        if (last4 != null && last4.xPosition == x && last4.zPosition == z) {
+-            return last4;
++        hoshieL = last4;
++        if (hoshieL != null && hoshieL.xPosition == x && hoshieL.zPosition == z) {
++            return hoshieL;
+         }
++        // Hoshiestar end
+ 
+         Chunk[][] bunch = this.map.get((((long) (x >> 4)) << 32L) ^ (z >> 4));
+         if (bunch == null) return null;

@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Thu, 26 Nov 2026 12:22:34 +0000
+Subject: [PATCH 26/30] ChunkBlockHashMap: map version counter
+
+An AtomicLong bumped before every put of a non-null chunk and before every
+remove, from any thread. Nothing in the original code reads it; callers that
+must prove the chunk map did not change between two points compare two
+values. put(null) and remove(null) do not count (no change / NPE as before).
+
+diff --git a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+index a10ea5e9..c29f283b 100644
+--- a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
++++ b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+@@ -64,6 +64,12 @@ public class ChunkBlockHashMap {
+         }
+     }
+     // Hoshiestar end
++    // Hoshiestar start: contador de versao do mapa. Soma 1 a cada put de chunk nao nulo e a cada remove, ANTES de o mapa mudar, de qualquer thread (atomico). Nada no codigo original le; quem precisa provar "o mapa nao mudou entre dois pontos" compara dois valores (iguais = nenhum put/remove comecou no meio)
++    private final java.util.concurrent.atomic.AtomicLong hoshieVersao = new java.util.concurrent.atomic.AtomicLong();
++    public long hoshieVersao() {
++        return this.hoshieVersao.get();
++    }
++    // Hoshiestar end
+ 
+     public LongObjMap<Chunk[][]> raw() {
+         return this.map;
+@@ -199,6 +205,7 @@ public class ChunkBlockHashMap {
+         // Hoshiestar end
+         if (chunk == null)
+             return;
++        this.hoshieVersao.incrementAndGet(); // Hoshiestar: versao do mapa (antes da mudanca)
+         size++;
+         int x = chunk.xPosition, z = chunk.zPosition;
+ 
+@@ -259,6 +266,7 @@ public class ChunkBlockHashMap {
+         }
+         // Hoshiestar end
+         int x = chunk.xPosition, z = chunk.zPosition;
++        this.hoshieVersao.incrementAndGet(); // Hoshiestar: versao do mapa (antes da mudanca; remove(null) ja lancou NullPointerException na linha de cima, como no original)
+         Chunk[][] temp_chunk_bunch = this.map.get((((long) (x >> 4)) << 32L) ^ (z >> 4));
+ 
+         x %= 16;

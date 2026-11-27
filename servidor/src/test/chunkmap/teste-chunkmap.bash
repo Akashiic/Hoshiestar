@@ -19,6 +19,10 @@
 #   4. TesteChunkmapAdversario (testes da revisao independente: retencao depois de desligar, cache de
 #      4 entradas depois de desligar, leitor de fora com casa envenenada, estouro de pilha), no modo
 #      padrao da JVM e com -XX:-TieredCompilation (o modo em que o estouro de pilha mostrava o defeito).
+#   5. correcao H01 do cache de 4 entradas do codigo original (chave chunkmap.cache4Seguro) e contador de versao:
+#      TesteChunkmapDiferencial cache4 | ligado-cache4 (original x nova com a chave ligada) e TesteChunkmapCache4
+#      ligado | desligado (casas repetidas, thread de fora, N threads lendo com remove; desligado = controle),
+#      no modo padrao da JVM, com -XX:-TieredCompilation e com -Xint (interpretado: outras intercalacoes).
 #   --rapido: menos operacoes (para conferir rapido); --bench: microbenchmark no JDK 21 (indicacao).
 # Saida 0 = tudo passou.
 set -euo pipefail
@@ -91,7 +95,7 @@ if [[ $RAPIDO -eq 1 ]]; then OPS=200000; SEM=1; ITER=300000; ROD=1; else OPS=100
 falhas=0
 rodar() {
   local java="$1" opc=""; shift
-  if [[ "$1" == -XX:* ]]; then opc="$1"; shift; fi
+  if [[ "$1" == -X* ]]; then opc="$1"; shift; fi
   local classe="$1"; shift
   if "$java" $opc -cp "$OUT/classes:$CP" "$classe" "$@"; then :; else falhas=$((falhas + 1)); echo "[chunkmap] FALHOU: $opc $classe $* ($java)"; fi
 }
@@ -107,10 +111,19 @@ for java in "${JDKS[@]}"; do
   # sem compilacao em camadas, sempre 3 rodadas do estouro de pilha, tambem no --rapido: com 1 rodada o JIT pode mudar o
   # tamanho dos quadros depois da calibracao e nenhum estouro cair dentro de remove/put/get (visto no JDK 21 na juncao)
   rodar "$java" -XX:-TieredCompilation hoshiestar.teste.chunkmap.TesteChunkmapAdversario 3
+  # H01: cache de 4 entradas do codigo original com a chave chunkmap.cache4Seguro, e contador de versao do mapa
+  for modo in cache4 ligado-cache4; do
+    rodar "$java" hoshiestar.teste.chunkmap.TesteChunkmapDiferencial "$modo" "$OPS" "$SEM"
+  done
+  for modo in ligado desligado; do
+    rodar "$java" hoshiestar.teste.chunkmap.TesteChunkmapCache4 "$modo" "$ITER"
+    rodar "$java" -XX:-TieredCompilation hoshiestar.teste.chunkmap.TesteChunkmapCache4 "$modo" "$ITER"
+    rodar "$java" -Xint hoshiestar.teste.chunkmap.TesteChunkmapCache4 "$modo" $((ITER / 20))
+  done
 done
 if [[ $BENCH -eq 1 && -x "$J21/bin/java" ]]; then
   echo "[chunkmap] microbenchmark (JDK 21; so indicacao, nao e medicao de servidor)"
-  for impl in original desligado ligado; do
+  for impl in original desligado cache4 ligado; do
     "$J21/bin/java" -Xms1g -Xmx1g -cp "$OUT/classes:$CP" hoshiestar.teste.chunkmap.BenchChunkmap "$impl"
   done
 fi

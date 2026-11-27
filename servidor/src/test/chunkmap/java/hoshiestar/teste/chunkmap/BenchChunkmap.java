@@ -17,7 +17,7 @@ import java.util.Random;
  * Antes de cada bloco de 256 consultas o benchmark suja o cache do processador (8 MB), como o tick real
  * faz entre uma consulta e outra.
  *
- * <p>Uso: {@code BenchChunkmap <original|desligado|ligado>} (um por JVM: o interruptor e static final).
+ * <p>Uso: {@code BenchChunkmap <original|desligado|ligado|cache4>} (um por JVM: o interruptor e static final).
  * Padroes: 1 = mesmo chunk 4x e um vizinho; 2 = ancora +-1 chunk, 6 consultas; 3 = chunk carregado
  * qualquer (aleatorio); 4 = como 2, com 20% das consultas na borda da area (fora do mapa as vezes).
  */
@@ -34,6 +34,7 @@ public final class BenchChunkmap {
     public static void main(String[] a) {
         final String impl = a.length > 0 ? a[0] : "ligado";
         ChunkMap.configurarParaTeste(impl.equals("ligado"), 6, false);
+        ChunkMap.configurarCache4ParaTeste(impl.equals("cache4")); // cache4 = chunkmap desligado + chave chunkmap.cache4Seguro (H01)
         ThreadServidor.definir(Thread.currentThread());
         for (int pat = 1; pat <= 4; pat++) {
             Get m;

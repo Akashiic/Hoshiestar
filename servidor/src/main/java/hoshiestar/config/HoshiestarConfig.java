@@ -403,6 +403,70 @@ public final class HoshiestarConfig extends YamlConfig {
     @Path("orcamento.alerta_ops")
     public boolean orcamento_alertaOps = true;
 
+    // ---- chunkmap.cache4Seguro ----
+    @Comments({"Correcao do cache de 4 entradas do codigo ORIGINAL do mapa de chunks (achado H01). Nao depende de",
+        "chunkmap.ligado: vale sempre que o mapa esta no codigo original (chunkmap desligado, ou cache novo desligado",
+        "por seguranca). Ligado: (1) consulta de thread que nao e a do servidor nao grava mais nesse cache (le, e se nao",
+        "achar vai ao mapa); (2) tirar um chunk limpa TODAS as casas do cache com aquela coordenada, e por um chunk",
+        "tira antes a casa velha da mesma coordenada. Sem isso, duas threads consultando juntas podem deixar um chunk",
+        "ja descarregado no cache (item posto nele se perde, item tirado duplica). Necessario para o recurso paralelo.",
+        "Desligado: o codigo original do Crucible nesses pontos."})
+    public boolean chunkmap_cache4Seguro = false;
+
+    // ---- paralelo ----
+    @Comments({"Fase paralela sincronizada com barreira (Degrau B): tiles de regioes diferentes tickam em threads de regiao",
+        "enquanto a thread do servidor espera, e tudo volta a ser serie na juncao. NESTA VERSAO SO EXISTEM AS CHAVES, AS",
+        "RECUSAS E O COMANDO 'hoshie paralelo': a fase ainda nao esta implementada e nenhum gancho roda.",
+        "ligado: false = comportamento original. Lido so no boot. O recurso recusa ligar (motivo no log, em 'hoshie paralelo",
+        "motivos' e em 'hoshie status') se: orcamento.ligado for false; o modo for sombra_ordenada ou paralelo e parada.ligado",
+        "for false; o modo for paralelo e chunkmap.cache4Seguro for false; a dimensao nao existir; houver classe fora da lista;",
+        "algum valor abaixo estiver fora da faixa; ou (com os fatos do jogo, nos passos seguintes) houver mod sem veredito."})
+    public boolean paralelo_ligado = false;
+
+    @Comments({"Paralelo: modo. 'sombra' (tudo em serie, so conta o que seria ilegal), 'sombra_ordenada' (a thread do servidor",
+        "roda os lotes sozinha, com adiamentos) ou 'paralelo' (threads de regiao de verdade). Os dois ultimos exigem parada.ligado."})
+    @Path("paralelo.modo")
+    public String paralelo_modo = "sombra";
+
+    @Comments({"Paralelo: numero da dimensao (uma so; 0 = mundo principal). Tem de existir no servidor."})
+    @Path("paralelo.dimensao")
+    public int paralelo_dimensao = 0;
+
+    @Comments({"Paralelo: threads de regiao (1 a 6). A thread do servidor nao pega lote."})
+    @Path("paralelo.threads")
+    public int paralelo_threads = 3;
+
+    @Comments({"Paralelo: classes de tile liberadas, separadas por virgula, entre: mesa, bau, bau_ender.",
+        "Vazio = fase vazia (nenhum tile sai da serie)."})
+    @Path("paralelo.classes")
+    public String paralelo_classes = "";
+
+    @Comments({"Paralelo: o que fazer se um tile de regiao lancar excecao. 'parar' (padrao: crash-report e parada que salva) ou",
+        "'rebaixar' (a dimensao fica em serie ate o proximo boot)."})
+    @Path("paralelo.ao_falhar")
+    public String paralelo_aoFalhar = "parar";
+
+    @Comments({"Paralelo: o que fazer numa violacao (dono ou invariante quebrado). 'parar' (padrao) ou 'rebaixar'."})
+    @Path("paralelo.ao_violar")
+    public String paralelo_aoViolar = "parar";
+
+    @Comments({"Paralelo: em modo paralelo, confere 1 a cada N leituras (0 a 1000000; 0 = nao confere)."})
+    @Path("paralelo.leitura_amostra")
+    public int paralelo_leituraAmostra = 64;
+
+    @Comments({"Paralelo: fatia da espera na barreira, no pedido delegado e no portao, em segundos (1 a 3600).",
+        "So avisa no log; nunca libera uma operacao proibida nem interrompe uma thread."})
+    @Path("paralelo.aviso_espera_s")
+    public int paralelo_avisoEsperaS = 5;
+
+    @Comments({"Paralelo: depois de um sinal (algo que torna a fase insegura), quantos ticks ficar em sombra (0 a 1728000)."})
+    @Path("paralelo.sinal_ticks")
+    public int paralelo_sinalTicks = 1200;
+
+    @Comments({"Paralelo: depois do boot, quantos ticks ficar em sombra antes de abrir a fase (0 a 1728000)."})
+    @Path("paralelo.aquecimento_ticks")
+    public int paralelo_aquecimentoTicks = 600;
+
     // ---------------------------------------------------------------- leitura
 
     private static volatile HoshiestarConfig atual;

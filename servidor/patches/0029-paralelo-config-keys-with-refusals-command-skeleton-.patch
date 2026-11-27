@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Thu, 26 Nov 2026 16:22:13 +0000
+Subject: [PATCH 29/30] paralelo: config keys with refusals, command skeleton,
+ getEffectiveSide for region threads (Degrau B step 1)
+
+
+diff --git a/patches/cpw/mods/fml/common/FMLCommonHandler.java.patch b/patches/cpw/mods/fml/common/FMLCommonHandler.java.patch
+index 2b3fdafe..4368b6ab 100644
+--- a/patches/cpw/mods/fml/common/FMLCommonHandler.java.patch
++++ b/patches/cpw/mods/fml/common/FMLCommonHandler.java.patch
+@@ -11,7 +11,17 @@
+  
+  import com.google.common.base.Joiner;
+  import com.google.common.base.Strings;
+-@@ -385,10 +389,11 @@
++@@ -152,7 +156,8 @@
++     public Side getEffectiveSide()
++     {
++         Thread thr = Thread.currentThread();
++-        if ((thr.getName().equals("Server thread")))
+++        // Hoshiestar: a thread de regiao do paralelo (hoshiestar.paralelo) e lado servidor (S30)
+++        if ((thr.getName().equals("Server thread")) || hoshiestar.paralelo.Paralelo.ehThreadDeRegiao(thr))
++         {
++             return Side.SERVER;
++         }
++@@ -385,10 +390,11 @@
+          {
+              return;
+          }
+@@ -24,7 +34,7 @@
+          handlerSet.add(handler);
+          handlerToCheck = new WeakReference<SaveHandler>(handler); // for confirmBackupLevelDatUse
+          Map<String,NBTBase> additionalProperties = Maps.newHashMap();
+-@@ -496,7 +501,14 @@
++@@ -496,7 +502,14 @@
+  
+      public String getModName()
+      {
+@@ -40,7 +50,7 @@
+          modNames.add("fml");
+          if (!noForge)
+          {
+-@@ -540,8 +552,21 @@
++@@ -540,8 +553,21 @@
+          bus().post(new InputEvent.KeyInputEvent());
+      }
+  

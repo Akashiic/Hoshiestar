@@ -1,0 +1,102 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Thu, 26 Nov 2026 12:30:38 +0000
+Subject: [PATCH 27/30] ChunkBlockHashMap: H01 parts 2 and 3 behind
+ chunkmap.cache4Seguro
+
+With the key on (default off = original code at these three points):
+- get: on a miss, only the server thread writes last1..last4; any other
+  thread returns what it found in the map without writing.
+- remove: clears every slot whose coordinates match the chunk and packs the
+  rest in order. The original assumes at most one match: with [F, A, A, C]
+  it leaves A in the second slot and get() keeps returning the unloaded chunk.
+- put: drops any slot with the same coordinates before pushing the new chunk,
+  so the cache never holds two slots for one coordinate.
+No method calls inside the slot updates. Independent of chunkmap.ligado.
+
+diff --git a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+index c29f283b..7d96c650 100644
+--- a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
++++ b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+@@ -64,6 +64,16 @@ public class ChunkBlockHashMap {
+         }
+     }
+     // Hoshiestar end
++    // Hoshiestar start: H01 partes 2 e 3, chave chunkmap.cache4Seguro (src/docs/chunkmap.md, secao 8). Desligado = o codigo original nos tres pontos marcados (get, put, remove). Vale com chunkmap.ligado true ou false: depois que o cache novo se desliga, o mapa volta para este codigo
++    private static final boolean HOSHIE_CACHE4 = hoshieCache4Ligado();
++    private static boolean hoshieCache4Ligado() {
++        try {
++            return hoshiestar.chunkmap.ChunkMap.cache4Seguro();
++        } catch (Throwable t) {
++            return false;
++        }
++    }
++    // Hoshiestar end
+     // Hoshiestar start: contador de versao do mapa. Soma 1 a cada put de chunk nao nulo e a cada remove, ANTES de o mapa mudar, de qualquer thread (atomico). Nada no codigo original le; quem precisa provar "o mapa nao mudou entre dois pontos" compara dois valores (iguais = nenhum put/remove comecou no meio)
+     private final java.util.concurrent.atomic.AtomicLong hoshieVersao = new java.util.concurrent.atomic.AtomicLong();
+     public long hoshieVersao() {
+@@ -179,6 +189,11 @@ public class ChunkBlockHashMap {
+         Chunk ref = bunch[(x + (x >> 31)) ^ (x >> 31)][(z + (z >> 31)) ^ (z >> 31)];
+ 
+         if (ref != null) {
++            // Hoshiestar start: H01 parte 2: com a chave ligada, so a thread do servidor grava o cache de 4 entradas; outra thread (ou thread do servidor ainda desconhecida) devolve o que achou no mapa sem gravar nada
++            if (HOSHIE_CACHE4 && Thread.currentThread() != hoshiestar.api.ThreadServidor.thread()) {
++                return ref;
++            }
++            // Hoshiestar end
+             last4 = last3;
+             last3 = last2;
+             last2 = last1;
+@@ -226,6 +241,24 @@ public class ChunkBlockHashMap {
+             temp_chunk_bunch[x][z] = chunk;
+             this.map.put(chunkhash, temp_chunk_bunch); //Thermos
+         }
++        // Hoshiestar start: H01 (chave ligada): antes de empurrar o chunk novo, tira do cache de 4 entradas toda casa com as mesmas coordenadas (o objeto velho de um put sobre posicao ocupada, ou o mesmo objeto posto de novo). Assim o cache nunca guarda duas casas da mesma coordenada. Sem chamada de metodo: um estouro de pilha nao para no meio
++        if (HOSHIE_CACHE4) {
++            int hoshieX = chunk.xPosition, hoshieZ = chunk.zPosition;
++            Chunk h1 = last1, h2 = last2, h3 = last3, h4 = last4;
++            if (h1 != null && h1.xPosition == hoshieX && h1.zPosition == hoshieZ) h1 = null;
++            if (h2 != null && h2.xPosition == hoshieX && h2.zPosition == hoshieZ) h2 = null;
++            if (h3 != null && h3.xPosition == hoshieX && h3.zPosition == hoshieZ) h3 = null;
++            if (h4 != null && h4.xPosition == hoshieX && h4.zPosition == hoshieZ) h4 = null;
++            // junta as casas que sobraram no comeco, na mesma ordem
++            if (h3 == null) { h3 = h4; h4 = null; }
++            if (h2 == null) { h2 = h3; h3 = h4; h4 = null; }
++            if (h1 == null) { h1 = h2; h2 = h3; h3 = h4; h4 = null; }
++            last4 = h3;
++            last3 = h2;
++            last2 = h1;
++            last1 = chunk;
++        } else
++        // Hoshiestar end
+         if (chunk != null) {
+             last4 = last3;
+             last3 = last2;
+@@ -281,6 +314,27 @@ public class ChunkBlockHashMap {
+                 temp_chunk_bunch[x][z] = null;
+             }
+         }
++        // Hoshiestar start: H01 parte 3 (chave ligada): limpa TODAS as casas com as coordenadas do chunk e junta as que sobraram no comeco, na mesma ordem. O original supoe que a coordenada aparece no maximo uma vez: com [F, A, A, C] ele deixa A na segunda casa, e get devolve o chunk ja descarregado. Sem casa repetida o resultado e igual ao do original. Sem chamada de metodo: um estouro de pilha nao para no meio
++        if (HOSHIE_CACHE4) {
++            int hoshieX = chunk.xPosition, hoshieZ = chunk.zPosition;
++            Chunk h1 = last1, h2 = last2, h3 = last3, h4 = last4;
++            boolean hoshieAchou = false;
++            if (h1 != null && h1.xPosition == hoshieX && h1.zPosition == hoshieZ) { h1 = null; hoshieAchou = true; }
++            if (h2 != null && h2.xPosition == hoshieX && h2.zPosition == hoshieZ) { h2 = null; hoshieAchou = true; }
++            if (h3 != null && h3.xPosition == hoshieX && h3.zPosition == hoshieZ) { h3 = null; hoshieAchou = true; }
++            if (h4 != null && h4.xPosition == hoshieX && h4.zPosition == hoshieZ) { h4 = null; hoshieAchou = true; }
++            if (hoshieAchou) {
++                if (h3 == null) { h3 = h4; h4 = null; }
++                if (h2 == null) { h2 = h3; h3 = h4; h4 = null; }
++                if (h1 == null) { h1 = h2; h2 = h3; h3 = h4; h4 = null; }
++                last1 = h1;
++                last2 = h2;
++                last3 = h3;
++                last4 = h4;
++            }
++            return;
++        }
++        // Hoshiestar end
+         if (last1 != null && last1.xPosition == chunk.xPosition && last1.zPosition == chunk.zPosition) {
+             last1 = null;
+             last1 = last2;

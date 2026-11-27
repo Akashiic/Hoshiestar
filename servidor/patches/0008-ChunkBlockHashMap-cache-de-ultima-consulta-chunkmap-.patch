@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Sun, 22 Nov 2026 14:49:50 +0000
-Subject: [PATCH 08/24] ChunkBlockHashMap: cache de ultima consulta (chunkmap),
+Subject: [PATCH 08/30] ChunkBlockHashMap: cache de ultima consulta (chunkmap),
  so a thread do servidor grava
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

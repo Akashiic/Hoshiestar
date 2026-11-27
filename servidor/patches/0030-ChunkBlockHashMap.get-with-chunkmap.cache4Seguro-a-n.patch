@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Thu, 26 Nov 2026 16:28:14 +0000
+Subject: [PATCH 30/30] ChunkBlockHashMap.get: with chunkmap.cache4Seguro, a
+ non-server thread checks the coordinates of what the map returned
+
+While the server thread puts a chunk in a new 16x16 block the Koloboke table grows, and an
+unlocked get from another thread can return the block of another key. The map path returned
+that chunk without checking (the 4-entry cache path checks). Now a chunk of another coordinate
+becomes null for the outside reader. The false null for a loaded chunk in that window remains
+and is documented as a known limit (chunkmap.md 12.4 item 3, 12.7).
+
+Tests (TesteChunkmapCache4): swapped block (deterministic) and readers with the map growing.
+Review finding I1 of Degrau B step 1.
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+index ee615bcd..f3b5894c 100644
+--- a/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
++++ b/src/main/java/thermos/wrapper/ChunkBlockHashMap.java
+@@ -184,14 +184,15 @@ public class ChunkBlockHashMap {
+         Chunk[][] bunch = this.map.get((((long) (x >> 4)) << 32L) ^ (z >> 4));
+         if (bunch == null) return null;
+ 
++        int hoshieX = x, hoshieZ = z; // Hoshiestar: a coordenada pedida, antes de o codigo original reduzir x e z (usada so pela parte 2, abaixo)
+         x %= 16;
+         z %= 16;
+         Chunk ref = bunch[(x + (x >> 31)) ^ (x >> 31)][(z + (z >> 31)) ^ (z >> 31)];
+ 
+         if (ref != null) {
+-            // Hoshiestar start: H01 parte 2: com a chave ligada, so a thread do servidor grava o cache de 4 entradas; outra thread (ou thread do servidor ainda desconhecida) devolve o que achou no mapa sem gravar nada
++            // Hoshiestar start: H01 parte 2: com a chave ligada, so a thread do servidor grava o cache de 4 entradas; outra thread (ou thread do servidor ainda desconhecida) devolve o que achou no mapa sem gravar nada. Essa outra thread confere a coordenada do que achou: enquanto um put da thread do servidor faz a tabela do mapa Koloboke crescer, a consulta ao mapa pode devolver o bloco de 16x16 de OUTRA chave (a consulta sao duas leituras sem trava); chunk de outra coordenada vira null. O null falso para chunk carregado continua possivel nessa janela (src/docs/chunkmap.md, 12.4 e 12.7)
+             if (HOSHIE_CACHE4 && Thread.currentThread() != hoshiestar.api.ThreadServidor.thread()) {
+-                return ref;
++                return ref.xPosition == hoshieX && ref.zPosition == hoshieZ ? ref : null;
+             }
+             // Hoshiestar end
+             last4 = last3;

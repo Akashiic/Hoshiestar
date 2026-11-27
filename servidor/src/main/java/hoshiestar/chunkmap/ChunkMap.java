@@ -46,6 +46,7 @@ public final class ChunkMap {
     private static boolean ligado;
     private static int bits = BITS_PADRAO;
     private static boolean conferir;
+    private static boolean cache4Seguro;
 
     // contadores para o status (todos baratos; nenhum e tocado no caminho quente sem o modo conferir)
     static final AtomicInteger CACHES_CRIADOS = new AtomicInteger();
@@ -83,6 +84,7 @@ public final class ChunkMap {
         ligado = l;
         bits = bitsValidos(cfg.chunkmap_bits);
         conferir = cfg.chunkmap_conferir;
+        cache4Seguro = cfg.chunkmap_cache4Seguro;
         lido = true;
     }
 
@@ -120,6 +122,23 @@ public final class ChunkMap {
         return conferir;
     }
 
+    /**
+     * A chave chunkmap.cache4Seguro (correcao H01 do cache de 4 entradas do codigo original). Lida UMA
+     * vez pelo patch (campo static final de ChunkBlockHashMap). Nao depende de chunkmap.ligado.
+     */
+    public static boolean cache4Seguro() {
+        ligado();
+        return cache4Seguro;
+    }
+
+    /** Uso dos testes isolados: fixa a chave cache4Seguro (antes de ChunkBlockHashMap carregar). */
+    public static synchronized void configurarCache4ParaTeste(boolean seguro) {
+        if (!lido) {
+            fixar(HoshiestarConfig.atual()); // senao a primeira consulta leria o config por cima
+        }
+        cache4Seguro = seguro;
+    }
+
     /** Uso dos testes isolados: fixa os valores sem config (antes de ChunkBlockHashMap carregar). */
     public static synchronized void configurarParaTeste(boolean ligadoTeste, int bitsTeste, boolean conferirTeste) {
         ligado = ligadoTeste;
@@ -148,6 +167,7 @@ public final class ChunkMap {
                 .append(conferir ? String.valueOf(PUTS_SOBRE_OCUPADO.get()) : "(contado so com conferir)");
         String f = primeiraLeituraDeFora;
         sb.append("; leitura de outra thread: ").append(f == null ? "nenhuma vista" : "sim (primeira: " + f + ")");
+        sb.append("; cache de 4 entradas seguro (cache4Seguro): ").append(cache4Seguro ? "ligado" : "desligado");
         if (conferir) {
             sb.append("; conferir: acertos ").append(acertos).append(", faltas ").append(faltas)
                     .append(", divergencias ").append(divergencias);

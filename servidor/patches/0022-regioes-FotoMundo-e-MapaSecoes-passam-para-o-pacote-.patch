@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Wed, 25 Nov 2026 20:45:39 +0000
-Subject: [PATCH 22/24] regioes: FotoMundo e MapaSecoes passam para o pacote
+Subject: [PATCH 22/30] regioes: FotoMundo e MapaSecoes passam para o pacote
  publico hoshiestar.regioes (Etapa 2.5, passo 1); observador usa o novo
  pacote; testes do observador verdes
 
