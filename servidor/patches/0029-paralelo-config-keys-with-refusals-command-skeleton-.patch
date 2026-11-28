@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Thu, 26 Nov 2026 16:22:13 +0000
-Subject: [PATCH 29/30] paralelo: config keys with refusals, command skeleton,
+Subject: [PATCH 29/33] paralelo: config keys with refusals, command skeleton,
  getEffectiveSide for region threads (Degrau B step 1)
 
 

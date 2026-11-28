@@ -22,14 +22,32 @@
 #      thread de regiao, texto do comando 'hoshie paralelo';
 #   3. TesteParaleloBytecode: Paralelo.LIGADO e 'static final boolean', classes do paralelo sem Minecraft e, se o build
 #      rapido ja foi feito, FMLCommonHandler.getEffectiveSide com uma chamada ao paralelo e nenhum outro gancho no jogo.
+#   3a. passo 3: TesteClassificador (tabela de casos da classificacao), TesteGuardas (decisao das guardas, contadores,
+#      registro, invariantes), TesteColetaFatos (fatos do jogo: cada um faltando recusa, nunca fail-open) e, com
+#      HOSHIE_PARALELO_DUMP, TesteBytecodeFinal (regras (a), (b), (c) da secao 2 do plano e lista permitida por metodo do
+#      caminho, nas classes finais de um boot do modpack).
+#   3c. passo 4: TesteJuncao (Lote, Ordenada e Juncao num mundo falso: deduplicacao do original, erro no meio, lote sujo,
+#      tile quebrado depois do despacho, reentrada, emergencia, ordem independente da thread, diferencial sorteado contra o
+#      tick em serie; cada caso confere a contagem de itens antes e depois).
+#   3d. passo 4 (revisao, I1): TesteAdiadosJogo (os 15 pontos adiados e o callEvent, ligado e desligado) e TesteFaseJogo
+#      (OrdenadaJogo de ponta a ponta: firewall falso no despacho, reconferencias, lote sujo, emergencia, politica 'parar')
+#      nas classes REAIS do build rapido, sem subir o servidor. Fontes em src/test/paralelo/jogo/ (citam o Minecraft: nao
+#      entram na compilacao "sem Minecraft" acima). Precisam do build rapido e de HOSHIE_LIBS (todas as bibliotecas do
+#      servidor); sem eles, PULADOS com aviso. A prova deles (defeitos de proposito) e mutacoes-jogo.py, nesta pasta.
+#   3b. TesteCongelar (passo 2; duas vezes, com e sem -Dhoshiestar.paralelo.teste=true): a ferramenta de teste
+#      'hoshie paralelo congelar <tick>' (recusa sem a propriedade, tick que ja passou, troca de pedido, congela uma vez no
+#      tick pedido); o TesteParaleloBytecode confere o gancho no MinecraftServer atras de Congelar.TESTE.
 #   4. TesteNucleoCasos: casos montados do nucleo com regioes falsas (estados da fase, erro injetado, lote que dorme com
 #      despejo por fatia e sem interrupcao, thread que morre, pedido delegado em todas as variantes, thread estranha no
 #      portao com e sem o monitor, abortar com prazo, encerrar, e os casos da revisao do passo 5: encerrar chamado por
-#      thread interrompida, portao logo depois de a thread do servidor sair do monitor, abortar no meio de uma operacao);
+#      thread interrompida, portao logo depois de a thread do servidor sair do monitor, abortar no meio de uma operacao;
+#      e os da segunda revisao: abortar chamado por thread interrompida, thread estranha interrompida no portao, o portao
+#      so abre depois de os trabalhadores sairem do item, abortar com o trabalhador no ultimo item do lote);
 #   5. TesteNucleoCarga: ticks seguidos com 1 a 8 threads (cada lote exatamente uma vez, ordem interna, fase so termina com
 #      todos) e caos (pedidos, erros, lotes sujos e threads estranhas ao mesmo tempo, com juncao falsa).
 #   6. TesteNucleoSonda: instante sorteado com oraculo proprio (veio da revisao do passo 5): abortar, encerrar, morte de
-#      thread, interrupcoes e item preso caindo no meio de pedidos, operacoes demoradas e threads estranhas no portao.
+#      thread, interrupcoes e item preso caindo no meio de pedidos, operacoes demoradas e threads estranhas no portao;
+#      parte das chamadas de abortar/encerrar e das chegadas ao portao e feita por thread com interrupcao pendente.
 # Saida 0 = tudo passou.
 #
 # A prova dos testes 4 a 6 (defeitos postos de proposito no nucleo, um de cada vez) fica em mutacoes-nucleo.py, na mesma
@@ -76,11 +94,12 @@ echo "[paralelo] workspace: $W"
 echo "[paralelo] saida: $OUT"
 
 rm -rf "$OUT/paralelo-classes"; mkdir -p "$OUT/paralelo-classes"
-# so o que NAO cita o Minecraft nem o Bukkit (ComandoParaleloJogo fica de fora: o adaptador do Bukkit)
+# so o que NAO cita o Minecraft nem o Bukkit (ficam de fora os adaptadores: ComandoParaleloJogo, GanchosParalelo,
+# GanchosEventos, ColetaFatosJogo e, do passo 4, OrdenadaJogo e GanchosAdiados; o TesteParaleloBytecode os confere no build rapido)
 FONTES=$( (cd "$W/src/main/java" && find io/github/crucible/util/config -name '*.java'
           ls hoshiestar/Hoshiestar.java hoshiestar/api/*.java hoshiestar/config/*.java \
              hoshiestar/embutidos/*.java hoshiestar/embutidos/asm/*.java
-          ls hoshiestar/paralelo/*.java | grep -v -e ComandoParaleloJogo) \
+          ls hoshiestar/paralelo/*.java | grep -v -e ComandoParaleloJogo -e GanchosParalelo -e GanchosEventos -e ColetaFatosJogo -e OrdenadaJogo -e GanchosAdiados) \
           | sort | sed "s|^|$W/src/main/java/|")
 "$J8/bin/javac" -nowarn -encoding UTF-8 -source 1.8 -target 1.8 -cp "$CP" -d "$OUT/paralelo-classes" \
   $FONTES "$W/src/test/java/hoshiestar/teste/Verifica.java" $(find "$W/src/test/paralelo/java" -name '*.java' | sort)
@@ -94,8 +113,39 @@ rodar() {
 JDKS=("$J8/bin/java")
 if [[ -x "$J21/bin/java" ]]; then JDKS+=("$J21/bin/java"); else echo "[paralelo] AVISO: JDK 21 nao encontrado em $J21; rodando so no 8"; fi
 CLASSES_BUILD="$W/eclipse/cauldron/build/classes/java/main"
+# passo 4 (revisao, I1): testes dos adaptadores do jogo, contra as classes do build rapido e as bibliotecas do servidor
+JOGO=""
+if [[ -f "$CLASSES_BUILD/hoshiestar/paralelo/OrdenadaJogo.class" && -n "${HOSHIE_LIBS:-}" && -d "${HOSHIE_LIBS}" ]]; then
+  LIBS_JOGO="$(find "$HOSHIE_LIBS" -name '*.jar' -type f | sort | tr '\n' ':')"
+  JOGO="$OUT/paralelo-jogo"
+  rm -rf "$JOGO"; mkdir -p "$JOGO/classes" "$JOGO/ligado" "$JOGO/desligado"
+  "$J8/bin/javac" -nowarn -encoding UTF-8 -source 1.8 -target 1.8 -cp "$CLASSES_BUILD:$LIBS_JOGO" -d "$JOGO/classes" \
+    "$W/src/test/java/hoshiestar/teste/Verifica.java" $(find "$W/src/test/paralelo/jogo" -name '*.java' | sort)
+  printf 'paralelo:\n  ligado: true\n' > "$JOGO/ligado/hoshiestar.yml"
+  printf 'paralelo:\n  ligado: false\n' > "$JOGO/desligado/hoshiestar.yml"
+fi
+rodar_jogo() {
+  local java="$1" pasta="$2" classe="$3" t0=$SECONDS; shift 3
+  if (cd "$JOGO/$pasta" && "$java" -cp "$JOGO/classes:$CLASSES_BUILD:$LIBS_JOGO" "$classe" "$@"); then :; else falhas=$((falhas + 1)); echo "[paralelo] FALHOU: $classe $* ($java)"; fi
+  echo "[paralelo] $classe $* ($java): $((SECONDS - t0)) s"
+}
 for java in "${JDKS[@]}"; do
   rodar "$java" hoshiestar.paralelo.TesteRecusas
+  # passo 3: classificacao, guardas, invariantes e coleta dos fatos do jogo (funcoes puras)
+  rodar "$java" hoshiestar.paralelo.TesteClassificador
+  rodar "$java" hoshiestar.paralelo.TesteGuardas
+  rodar "$java" hoshiestar.paralelo.TesteColetaFatos
+  # passo 4: lote, sombra_ordenada e juncao num mundo falso (contagem de itens antes e depois, cada tile e cada adiado uma vez)
+  rodar "$java" hoshiestar.paralelo.TesteJuncao
+  # passo 3: regras de bytecode e lista permitida nas classes FINAIS (dump de um boot do modpack; fora do repositorio)
+  if [[ -n "${HOSHIE_PARALELO_DUMP:-}" && -f "${HOSHIE_PARALELO_DUMP}/net/minecraft/world/World.class" ]]; then
+    rodar "$java" hoshiestar.paralelo.TesteBytecodeFinal "$HOSHIE_PARALELO_DUMP" "$W/src/test/paralelo/bytecode-permitido.txt"
+  else
+    echo "[paralelo] AVISO: TesteBytecodeFinal PULADO (defina HOSHIE_PARALELO_DUMP=<pasta loader/ do dump das classes finais de um boot>)"
+  fi
+  # passo 2: ferramenta de teste 'congelar' (com e sem -Dhoshiestar.paralelo.teste=true)
+  JOPT="${JOPT:-} -Dhoshiestar.paralelo.teste=true" rodar "$java" hoshiestar.paralelo.TesteCongelar true
+  rodar "$java" hoshiestar.paralelo.TesteCongelar false
   for lig in true false; do
     rm -rf "$OUT/paralelo-config-$lig"; mkdir -p "$OUT/paralelo-config-$lig"
     pushd "$OUT/paralelo-config-$lig" > /dev/null
@@ -107,6 +157,13 @@ for java in "${JDKS[@]}"; do
   else
     echo "[paralelo] AVISO: parte do jogo do TesteParaleloBytecode PULADA ($CLASSES_BUILD nao tem as classes: rode o build rapido antes)"
     rodar "$java" hoshiestar.paralelo.TesteParaleloBytecode "$OUT/paralelo-classes"
+  fi
+  if [[ -n "$JOGO" ]]; then
+    rodar_jogo "$java" ligado hoshiestar.paralelo.TesteAdiadosJogo true
+    rodar_jogo "$java" desligado hoshiestar.paralelo.TesteAdiadosJogo false
+    rodar_jogo "$java" ligado hoshiestar.paralelo.TesteFaseJogo
+  else
+    echo "[paralelo] AVISO: TesteAdiadosJogo e TesteFaseJogo PULADOS (precisam do build rapido em $CLASSES_BUILD e de HOSHIE_LIBS=<pasta libraries/ de um servidor>)"
   fi
   JOPT="${JOPT:-} -Dhoshiestar.teste.completo=$COMPLETO" rodar "$java" hoshiestar.paralelo.TesteNucleoCasos
   JOPT="${JOPT:-} -Dhoshiestar.teste.completo=$COMPLETO" rodar "$java" hoshiestar.paralelo.TesteNucleoCarga

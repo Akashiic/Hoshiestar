@@ -95,6 +95,11 @@ public final class Servidor {
      */
     public static void pronto() {
         try {
+            hoshiestar.paralelo.ColetaFatosJogo.coletarSeLigado(); // paralelo: fatos do jogo para as recusas (decisao 39d); antes do resumo
+        } catch (Throwable t) {
+            Log.erro("paralelo: erro na coleta dos fatos do jogo (o recurso continua recusado)", t);
+        }
+        try {
             if (hoshiestar.vigia.Vigia.ligado()) {
                 hoshiestar.vigia.Vigia.iniciar(new hoshiestar.vigia.ContextoMinecraft()); // thread do vigia de tick lento
             }
@@ -107,7 +112,7 @@ public final class Servidor {
                             : "NAO confere (" + ThreadServidor.thread() + " x " + Thread.currentThread().getName() + ")"));
             for (Recursos.Recurso r : Recursos.todos()) {
                 String e = r.ligado ? r.linhaDeEstado() : null;
-                Log.info("recurso " + r.id + ": " + (r.ligado ? "ligado" : "desligado") + (e != null ? " | " + e : ""));
+                Log.info("recurso " + r.id + ": " + r.situacao() + (e != null ? " | " + e : ""));
                 for (Correcao c : Correcoes.global().doRecurso(r.id)) {
                     String linha = "  correcao: " + c.linha();
                     if (c.ligada && c.estado() == Correcao.Estado.AGUARDANDO) {

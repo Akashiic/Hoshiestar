@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Sun, 22 Nov 2026 19:35:47 +0000
-Subject: [PATCH 11/30] parada: no boot o gancho nao espera; avisos tambem
+Subject: [PATCH 11/33] parada: no boot o gancho nao espera; avisos tambem
  direto no console durante a saida da JVM
 
 Achados do teste no modpack real: (1) com a JVM saindo o log4j para de escrever, entao os avisos da parada vao tambem direto para a saida de erro; (2) continuar o boot com a JVM saindo quebra mods (addShutdownHook lanca 'Shutdown in progress' e sai crash-report), entao antes de SERVER_STARTED o gancho segue o caminho original; (3) a saida e conferida antes do boot, porque o FML volta a responder 'nao iniciou' depois de parar.

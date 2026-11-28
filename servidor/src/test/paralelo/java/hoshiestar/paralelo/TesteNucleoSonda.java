@@ -38,13 +38,18 @@ import static hoshiestar.paralelo.ApoioNucleo.gastar;
  * Durante tudo isso: pedidos delegados (com e sem monitor, aninhados, dois no mesmo item, sujando lotes), operacoes que
  * levam de 0,1 a 1 ms (para o evento cair no meio delas), erros de item e ate 3 threads estranhas no portao (sem monitor,
  * com o monitor do pedido, com outro monitor, com duas guardas na mesma escrita). No fim de cada repeticao, {@code encerrar};
- * uma vez em quatro, com a thread que chama ja interrompida.
+ * uma vez em quatro, com a thread que chama ja interrompida. Desde a segunda revisao do passo 5 (achado I3): uma vez em
+ * tres a thread que chama {@code abortar}/{@code encerrar} no meio da fase chega com o sinal de interrupcao ligado, e uma
+ * vez em quatro a thread estranha chega ao portao com o sinal ligado.
  *
  * <p>O oraculo nao usa estado interno do nucleo. Cada item conta entrada e saida num contador do teste; cada operacao
  * confere "ninguem dentro de item" no comeco e no fim e "nenhum item comecou" durante; cada item confere, ao comecar: fase
  * ainda aberta, nenhuma operacao em curso, nenhuma escrita pela excecao do monitor em curso, {@code abortar} ainda nao
  * voltou vazio, lote nao sujo por pedido ja atendido, item 0 nao depois de uma operacao. Depois de cada {@code rodar}: todo
  * lote com fecho e as contagens por item batendo com o fim. Fatia de 5 s: qualquer despejo conta como wakeup perdido.
+ * No portao: quem sai por ter esperado a barreira nao pode ver item em curso na mesma fase em que chegou; quem sai pelo
+ * portao aberto, sem prazo de aborto vencido, nao pode ver item em curso. {@code abortar}/{@code encerrar} sem item preso
+ * tem de voltar em menos de 3 s (o prazo e de 10 s: mais que isso e aviso perdido) e com o sinal de interrupcao reposto.
  *
  * <p>Modo rapido (padrao): 4 mil repeticoes. Com {@code -Dhoshiestar.teste.completo=true}: 40 mil.
  * {@code TesteNucleoSonda [repeticoes] [semente] [maximo de threads]}.
@@ -123,6 +128,10 @@ public final class TesteNucleoSonda {
         volatile long presoChave = -1L;
         volatile int presoItem = -1;
         volatile boolean erroNaFase;
+        /** Numero da fase da vez: a thread do servidor soma 1 logo antes de cada rodar(). */
+        volatile int faseN;
+        /** Um abortar de prazo curto (15 ms) foi chamado: o portao pode abrir com o item preso ainda em curso. */
+        volatile boolean prazoCurto;
     }
 
     static final int NADA = 0;
@@ -363,6 +372,8 @@ public final class TesteNucleoSonda {
     static final AtomicLong escritasDentroDaFase = new AtomicLong();
     static final AtomicLong escritasComItem = new AtomicLong();
     static final AtomicLong escritasDeQuemEsperou = new AtomicLong();
+    static final AtomicLong estranhasComSinal = new AtomicLong();
+    static final AtomicLong abortosComSinal = new AtomicLong();
 
     static Thread estranha(final Mundo w, final long semente, final int idx) {
         Thread t = new Thread(new Runnable() {
@@ -372,6 +383,13 @@ public final class TesteNucleoSonda {
                 while (!w.fim) {
                     int modo = r.nextInt(4);
                     int res;
+                    // uma vez em quatro chega ao portao com o sinal de interrupcao ligado (tarefa cancelada, shutdownNow)
+                    boolean comSinal = r.nextInt(4) == 0;
+                    if (comSinal) {
+                        estranhasComSinal.incrementAndGet();
+                        Thread.currentThread().interrupt();
+                    }
+                    final int faseDaChegada = w.faseN;
                     if (modo == 0) {
                         synchronized (w.monitor) {
                             res = w.b.portao(w.monitor);
@@ -393,7 +411,7 @@ public final class TesteNucleoSonda {
                                 }
                                 w.escritaMonitor = false;
                             } else {
-                                conta(w, res);
+                                conta(w, res, faseDaChegada);
                             }
                         }
                     } else if (modo == 1) {
@@ -402,14 +420,17 @@ public final class TesteNucleoSonda {
                             if (res == Barreira.PORTAO_MONITOR) {
                                 prob("thread estranha com OUTRO monitor passou pela excecao");
                             }
-                            conta(w, res);
+                            conta(w, res, faseDaChegada);
                         }
                     } else {
                         res = w.b.portao(modo == 2 ? null : w.monitor);
                         if (res == Barreira.PORTAO_MONITOR) {
                             prob("thread estranha SEM monitor na mao passou pela excecao");
                         }
-                        conta(w, res);
+                        conta(w, res, faseDaChegada);
+                    }
+                    if (comSinal && !Thread.interrupted()) {
+                        prob("a thread estranha chegou ao portao com o sinal de interrupcao ligado e saiu sem ele");
                     }
                     gastar(idx, r.nextInt(2000));
                     if (r.nextInt(8) == 0) {
@@ -424,15 +445,29 @@ public final class TesteNucleoSonda {
     }
 
     /** Depois de o portao devolver sem ser pela excecao: a "escrita" vem agora. So conta (e o limite aceito pelo plano). */
-    static void conta(Mundo w, int res) {
+    static void conta(Mundo w, int res, int faseDaChegada) {
         passagens.incrementAndGet();
         if (res == Barreira.PORTAO_ESPEROU) {
             esperou.incrementAndGet();
+            // Quem esperou saiu porque a fase em que estava no portao (a da chegada ou uma posterior) passou a barreira. Se o
+            // numero da fase ainda e o da chegada, nenhuma fase nova comecou: nao pode haver item em curso. (O numero e lido
+            // antes e depois da contagem: se nao mudou, a contagem e da fase da chegada, que ja acabou.)
+            int n1 = w.faseN;
+            int d = w.dentro.get();
+            int n2 = w.faseN;
+            if (d != 0 && n1 == faseDaChegada && n2 == faseDaChegada) {
+                prob("thread estranha saiu do portao por ter esperado, com " + d + " item(ns) em curso na mesma fase em que chegou (passou com a fase rodando)");
+            }
         }
         if (res == Barreira.PORTAO_ABERTO) {
             passagensAberto.incrementAndGet();
             if (!w.abortoChamado) {
                 prob("PORTAO_ABERTO sem abortar/encerrar");
+            }
+            // sem prazo vencido, o portao so abre depois de o ultimo trabalhador sair do item, e ninguem comeca outro
+            int d = w.dentro.get();
+            if (d != 0 && !w.prazoCurto) {
+                prob("PORTAO_ABERTO com " + d + " item(ns) em curso e nenhum prazo de aborto vencido (o portao abriu antes de os trabalhadores sairem do item)");
             }
             return;
         }
@@ -493,6 +528,9 @@ public final class TesteNucleoSonda {
             final int pPede = r.nextInt(3) == 0 ? 0 : r.nextInt(60);
             final int pErro = r.nextInt(4) == 0 ? r.nextInt(10) : 0;
             final long[] durAbortar = new long[1];
+            // sorteio a parte, para nao mexer na sequencia dos outros: uma vez em tres quem chama abortar/encerrar no meio da
+            // fase chega com o sinal de interrupcao ligado (a maquina de parada repoe o sinal em quem pediu a parada)
+            final boolean ctlComSinal = new Random(semente * 1000003L + 17L).nextInt(3) == 0;
             final boolean[] presos = new boolean[1];
             Thread ctl = null;
             Thread interrompe = null;
@@ -513,10 +551,18 @@ public final class TesteNucleoSonda {
                             while (!w.presoDentro && System.nanoTime() < fim && !w.fim) {
                                 Thread.yield();
                             }
+                            w.prazoCurto = true;
                             w.abortoChamado = true;
+                            if (ctlComSinal) {
+                                abortosComSinal.incrementAndGet();
+                                Thread.currentThread().interrupt();
+                            }
                             long t0 = System.nanoTime();
                             List<Preso> ps = b.abortar(15L * MS);
                             long dur = System.nanoTime() - t0;
+                            if (ctlComSinal && !Thread.interrupted()) {
+                                prob("abortar de prazo curto com interrupcao pendente nao repos o sinal");
+                            }
                             long ini = w.inicios.get();
                             if (w.presoDentro) {
                                 comPreso.incrementAndGet();
@@ -542,14 +588,25 @@ public final class TesteNucleoSonda {
                             return;
                         }
                         w.abortoChamado = true;
+                        if (ctlComSinal) {
+                            abortosComSinal.incrementAndGet();
+                            Thread.currentThread().interrupt();
+                        }
+                        String qual = (evento == 2 ? "encerrar" : "abortar") + (ctlComSinal ? " (com interrupcao pendente)" : "");
                         long t0 = System.nanoTime();
                         List<Preso> ps = evento == 2 ? b.encerrar(10L * SEG) : b.abortar(10L * SEG);
                         durAbortar[0] = System.nanoTime() - t0;
+                        if (ctlComSinal && !Thread.interrupted()) {
+                            prob(qual + " nao repos o sinal");
+                        }
                         if (ps.isEmpty()) {
                             w.abortoLimpo = true;
                         } else {
                             presos[0] = true;
-                            prob((evento == 2 ? "encerrar" : "abortar") + " devolveu presos sem nenhum item preso: " + ps);
+                            prob(qual + " devolveu presos sem nenhum item preso: " + ps);
+                        }
+                        if (durAbortar[0] > 3L * SEG) {
+                            prob(qual + " sem nenhum item preso levou " + durAbortar[0] / MS + " ms (prazo de 10 s): aviso perdido?");
                         }
                     }
                 }, "controle");
@@ -607,6 +664,7 @@ public final class TesteNucleoSonda {
                 }
                 w.lotesDaFase = ls;
                 w.opsNaFase = 0;
+                w.faseN = w.faseN + 1;
                 w.rodando = true;
                 long t0 = System.nanoTime();
                 Fase f = b.rodar(ls);
@@ -767,7 +825,9 @@ public final class TesteNucleoSonda {
                 + mortes + " fases com morte, " + interrupcoes + " fases com interrupcao, " + comSinal + " encerrar com interrupcao pendente;" + sf);
         System.out.println("  abortar com um trabalhador preso num item (prazo de 15 ms): " + comPreso.get() + " vezes");
         System.out.println("  portao: " + passagens.get() + " passagens comuns (" + esperou.get() + " esperaram), " + passagensMonitor.get()
-                + " pela excecao do monitor, " + passagensAberto.get() + " com o portao aberto");
+                + " pela excecao do monitor, " + passagensAberto.get() + " com o portao aberto; chegadas ao portao com interrupcao pendente: "
+                + estranhasComSinal.get());
+        System.out.println("  abortar/encerrar no meio da fase chamado por thread com interrupcao pendente: " + abortosComSinal.get());
         System.out.println("  limite do portao (aceito no plano): escritas feitas logo depois de o portao devolver que cairam com a fase RODANDO: "
                 + escritasDentroDaFase.get() + " (com item em curso: " + escritasComItem.get() + "; de quem esperou no portao e foi liberado com confirmacao: "
                 + escritasDeQuemEsperou.get() + ")");
@@ -779,8 +839,9 @@ public final class TesteNucleoSonda {
         v.sim(nProbs.get() == 0, "oraculo da sonda: nenhum problema (" + nProbs.get() + ")");
         if (nProbs.get() == 0 && reps >= 2000) {
             v.sim(pedidos > 0 && abortos > 0 && encerros > 0 && mortes > 0 && interrupcoes > 0 && comSinal > 0 && comPreso.get() > 0
-                    && passagensMonitor.get() > 0 && passagensAberto.get() > 0 && esperou.get() > 0,
-                    "a sonda exercitou tudo: pedidos, abortar, encerrar, morte, interrupcao, item preso, portao (espera, monitor, aberto)");
+                    && passagensMonitor.get() > 0 && passagensAberto.get() > 0 && esperou.get() > 0 && estranhasComSinal.get() > 0 && abortosComSinal.get() > 0,
+                    "a sonda exercitou tudo: pedidos, abortar, encerrar, morte, interrupcao, item preso, portao (espera, monitor, aberto), "
+                            + "interrupcao pendente em quem chama abortar e em quem chega ao portao");
         }
         v.fim();
     }

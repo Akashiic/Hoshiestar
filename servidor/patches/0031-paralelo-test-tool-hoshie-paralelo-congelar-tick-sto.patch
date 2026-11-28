@@ -1,0 +1,149 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Fri, 27 Nov 2026 04:25:56 +0000
+Subject: [PATCH 31/33] paralelo: test tool 'hoshie paralelo congelar <tick>'
+ stops ticking all worlds at an exact tick and saves once (Degrau B step 2,
+ only with -Dhoshiestar.paralelo.teste=true)
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/patches/net/minecraft/server/MinecraftServer.java.patch b/patches/net/minecraft/server/MinecraftServer.java.patch
+index 2901c4ba..587c467f 100644
+--- a/patches/net/minecraft/server/MinecraftServer.java.patch
++++ b/patches/net/minecraft/server/MinecraftServer.java.patch
+@@ -718,7 +718,7 @@
+              this.theProfiler.endSection();
+          }
+  
+-@@ -575,25 +927,66 @@
++@@ -575,80 +927,171 @@
+          this.theProfiler.endSection();
+          this.theProfiler.startSection("snooper");
+  
+@@ -750,6 +750,22 @@
+ +        if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.fimTick(); // Hoshiestar - orcamento: tempo do tick, custo por regiao, avaliacao e alertas (nunca lanca)
+      }
+  
+++    // Hoshiestar start - paralelo (teste, so com -Dhoshiestar.paralelo.teste=true): salvamento unico no tick em que os mundos congelam
+++    private void hoshieSalvarCongelado()
+++    {
+++        try
+++        {
+++            this.serverConfigManager.saveAllPlayerData();
+++            this.saveAllWorlds(false);
+++            hoshiestar.api.Log.info("paralelo (teste): mundos congelados no tick " + hoshiestar.paralelo.Congelar.congeladoEm() + " do mundo 0 (pedido " + hoshiestar.paralelo.Congelar.alvo() + "); salvamento pedido. Pare com 'stop'.");
+++        }
+++        catch (Throwable hoshieErro)
+++        {
+++            hoshiestar.api.Log.erro("paralelo (teste): salvamento do congelar falhou (os mundos seguem congelados; o 'stop' salva de novo)", hoshieErro);
+++        }
+++    }
+++    // Hoshiestar end
+++
+      public void updateTimeLightAndEntities()
+      {
+          this.theProfiler.startSection("levels");
+@@ -786,8 +802,11 @@
+ +
+          int i;
+  
+++        if (hoshiestar.paralelo.Congelar.TESTE && hoshiestar.paralelo.Congelar.antesDosMundos(this.worldServers[0].getTotalWorldTime())) this.hoshieSalvarCongelado(); // Hoshiestar - paralelo (teste, so com -D): 'hoshie paralelo congelar <tick>' para de ticar os mundos no tick pedido e salva uma vez
+          Integer[] ids = DimensionManager.getIDs(this.tickCounter % 200 == 0);
+-@@ -602,53 +995,85 @@
++         for (int x = 0; x < ids.length; x++)
++         {
+++            if (hoshiestar.paralelo.Congelar.TESTE && hoshiestar.paralelo.Congelar.congelado()) continue; // Hoshiestar - paralelo (teste): mundos congelados nao ticam (nem entidades, tiles e rastreador)
+              int id = ids[x];
+              long j = System.nanoTime();
+  
+@@ -879,7 +898,7 @@
+  
+              worldTickTimes.get(id)[this.tickCounter % 100] = System.nanoTime() - j;
+          }
+-@@ -656,15 +1081,23 @@
++@@ -656,15 +1099,23 @@
+          this.theProfiler.endStartSection("dim_unloading");
+          DimensionManager.unloadWorlds(worldTickTimes);
+          this.theProfiler.endStartSection("connection");
+@@ -903,7 +922,7 @@
+  
+          this.theProfiler.endSection();
+      }
+-@@ -699,6 +1132,13 @@
++@@ -699,6 +1150,13 @@
+  
+      public WorldServer worldServerForDimension(int p_71218_1_)
+      {
+@@ -917,7 +936,7 @@
+          WorldServer ret = DimensionManager.getWorld(p_71218_1_);
+          if (ret == null)
+          {
+-@@ -784,13 +1224,14 @@
++@@ -784,13 +1242,14 @@
+  
+      public List getPossibleCompletions(ICommandSender p_71248_1_, String p_71248_2_)
+      {
+@@ -936,7 +955,7 @@
+  
+              if (list != null)
+              {
+-@@ -798,40 +1239,25 @@
++@@ -798,40 +1257,25 @@
+  
+                  while (iterator.hasNext())
+                  {
+@@ -985,7 +1004,7 @@
+      }
+  
+      public static MinecraftServer getServer()
+-@@ -1034,7 +1460,7 @@
++@@ -1034,7 +1478,7 @@
+  
+      public boolean isServerInOnlineMode()
+      {
+@@ -994,7 +1013,7 @@
+      }
+  
+      public void setOnlineMode(boolean p_71229_1_)
+-@@ -1124,7 +1550,7 @@
++@@ -1124,7 +1568,7 @@
+  
+      public NetworkSystem func_147137_ag()
+      {
+@@ -1003,7 +1022,7 @@
+      }
+  
+      @SideOnly(Side.CLIENT)
+-@@ -1257,10 +1683,14 @@
++@@ -1257,10 +1701,14 @@
+      @SideOnly(Side.SERVER)
+      public static void main(String[] p_main_0_)
+      {
+@@ -1018,7 +1037,7 @@
+              boolean flag = true;
+              String s = null;
+              String s1 = ".";
+-@@ -1356,16 +1786,34 @@
++@@ -1356,16 +1804,34 @@
+              {
+                  dedicatedserver.setGuiEnabled();
+              }
+@@ -1059,7 +1078,7 @@
+          }
+          catch (Exception exception)
+          {
+-@@ -1400,15 +1848,70 @@
++@@ -1400,15 +1866,70 @@
+      @SideOnly(Side.SERVER)
+      public String getPlugins()
+      {
+@@ -1135,7 +1154,7 @@
+      }
+  
+      @SideOnly(Side.SERVER)
+-@@ -1455,9 +1958,213 @@
++@@ -1455,9 +1976,213 @@
+          return this.serverStopped;
+      }
+  

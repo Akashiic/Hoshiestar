@@ -526,6 +526,25 @@ public final class Nucleo {
         return r < 0 || decisao[r];
     }
 
+    /**
+     * O mapa de regioes atual, ou null (orcamento parado ou mapa ainda nao calculado). So a thread do servidor; o mapa so e
+     * trocado no {@link #inicioTick}. Usado pelo paralelo (Degrau B) para a regiao de cada tile.
+     */
+    public Mapa mapa() {
+        return ativo ? mapa : null;
+    }
+
+    /**
+     * Condicao G2 do paralelo: a regiao de indice {@code idx} do mapa atual nao esta em corte neste tick (nem na rodada
+     * dela) e nao esta suspensa. Indice fora do mapa: falso. So a thread do servidor.
+     */
+    public boolean regiaoLivre(int idx) {
+        if (!ativo || mapa == null || idx < 0 || idx >= est.length || idx >= emCorte.length) {
+            return false;
+        }
+        return !emCorte[idx] && !est[idx].suspensa && !suspenderTodas;
+    }
+
     /** A decisao da regiao de indice {@code idx} do mapa atual neste tick. */
     public boolean rodaNesteTick(int idx) {
         return idx < 0 || idx >= decisao.length || decisao[idx];

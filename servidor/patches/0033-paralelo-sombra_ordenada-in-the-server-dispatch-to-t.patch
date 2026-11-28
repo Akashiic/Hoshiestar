@@ -1,0 +1,173 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Fri, 27 Nov 2026 12:01:25 +0000
+Subject: [PATCH 33/33] paralelo: sombra_ordenada in the server (dispatch to
+ the region lot after the firewall question, the server thread runs the lots
+ alone after the tile loop, deferred client notices, scheduled ticks, block
+ events and unload-queue exits applied by the original methods in the
+ junction, callEvent without listeners skips the monitor, test-only 'injetar
+ quebrar'), all behind Paralelo.LIGADO
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/patches/net/minecraft/world/World.java.patch b/patches/net/minecraft/world/World.java.patch
+index c16e535c..42b9b2bd 100644
+--- a/patches/net/minecraft/world/World.java.patch
++++ b/patches/net/minecraft/world/World.java.patch
+@@ -682,7 +682,7 @@
+  
+      public void markBlockForUpdate(int p_147471_1_, int p_147471_2_, int p_147471_3_)
+      {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_147471_1_, p_147471_3_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.marcarBloco(this, p_147471_1_, p_147471_2_, p_147471_3_)) return; // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          for (int l = 0; l < this.worldAccesses.size(); ++l)
+          {
+              ((IWorldAccess)this.worldAccesses.get(l)).markBlockForUpdate(p_147471_1_, p_147471_2_, p_147471_3_);
+@@ -703,7 +703,7 @@
+  
+      public void markBlockRangeForRenderUpdate(int p_147458_1_, int p_147458_2_, int p_147458_3_, int p_147458_4_, int p_147458_5_, int p_147458_6_)
+      {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_147458_1_, p_147458_3_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.marcarFaixa(this, p_147458_1_, p_147458_2_, p_147458_3_, p_147458_4_, p_147458_5_, p_147458_6_)) return; // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          for (int k1 = 0; k1 < this.worldAccesses.size(); ++k1)
+          {
+              ((IWorldAccess)this.worldAccesses.get(k1)).markBlockRangeForRenderUpdate(p_147458_1_, p_147458_2_, p_147458_3_, p_147458_4_, p_147458_5_, p_147458_6_);
+@@ -758,7 +758,7 @@
+  
+      public void func_147479_m(int p_147479_1_, int p_147479_2_, int p_147479_3_)
+      {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_147479_1_, p_147479_3_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.marcarRender(this, p_147479_1_, p_147479_2_, p_147479_3_)) return; // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          for (int l = 0; l < this.worldAccesses.size(); ++l)
+          {
+              ((IWorldAccess)this.worldAccesses.get(l)).markBlockForRenderUpdate(p_147479_1_, p_147479_2_, p_147479_3_);
+@@ -766,7 +766,7 @@
+  
+      public void playSoundAtEntity(Entity p_72956_1_, String p_72956_2_, float p_72956_3_, float p_72956_4_)
+      {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, (int) Math.floor(p_72956_1_.posX), (int) Math.floor(p_72956_1_.posZ)); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.somNaEntidade(this, p_72956_1_, p_72956_2_, p_72956_3_, p_72956_4_)) return; // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          PlaySoundAtEntityEvent event = new PlaySoundAtEntityEvent(p_72956_1_, p_72956_2_, p_72956_3_, p_72956_4_);
+          if (MinecraftForge.EVENT_BUS.post(event))
+          {
+@@ -774,7 +774,7 @@
+  
+      public void playSoundToNearExcept(EntityPlayer p_85173_1_, String p_85173_2_, float p_85173_3_, float p_85173_4_)
+      {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, (int) Math.floor(p_85173_1_.posX), (int) Math.floor(p_85173_1_.posZ)); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.somPertoMenos(this, p_85173_1_, p_85173_2_, p_85173_3_, p_85173_4_)) return; // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          PlaySoundAtEntityEvent event = new PlaySoundAtEntityEvent(p_85173_1_, p_85173_2_, p_85173_3_, p_85173_4_);
+          if (MinecraftForge.EVENT_BUS.post(event))
+          {
+@@ -782,7 +782,7 @@
+  
+      public void playSoundEffect(double p_72908_1_, double p_72908_3_, double p_72908_5_, String p_72908_7_, float p_72908_8_, float p_72908_9_)
+      {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, (int) Math.floor(p_72908_1_), (int) Math.floor(p_72908_5_)); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.som(this, p_72908_1_, p_72908_3_, p_72908_5_, p_72908_7_, p_72908_8_, p_72908_9_)) return; // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          for (int i = 0; i < this.worldAccesses.size(); ++i)
+          {
+              ((IWorldAccess)this.worldAccesses.get(i)).playSound(p_72908_7_, p_72908_1_, p_72908_3_, p_72908_5_, p_72908_8_, p_72908_9_);
+@@ -790,7 +790,7 @@
+  
+      public void playRecord(String p_72934_1_, int p_72934_2_, int p_72934_3_, int p_72934_4_)
+      {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_72934_2_, p_72934_4_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.disco(this, p_72934_1_, p_72934_2_, p_72934_3_, p_72934_4_)) return; // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          for (int l = 0; l < this.worldAccesses.size(); ++l)
+          {
+              ((IWorldAccess)this.worldAccesses.get(l)).playRecord(p_72934_1_, p_72934_2_, p_72934_3_, p_72934_4_);
+@@ -798,7 +798,7 @@
+  
+      public void spawnParticle(String p_72869_1_, double p_72869_2_, double p_72869_4_, double p_72869_6_, double p_72869_8_, double p_72869_10_, double p_72869_12_)
+      {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, (int) Math.floor(p_72869_2_), (int) Math.floor(p_72869_6_)); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.particula(this, p_72869_1_, p_72869_2_, p_72869_4_, p_72869_6_, p_72869_8_, p_72869_10_, p_72869_12_)) return; // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          for (int i = 0; i < this.worldAccesses.size(); ++i)
+          {
+              ((IWorldAccess)this.worldAccesses.get(i)).spawnParticle(p_72869_1_, p_72869_2_, p_72869_4_, p_72869_6_, p_72869_8_, p_72869_10_, p_72869_12_);
+@@ -1771,7 +1771,7 @@
+  
+      public void playBroadcastSound(int p_82739_1_, int p_82739_2_, int p_82739_3_, int p_82739_4_, int p_82739_5_)
+      {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_82739_2_, p_82739_4_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.somGeral(this, p_82739_1_, p_82739_2_, p_82739_3_, p_82739_4_, p_82739_5_)) return; // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          for (int j1 = 0; j1 < this.worldAccesses.size(); ++j1)
+          {
+              ((IWorldAccess)this.worldAccesses.get(j1)).broadcastSound(p_82739_1_, p_82739_2_, p_82739_3_, p_82739_4_, p_82739_5_);
+@@ -1779,7 +1779,7 @@
+  
+      public void playAuxSFXAtEntity(EntityPlayer p_72889_1_, int p_72889_2_, int p_72889_3_, int p_72889_4_, int p_72889_5_, int p_72889_6_)
+      {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_72889_3_, p_72889_5_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.efeito(this, p_72889_1_, p_72889_2_, p_72889_3_, p_72889_4_, p_72889_5_, p_72889_6_)) return; // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          try
+          {
+              for (int j1 = 0; j1 < this.worldAccesses.size(); ++j1)
+@@ -1787,7 +1787,7 @@
+  
+      public void destroyBlockInWorldPartially(int p_147443_1_, int p_147443_2_, int p_147443_3_, int p_147443_4_, int p_147443_5_)
+      {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_147443_2_, p_147443_4_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.quebrando(this, p_147443_1_, p_147443_2_, p_147443_3_, p_147443_4_, p_147443_5_)) return; // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          for (int j1 = 0; j1 < this.worldAccesses.size(); ++j1)
+          {
+              IWorldAccess iworldaccess = (IWorldAccess)this.worldAccesses.get(j1);
+diff --git a/patches/net/minecraft/world/WorldServer.java.patch b/patches/net/minecraft/world/WorldServer.java.patch
+index 741fb0f4..4b9bb71f 100644
+--- a/patches/net/minecraft/world/WorldServer.java.patch
++++ b/patches/net/minecraft/world/WorldServer.java.patch
+@@ -407,7 +407,7 @@
+      public void scheduleBlockUpdateWithPriority(int p_147454_1_, int p_147454_2_, int p_147454_3_, Block p_147454_4_, int p_147454_5_, int p_147454_6_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.agendarTick(this, p_147454_1_, p_147454_3_); // Hoshiestar - observador: tick de bloco agendado (scheduleBlockUpdate passa por aqui)
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.tickAgendado(this, p_147454_1_, p_147454_3_); // Hoshiestar - paralelo: tick agendado (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.tickAgendado(this, p_147454_1_, p_147454_2_, p_147454_3_, p_147454_4_, p_147454_5_, p_147454_6_)) return; // Hoshiestar - paralelo: tick agendado (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          NextTickListEntry nextticklistentry = new NextTickListEntry(p_147454_1_, p_147454_2_, p_147454_3_, p_147454_4_);
+          //Keeping here as a note for future when it may be restored.
+          //boolean isForced = getPersistentChunks().containsKey(new ChunkCoordIntPair(nextticklistentry.xCoord >> 4, nextticklistentry.zCoord >> 4));
+@@ -425,7 +425,7 @@
+      public void func_147446_b(int p_147446_1_, int p_147446_2_, int p_147446_3_, Block p_147446_4_, int p_147446_5_, int p_147446_6_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.agendarTick(this, p_147446_1_, p_147446_3_); // Hoshiestar - observador: tick de bloco agendado (func_147446_b)
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.tickAgendado(this, p_147446_1_, p_147446_3_); // Hoshiestar - paralelo: tick agendado (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.tickAgendadoB(this, p_147446_1_, p_147446_2_, p_147446_3_, p_147446_4_, p_147446_5_, p_147446_6_)) return; // Hoshiestar - paralelo: tick agendado (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo)
+          NextTickListEntry nextticklistentry = new NextTickListEntry(p_147446_1_, p_147446_2_, p_147446_3_, p_147446_4_);
+          nextticklistentry.setPriority(p_147446_6_);
+  
+@@ -812,7 +812,7 @@
+      public void addBlockEvent(int p_147452_1_, int p_147452_2_, int p_147452_3_, Block p_147452_4_, int p_147452_5_, int p_147452_6_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.eventoDeBloco(this, p_147452_1_, p_147452_3_); // Hoshiestar - observador: evento de bloco
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.eventoDeBloco(this, p_147452_1_, p_147452_3_); // Hoshiestar - paralelo: evento de bloco (sombra: conta como adiado)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.eventoDeBloco(this, p_147452_1_, p_147452_2_, p_147452_3_, p_147452_4_, p_147452_5_, p_147452_6_)) return; // Hoshiestar - paralelo: evento de bloco (sombra: conta como adiado; sombra_ordenada com lote aberto: vai para o lote e a juncao chama este metodo, com a deduplicacao dele)
+          BlockEventData blockeventdata = new BlockEventData(p_147452_1_, p_147452_2_, p_147452_3_, p_147452_4_, p_147452_5_, p_147452_6_);
+          Iterator iterator = this.field_147490_S[this.blockEventCacheIndex].iterator();
+          BlockEventData blockeventdata1;
+diff --git a/patches/net/minecraft/world/gen/ChunkProviderServer.java.patch b/patches/net/minecraft/world/gen/ChunkProviderServer.java.patch
+index 4a6d2378..49ff59ec 100644
+--- a/patches/net/minecraft/world/gen/ChunkProviderServer.java.patch
++++ b/patches/net/minecraft/world/gen/ChunkProviderServer.java.patch
+@@ -186,7 +186,7 @@
+ -        long k = ChunkCoordIntPair.chunkXZ2Int(par1, par2);
+ -        this.chunksToUnload.remove(Long.valueOf(k));
+ -        Chunk chunk = (Chunk)this.loadedChunkHashMap.getValueByKey(k);
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.cargaChunk(this.worldObj, par1, par2); // Hoshiestar - paralelo: guarda de carga de chunk e da fila de descarga (sombra: so conta)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosAdiados.naoDescarregar(this, par1, par2, runnable)) return this.loadedChunkHashMap_KC.rawThermos().get(par1, par2); // Hoshiestar - paralelo: guarda de carga de chunk (sombra: so conta); chunk presente com lote aberto (sombra_ordenada): a saida da fila de descarga e adiada para a juncao; sem variavel local nova
+ +        this.chunksToUnload.remove(par1, par2);
+ +        Chunk chunk = this.loadedChunkHashMap_KC.rawThermos().get(par1,par2); //Thermos replacement
+ +        boolean newChunk = false;
+diff --git a/patches/org/bukkit/plugin/SimplePluginManager.java.patch b/patches/org/bukkit/plugin/SimplePluginManager.java.patch
+index 5b293b5b..67e2562e 100644
+--- a/patches/org/bukkit/plugin/SimplePluginManager.java.patch
++++ b/patches/org/bukkit/plugin/SimplePluginManager.java.patch
+@@ -41,7 +41,7 @@
+       * @param event Event details
+       */
+      public void callEvent(Event event) {
+-+        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosEventos.eventoBukkit(event); // Hoshiestar - paralelo: guarda de evento do Bukkit (sombra: so conta; antes de qualquer synchronized)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosEventos.eventoBukkit(event)) return; // Hoshiestar - paralelo: guarda de evento do Bukkit (sombra: so conta; antes de qualquer synchronized); sombra_ordenada com lote aberto e sem ouvinte: volta sem entrar no synchronized (efeito igual)
+          if (event.isAsynchronous()) {
+              if (Thread.holdsLock(this)) {
+                  throw new IllegalStateException(event.getEventName() + " cannot be triggered asynchronously from inside synchronized code.");

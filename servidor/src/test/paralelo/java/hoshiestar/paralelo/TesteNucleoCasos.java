@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -90,11 +91,17 @@ public final class TesteNucleoCasos {
             caso("portao: confirmacao antes da fase seguinte", 60, TesteNucleoCasos::portaoConfirmacao);
             caso("portao: outro monitor", 30, TesteNucleoCasos::portaoOutroMonitor);
             caso("portao: fases coladas", 60, TesteNucleoCasos::portaoFasesColadas);
+            caso("portao: threads estranhas com interrupcao pendente", 30, TesteNucleoCasos::portaoInterrompido);
             caso("abortar: todos param", 30, TesteNucleoCasos::abortarLivre);
             caso("abortar: um preso", 30, TesteNucleoCasos::abortarPreso);
             caso("abortar: com pedido pendente", 30, TesteNucleoCasos::abortarComPedido);
             caso("abortar: durante uma operacao, com outro trabalhador parado na pausa", 30, TesteNucleoCasos::abortarComParadoNaPausa);
             caso("abortar: espera quem esta no meio de um pedido", 30, TesteNucleoCasos::abortarEsperaQuemPede);
+            caso("abortar: com interrupcao pendente em quem chama", 30, () -> abortarInterrompido(false));
+            caso("abortar: com interrupcao pendente e tempestade de interrupcoes em quem chama", 30, () -> abortarInterrompido(true));
+            caso("abortar: o portao so abre depois de os trabalhadores sairem do item", 30, () -> abortarAbreOPortaoDepois(false));
+            caso("abortar: com o trabalhador no ultimo item do lote", 30, () -> abortarNoUltimoItem(false));
+            caso("abortar: com a thread de regiao morrendo logo depois do ultimo item", 30, () -> abortarNoUltimoItem(true));
             caso("abortar: pela thread do servidor", 30, TesteNucleoCasos::abortarDoServidor);
             caso("abortar: em MONTANDO", 30, TesteNucleoCasos::abortarEmMontando);
             caso("encerrar", 30, TesteNucleoCasos::encerrar);
@@ -102,6 +109,7 @@ public final class TesteNucleoCasos {
             caso("encerrar: um preso, com interrupcao pendente", 30, () -> encerrarPreso(true));
             caso("encerrar: com interrupcao pendente (thread ociosa)", 60, TesteNucleoCasos::encerrarInterrompidoOcioso);
             caso("encerrar: com interrupcao pendente (tres threads no meio de um item)", 30, TesteNucleoCasos::encerrarInterrompidoNoItem);
+            caso("encerrar: o portao so abre depois de os trabalhadores sairem do item", 30, () -> abortarAbreOPortaoDepois(true));
             caso("interrupcao da thread do servidor", 30, TesteNucleoCasos::interrupcaoDoServidor);
         } catch (Throwable t) {
             v.erro("excecao no teste", t);
@@ -226,8 +234,11 @@ public final class TesteNucleoCasos {
             b.rodar(new ArrayList<Trabalho>());
             b.fechar();
         }
-        v.sim(b.acordados() == 0L && b.despertares() == 0L,
-                "101 fases sem lote nao acordaram nenhuma thread de regiao (despertares: " + b.despertares() + ")");
+        // uma thread acordada por engano so soma no contador depois de retomar a trava: da tempo a ela (com a maquina ocupada
+        // isso leva milissegundos) antes de ler; sem defeito o contador nunca sai de zero e a espera custa os 500 ms inteiros
+        boolean acordou = esperar(() -> b.despertares() != 0L || b.acordados() != 0L, 500L);
+        v.sim(!acordou && b.acordados() == 0L && b.despertares() == 0L,
+                "101 fases sem lote nao acordaram nenhuma thread de regiao, olhando por 500 ms (despertares: " + b.despertares() + ")");
         v.igual(101L, b.fasesVazias(), "101 fases vazias contadas");
         boolean ise = false;
         try {
@@ -2167,6 +2178,365 @@ public final class TesteNucleoCasos {
             }
         }
         v.sim(ok, "os tres lotes fecharam ABORTADO depois do item em que estavam; a barreira da thread do servidor passou " + probs);
+    }
+
+    /** Interrompe {@code alvo} a cada 20 microssegundos, mais ou menos, ate {@code parar} ligar. */
+    private static Thread tempestade(final Thread alvo, final AtomicBoolean parar) {
+        Thread t = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (!parar.get()) {
+                    alvo.interrupt();
+                    long fim = System.nanoTime() + 20000L;
+                    while (System.nanoTime() < fim) {
+                        // gira uns 20 microssegundos
+                    }
+                }
+            }
+        }, "tempestade de interrupcoes");
+        t.setDaemon(true);
+        t.start();
+        return t;
+    }
+
+    /** join que nao larga por interrupcao (quem chama pode estar debaixo de uma {@link #tempestade}); devolve se a thread acabou. */
+    private static boolean juntarSemLargar(Thread t, long ms) {
+        long fim = System.nanoTime() + ms * MS;
+        long resta;
+        while (t.isAlive() && (resta = fim - System.nanoTime()) > 0L) {
+            try {
+                t.join(resta / MS + 1L);
+            } catch (InterruptedException e) {
+                // segue esperando
+            }
+        }
+        return !t.isAlive();
+    }
+
+    /**
+     * Segunda revisao do passo 5, I3a (o gemeo do I1 dentro de {@code abortar}): quem chama {@code abortar} chega com o
+     * sinal de interrupcao ligado (a maquina de parada repoe o sinal em quem pediu a parada) e, com {@code comTempestade},
+     * continua sendo interrompido durante a espera. A espera nao pode ser largada: os tres trabalhadores estao no meio de um
+     * item que acaba 200 ms depois de o aborto chegar.
+     */
+    static void abortarInterrompido(final boolean comTempestade) throws Throwable {
+        String s = comTempestade ? "com interrupcao pendente e tempestade de interrupcoes: " : "com interrupcao pendente: ";
+        Amb amb = new Amb();
+        final Barreira b = nova(3, amb, FATIA_LONGA);
+        final ConcurrentLinkedQueue<String> probs = new ConcurrentLinkedQueue<String>();
+        final CountDownLatch noItem = new CountDownLatch(3);
+        final AtomicInteger acabaram = new AtomicInteger();
+        final AtomicReference<List<Preso>> presos = new AtomicReference<List<Preso>>();
+        final long[] dt = new long[1];
+        final int[] naVolta = {-1};
+        final boolean[] sinal = new boolean[1];
+        final long itemMs = 200L;
+        Item espera = new Item() {
+            @Override
+            public void rodar(Lote l, int i) {
+                if (i == 0) {
+                    noItem.countDown();
+                    // o item so termina 200 ms depois de abortar chegar: o trabalhador esta no meio de um item na chamada
+                    if (!esperar(() -> b.abortada(), 10000L)) {
+                        probs.add("abortar nao chegou");
+                    }
+                    dormir(itemMs);
+                    acabaram.incrementAndGet();
+                }
+            }
+        };
+        final Lote l1 = lote(1, 3, 3, espera);
+        final Lote l2 = lote(2, 3, 2, espera);
+        final Lote l3 = lote(3, 3, 1, espera);
+        Thread gancho = iniciar("gancho de parada", new Caso() {
+            @Override
+            public void rodar() throws Throwable {
+                noItem.await();
+                Thread eu = Thread.currentThread();
+                AtomicBoolean parar = new AtomicBoolean();
+                Thread t = comTempestade ? tempestade(eu, parar) : null;
+                eu.interrupt();
+                long t0 = System.nanoTime();
+                List<Preso> p = b.abortar(10L * SEG);
+                dt[0] = System.nanoTime() - t0;
+                naVolta[0] = acabaram.get();
+                if (t == null) {
+                    sinal[0] = Thread.interrupted();
+                } else {
+                    // com a tempestade o sinal ligado nao prova nada; a reposicao e conferida na variante sem tempestade
+                    parar.set(true);
+                    if (!juntarSemLargar(t, 10000L)) {
+                        probs.add("a tempestade nao parou");
+                    }
+                    Thread.interrupted();
+                }
+                presos.set(p);
+            }
+        }, probs);
+        b.abrir();
+        Fase f = b.rodar(Arrays.asList(l1, l2, l3));
+        juntar(gancho);
+        v.sim(probs.isEmpty() && presos.get() != null && presos.get().isEmpty(),
+                s + "abortar(10 s) com tres trabalhadores num item de " + itemMs + " ms volta sem presos: " + presos.get() + " " + probs);
+        v.igual(3, naVolta[0], s + "quando a chamada volta, os tres itens ja terminaram");
+        v.sim(dt[0] >= itemMs * MS && dt[0] < 5L * SEG, s + "a chamada esperou os itens, bem antes do prazo (" + dt[0] / MS + " ms)");
+        if (!comTempestade) {
+            v.sim(sinal[0], s + "e sai com o sinal de interrupcao reposto");
+        }
+        v.igual(0, amb.conta("conservacao suspeita"), s + "nenhuma linha 'conservacao suspeita' no log");
+        boolean ok = f.fechados() == 3 && f.abortada();
+        for (Lote l : new Lote[] {l1, l2, l3}) {
+            Andamento.Fecho fe = andamento(f, l).fecho();
+            ok &= fe.fim == Andamento.Fim.ABORTADO && fe.feitos == 1 && l.todos(0, 1, 1) && l.todos(1, 3, 0);
+        }
+        v.sim(ok, s + "os tres lotes fecharam ABORTADO depois do item em que estavam");
+        b.fechar();
+        fim(b);
+    }
+
+    /**
+     * Segunda revisao do passo 5, I3b: threads estranhas que chegam ao portao com o sinal de interrupcao ligado (tarefa
+     * cancelada com {@code Future.cancel(true)}, {@code shutdownNow} de um executor), metade delas ainda interrompida a cada
+     * 20 microssegundos enquanto espera. Com a fase rodando, nenhuma pode passar antes de a barreira passar.
+     */
+    static void portaoInterrompido() throws Throwable {
+        Amb amb = new Amb();
+        final Barreira b = nova(2, amb, FATIA_LONGA);
+        final ConcurrentLinkedQueue<String> probs = new ConcurrentLinkedQueue<String>();
+        final CountDownLatch noItem = new CountDownLatch(1);
+        final CountDownLatch segura = new CountDownLatch(1);
+        final AtomicBoolean itemAcabou = new AtomicBoolean();
+        final AtomicInteger voltaram = new AtomicInteger();
+        final AtomicBoolean parar = new AtomicBoolean();
+        final Object m = new Object();
+        final int n = 4;
+        final int[] res = new int[n];
+        final boolean[] cedo = new boolean[n];
+        final boolean[] sinal = new boolean[n];
+        final int[] visto = {-1, -1};
+        final Thread[] xs = new Thread[n];
+        Lote l = lote(1, 2, 0, new Item() {
+            @Override
+            public void rodar(Lote lo, int i) throws Throwable {
+                if (i == 0) {
+                    noItem.countDown();
+                    segura.await();
+                    itemAcabou.set(true);
+                }
+            }
+        });
+        for (int k = 0; k < n; k++) {
+            final int kk = k;
+            xs[k] = iniciar("estranha-" + k, new Caso() {
+                @Override
+                public void rodar() throws Throwable {
+                    noItem.await();
+                    Thread.currentThread().interrupt();
+                    if (kk == 0) {
+                        synchronized (m) {
+                            res[kk] = b.portao(m);
+                        }
+                    } else {
+                        res[kk] = b.portao(null);
+                    }
+                    cedo[kk] = !itemAcabou.get();
+                    voltaram.incrementAndGet();
+                    sinal[kk] = Thread.interrupted();
+                }
+            }, probs);
+        }
+        Thread aux = iniciar("solta o lote", new Caso() {
+            @Override
+            public void rodar() throws Throwable {
+                noItem.await();
+                esperar(() -> b.esperandoNoPortao() == n || voltaram.get() > 0, 10000L);
+                visto[0] = b.esperandoNoPortao();
+                // a tempestade bate em duas das que esperam
+                List<Thread> ts = new ArrayList<Thread>();
+                ts.add(tempestade(xs[0], parar));
+                ts.add(tempestade(xs[2], parar));
+                dormir(80L);
+                visto[1] = b.esperandoNoPortao();
+                if (voltaram.get() != 0) {
+                    probs.add(voltaram.get() + " thread(s) estranha(s) interrompida(s) passaram pelo portao com a fase rodando");
+                }
+                segura.countDown();
+                for (Thread x : xs) {
+                    x.join(10000L);
+                }
+                parar.set(true);
+                for (Thread t : ts) {
+                    t.join(10000L);
+                }
+            }
+        }, probs);
+        b.abrir();
+        Fase f = b.rodar(Collections.singletonList(l));
+        juntar(aux);
+        boolean todas = true;
+        for (int k = 0; k < n; k++) {
+            juntar(xs[k]);
+            todas &= res[k] == Barreira.PORTAO_ESPEROU && !cedo[k] && sinal[k];
+        }
+        v.sim(probs.isEmpty(), n + " threads estranhas com interrupcao pendente (uma com o monitor, duas com tempestade): nenhuma passou com a fase rodando " + probs);
+        v.sim(visto[0] == n && visto[1] == n, "as " + n + " ficaram no portao, antes e depois de 80 ms de tempestade (" + visto[0] + ", " + visto[1] + ")");
+        v.sim(todas, "todas passaram quando a barreira passou, depois do fim do item e com o sinal reposto: resultados " + Arrays.toString(res)
+                + ", antes do fim do item " + Arrays.toString(cedo) + ", sinal " + Arrays.toString(sinal));
+        v.sim(fimDe(f, l) == Andamento.Fim.COMPLETO && b.esperandoNoPortao() == 0, "o lote terminou e ninguem ficou no portao");
+        b.fechar();
+        v.sim(b.abrir(), "a fase seguinte abre");
+        Fase f2 = b.rodar(Collections.singletonList(lote(1, 2, 0, null)));
+        v.sim(f2.fechados() == 1, "e roda (as " + n + " confirmacoes do portao foram dadas)");
+        b.fechar();
+        fim(b);
+    }
+
+    /**
+     * Segunda revisao do passo 5, I3c: {@code abortar} (e {@code encerrar}) so abre o portao DEPOIS de esperar os
+     * trabalhadores sairem do item. Tres threads estranhas esperam no portao (uma com o monitor), um trabalhador esta num
+     * item que acaba 200 ms depois de o aborto chegar: nenhuma thread estranha passa antes do fim do item.
+     */
+    static void abortarAbreOPortaoDepois(final boolean encerrando) throws Throwable {
+        final String s = encerrando ? "encerrar: " : "abortar: ";
+        Amb amb = new Amb();
+        final Barreira b = nova(2, amb, FATIA_LONGA);
+        final ConcurrentLinkedQueue<String> probs = new ConcurrentLinkedQueue<String>();
+        final CountDownLatch noItem = new CountDownLatch(1);
+        final AtomicBoolean itemAcabou = new AtomicBoolean();
+        final AtomicReference<List<Preso>> presos = new AtomicReference<List<Preso>>();
+        final Object m = new Object();
+        final int n = 3;
+        final int[] res = new int[n];
+        final boolean[] cedo = new boolean[n];
+        final int[] depois = {-1};
+        final boolean[] naVolta = new boolean[1];
+        final long[] dt = new long[1];
+        final long itemMs = 200L;
+        final Lote l = lote(1, 3, 0, new Item() {
+            @Override
+            public void rodar(Lote lo, int i) {
+                if (i == 0) {
+                    noItem.countDown();
+                    if (!esperar(() -> b.abortada(), 10000L)) {
+                        probs.add("o aborto nao chegou");
+                    }
+                    dormir(itemMs);
+                    itemAcabou.set(true);
+                }
+            }
+        });
+        Thread[] xs = new Thread[n];
+        for (int k = 0; k < n; k++) {
+            final int kk = k;
+            xs[k] = iniciar("estranha-" + k, new Caso() {
+                @Override
+                public void rodar() throws Throwable {
+                    noItem.await();
+                    if (kk == 0) {
+                        synchronized (m) {
+                            res[kk] = b.portao(m);
+                            cedo[kk] = !itemAcabou.get();
+                        }
+                    } else {
+                        res[kk] = b.portao(null);
+                        cedo[kk] = !itemAcabou.get();
+                    }
+                }
+            }, probs);
+        }
+        Thread gancho = iniciar("gancho de parada", new Caso() {
+            @Override
+            public void rodar() throws Throwable {
+                noItem.await();
+                if (!esperar(() -> b.esperandoNoPortao() == n, 10000L)) {
+                    probs.add("as threads estranhas nao chegaram ao portao");
+                }
+                long t0 = System.nanoTime();
+                List<Preso> p = encerrando ? b.encerrar(5L * SEG) : b.abortar(5L * SEG);
+                dt[0] = System.nanoTime() - t0;
+                naVolta[0] = itemAcabou.get();
+                // quem chega depois de a chamada voltar passa na hora (portao aberto, ou fase ja fora de RODANDO)
+                depois[0] = b.portao(null);
+                presos.set(p);
+            }
+        }, probs);
+        b.abrir();
+        Fase f = b.rodar(Collections.singletonList(l));
+        juntar(gancho);
+        boolean nenhumaCedo = true;
+        boolean resultados = true;
+        for (int k = 0; k < n; k++) {
+            juntar(xs[k]);
+            nenhumaCedo &= !cedo[k];
+            resultados &= res[k] == Barreira.PORTAO_ABERTO || res[k] == Barreira.PORTAO_ESPEROU;
+        }
+        v.sim(probs.isEmpty() && presos.get() != null && presos.get().isEmpty(), s + "com " + n + " threads estranhas no portao e um item de " + itemMs
+                + " ms em curso, volta sem presos: " + presos.get() + " " + probs);
+        v.sim(nenhumaCedo, s + "nenhuma thread estranha passou pelo portao antes de o item terminar " + Arrays.toString(cedo));
+        v.sim(resultados, s + "todas passaram, com o portao aberto ou com a barreira " + Arrays.toString(res));
+        v.sim(naVolta[0] && dt[0] >= itemMs * MS && dt[0] < 3L * SEG, s + "a chamada esperou o item, bem antes do prazo de 5 s (" + dt[0] / MS + " ms)");
+        v.sim(depois[0] == Barreira.PORTAO_ABERTO || depois[0] == Barreira.PORTAO_DIRETO, s + "quem chega ao portao depois de a chamada voltar passa na hora (" + depois[0] + ")");
+        Andamento.Fecho fe = andamento(f, l).fecho();
+        v.sim(fe.fim == Andamento.Fim.ABORTADO && fe.feitos == 1 && l.todos(0, 1, 1) && l.todos(1, 3, 0), s + "o lote fechou ABORTADO depois do item em curso (" + fe + ")");
+        b.fechar();
+        fim(b);
+    }
+
+    /**
+     * Segunda revisao do passo 5, M1 (wakeup perdido no aborto): o aborto chega com o unico trabalhador no ULTIMO item do
+     * lote. Ele nao passa por nenhum ponto seguro depois: sai do item direto para ocioso ou, com {@code morre}, a thread
+     * acaba logo depois do item (o relogio do fim do lote lanca). Nos dois caminhos quem chamou {@code abortar} tem de ser
+     * avisado; sem o aviso a chamada so volta no fim do prazo, com todo mundo ja parado.
+     */
+    static void abortarNoUltimoItem(final boolean morre) throws Throwable {
+        final String s = morre ? "thread que morre depois do ultimo item: " : "trabalhador que fica ocioso depois do ultimo item: ";
+        final Amb amb = new Amb();
+        final Barreira b = nova(1, amb, FATIA_LONGA);
+        final ConcurrentLinkedQueue<String> probs = new ConcurrentLinkedQueue<String>();
+        final CountDownLatch noItem = new CountDownLatch(1);
+        final AtomicReference<List<Preso>> presos = new AtomicReference<List<Preso>>();
+        final long[] dt = new long[1];
+        final long itemMs = 50L;
+        final long prazoMs = 3000L;
+        final Lote l = lote(1, 1, 0, new Item() {
+            @Override
+            public void rodar(Lote lo, int i) {
+                noItem.countDown();
+                if (!esperar(() -> b.abortada(), 10000L)) {
+                    probs.add("abortar nao chegou");
+                }
+                dormir(itemMs);
+            }
+        });
+        Thread gancho = iniciar("gancho de parada", new Caso() {
+            @Override
+            public void rodar() throws Throwable {
+                noItem.await();
+                if (morre) {
+                    // a proxima leitura do relogio por essa thread e a do fim do lote, ja fora do item
+                    amb.matar = b.thread(0);
+                }
+                long t0 = System.nanoTime();
+                List<Preso> p = b.abortar(prazoMs * MS);
+                dt[0] = System.nanoTime() - t0;
+                presos.set(p);
+            }
+        }, probs);
+        b.abrir();
+        Fase f = b.rodar(Collections.singletonList(l));
+        juntar(gancho);
+        v.sim(probs.isEmpty() && presos.get() != null && presos.get().isEmpty(), s + "abortar volta sem presos: " + presos.get() + " " + probs);
+        v.sim(dt[0] >= itemMs * MS && dt[0] < prazoMs * MS / 2L,
+                s + "abortar(" + prazoMs + " ms) volta quando o item de " + itemMs + " ms termina, sem esperar o prazo (" + dt[0] / MS + " ms)");
+        Andamento.Fecho fe = andamento(f, l).fecho();
+        if (morre) {
+            v.sim(fe.fim == Andamento.Fim.MORREU && fe.feitos == 1 && fe.erro instanceof MorteInjetada && f.mortos() == 1 && l.todos(0, 1, 1),
+                    s + "o lote fechou MORREU com o item feito (" + fe + ")");
+        } else {
+            v.sim(fe.fim == Andamento.Fim.COMPLETO && fe.feitos == 1 && l.todos(0, 1, 1), s + "o lote fechou COMPLETO (" + fe + ")");
+        }
+        b.fechar();
+        fim(b);
     }
 
     static void interrupcaoDoServidor() throws Throwable {

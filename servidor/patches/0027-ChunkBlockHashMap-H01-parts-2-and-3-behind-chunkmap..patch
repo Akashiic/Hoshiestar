@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Thu, 26 Nov 2026 12:30:38 +0000
-Subject: [PATCH 27/30] ChunkBlockHashMap: H01 parts 2 and 3 behind
+Subject: [PATCH 27/33] ChunkBlockHashMap: H01 parts 2 and 3 behind
  chunkmap.cache4Seguro
 
 With the key on (default off = original code at these three points):

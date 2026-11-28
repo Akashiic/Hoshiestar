@@ -207,7 +207,7 @@ public final class ComandoHoshie extends Command {
         l.add("relogio: " + Relogio.ticks + " ticks; thread do servidor: " + (t == null ? "ainda nao definida" : t.getName()));
         for (Recursos.Recurso r : Recursos.todos()) {
             String e = r.linhaDeEstado();
-            l.add(r.id + ": " + (r.ligado ? "ligado" : "desligado") + " - " + r.descricao + (r.ligado && e != null ? " | " + e : ""));
+            l.add(r.id + ": " + r.situacao() + " - " + r.descricao + (r.ligado && e != null ? " | " + e : ""));
             for (Correcao c : Correcoes.global().doRecurso(r.id)) {
                 l.add("  - " + c.linha());
             }

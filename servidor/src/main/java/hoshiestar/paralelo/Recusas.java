@@ -54,11 +54,19 @@ public final class Recusas {
         public boolean firewallSemPortao;
         /** Transformadores e injecoes da rede sem veredito do passo 0 (nomes). */
         public List<String> semVeredito = Collections.emptyList();
+        /** Hodgepodge {@code preventChunkLoadingFromBlockUpdates} ligado (decisao 39c; envolve updateEntities, nao verificado). */
+        public boolean preventChunkLoadingLigado;
+        /** Watchers do {@code TileUpdateEvent} do DragonAPI fora de {EMPTileWatcher} (decisao 39c). */
+        public List<String> watchersNaoRevisados = Collections.emptyList();
+        /** Fatos que a coleta do boot nao conseguiu ler (cada um recusa: nunca fail-open). */
+        public List<String> naoColetados = Collections.emptyList();
+        /** Classe do world.rand quando trocado (so para o texto). */
+        public String classeRand;
     }
 
     /** O motivo de quando os fatos do jogo ainda nao foram coletados. */
-    static final String FATOS_NAO_CONFERIDOS = "fatos do jogo ainda nao conferidos (dimensoes, world.rand, distancia de simulacao do hodgepodge,"
-            + " observadores do DragonAPI, firewall, vereditos do passo 0): a coleta no boot do servidor ainda nao existe";
+    static final String FATOS_NAO_CONFERIDOS = "fatos do jogo ainda nao conferidos (dimensoes, world.rand, hodgepodge,"
+            + " observadores e watchers do DragonAPI, firewall, vereditos do passo 0): a coleta roda quando o servidor fica pronto (\"Done\")";
 
     private Recusas() {
     }
@@ -88,10 +96,18 @@ public final class Recusas {
         if (modoValido && p.modo.equals(Parametros.MODO_PARALELO) && !f.chunkmapCache4Seguro) {
             r.add("modo 'paralelo' exige chunkmap.cache4Seguro: true (correcao H01 do cache de 4 chunks)");
         }
+        if (modoValido && p.modo.equals(Parametros.MODO_PARALELO)) {
+            // Hoshiestar passo 4: sombra e sombra_ordenada existem; paralelo (trabalhadores de verdade) vem no passo 6
+            r.add("modo 'paralelo' ainda nao implementado neste jar (so 'sombra' e '" + Parametros.MODO_SOMBRA_ORDENADA
+                    + "'; paralelo vem no passo 6 do plano)");
+        }
         if (!f.jogoConferido) {
             r.add(FATOS_NAO_CONFERIDOS);
         } else if (f.dimensoes == null) {
             r.add("lista de dimensoes do servidor nao informada (fatos do jogo marcados como conferidos sem ela)");
+        }
+        for (String n : f.naoColetados) {
+            r.add("fato do jogo nao lido no boot (" + n + ")");
         }
         if (f.dimensoes != null && !f.dimensoes.contains(p.dimensao)) {
             r.add("dimensao " + p.dimensao + " inexistente neste servidor (uma dimensao so, e ela tem de existir)");
@@ -100,13 +116,19 @@ public final class Recusas {
             r.add("classe '" + c + "' fora da lista liberada " + Parametros.CLASSES_PERMITIDAS);
         }
         if (f.randTrocado) {
-            r.add("world.rand trocado por mod (BugTorched replaceRandomInWorld)");
+            r.add("world.rand trocado por mod (BugTorched replaceRandomInWorld)" + (f.classeRand != null ? ": " + f.classeRand : ""));
         }
         if (f.distanciaDeSimulacaoLigada) {
             r.add("distancia de simulacao do hodgepodge ligada (addSimulationDistance_WIP envolve a mesma chamada updateEntity)");
         }
+        if (f.preventChunkLoadingLigado) {
+            r.add("hodgepodge preventChunkLoadingFromBlockUpdates ligado (envolve World.updateEntities; sem veredito no passo 0)");
+        }
         for (String o : f.observadoresNaoRevisados) {
             r.add("observador nao revisado no ChunkRequestEvent do DragonAPI: " + o);
+        }
+        for (String o : f.watchersNaoRevisados) {
+            r.add("watcher nao revisado no TileUpdateEvent do DragonAPI (so EMPTileWatcher tem veredito): " + o);
         }
         if (f.firewallSemPortao) {
             r.add("firewall presente sem o metodo allowTileEntityTick alcancavel");

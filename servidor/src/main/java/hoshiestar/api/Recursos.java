@@ -29,6 +29,11 @@ public final class Recursos {
     /** Fornece a linha de estado de um recurso (chamada pelo comando e no fim do boot). */
     public interface Estado {
         String linha();
+
+        /** O recurso esta ligado no config mas recusado (nao roda)? Padrao: nao. (Hoshiestar passo 3 do Degrau B) */
+        default boolean recusado() {
+            return false;
+        }
     }
 
     /** Um recurso. */
@@ -48,6 +53,19 @@ public final class Recursos {
         public Recurso estado(Estado e) {
             this.estado = e;
             return this;
+        }
+
+        /** "ligado", "desligado" ou "RECUSADO" (ligado no config, recusado: nao roda). Nunca lanca excecao. */
+        public String situacao() {
+            if (!ligado) {
+                return "desligado";
+            }
+            Estado e = estado;
+            try {
+                return e != null && e.recusado() ? "RECUSADO" : "ligado";
+            } catch (Throwable t) {
+                return "ligado";
+            }
         }
 
         /** Linha de estado do recurso, ou null se ele nao fornece. Nunca lanca excecao. */

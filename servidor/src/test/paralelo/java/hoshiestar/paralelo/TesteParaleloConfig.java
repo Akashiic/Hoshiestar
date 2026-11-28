@@ -202,7 +202,7 @@ public final class TesteParaleloConfig {
             v.sim(Paralelo.motivos().size() == 2 && Paralelo.motivos().get(0).startsWith("orcamento desligado")
                     && Paralelo.motivos().get(1).equals(Recusas.FATOS_NAO_CONFERIDOS),
                     "ligado com orcamento desligado: recusa (mais a dos fatos do jogo) " + Paralelo.motivos());
-            v.sim(r.linhaDeEstado().contains("RECUSADO") && r.linhaDeEstado().contains("fase ainda nao implementada"),
+            v.sim(r.linhaDeEstado().contains("RECUSADO") && r.linhaDeEstado().contains("nenhum gancho roda"),
                     "linha de estado: " + r.linhaDeEstado());
             v.sim(!Paralelo.aceito(), "recusado: aceito() falso");
             c.orcamento_ligado = true;
@@ -214,16 +214,19 @@ public final class TesteParaleloConfig {
             v.sim(Paralelo.motivos().size() == 1 && Paralelo.motivos().get(0).equals(Recusas.FATOS_NAO_CONFERIDOS) && !Paralelo.aceito(),
                     "config todo certo, fatos do jogo nao coletados: recusado, aceito() falso " + Paralelo.motivos());
             v.sim(Recursos.achar("paralelo").linhaDeEstado().contains("RECUSADO"), "linha de estado: " + Recursos.achar("paralelo").linhaDeEstado());
+            v.igual("RECUSADO", Recursos.achar("paralelo").situacao(), "passo 3: o resumo do boot e o 'hoshie status' dizem RECUSADO (achado menor do passo 1)");
             // so com uma avaliacao sem motivo nenhum (a que o boot do servidor fara com os fatos coletados) fica aceito
             Paralelo.configurar(Paralelo.parametros(), new java.util.ArrayList<String>());
             v.sim(Paralelo.motivos().isEmpty() && Paralelo.aceito(), "avaliacao sem motivo: aceito() verdadeiro");
             v.sim(Recursos.achar("paralelo").linhaDeEstado().contains("modo sombra, sem recusa"), "linha de estado: " + Recursos.achar("paralelo").linhaDeEstado());
+            v.igual("ligado", Recursos.achar("paralelo").situacao(), "aceito: situacao 'ligado'");
             String nenhum = String.join("\n", ComandoParalelo.executar(new String[] {"motivos"}));
             v.sim(nenhum.contains("nenhuma recusa no boot"), "motivos sem recusa: " + nenhum.replace('\n', '|'));
             c.paralelo_modo = "paralelo";
             Recursos.limparParaTeste();
             RegistroParalelo.registrar(c, Correcoes.global());
-            v.sim(Paralelo.motivos().size() == 3 && !Paralelo.aceito(), "modo paralelo sem parada e sem H01: duas recusas, mais a dos fatos do jogo " + Paralelo.motivos());
+            v.sim(Paralelo.motivos().size() == 4 && !Paralelo.aceito() && Paralelo.motivos().get(2).contains("ainda nao implementado"),
+                    "modo paralelo sem parada e sem H01: duas recusas, a do modo ainda nao implementado (passo 3) e a dos fatos do jogo " + Paralelo.motivos());
             c.paralelo_modo = "sombra";
             Recursos.limparParaTeste();
             RegistroParalelo.registrar(c, Correcoes.global());
@@ -238,9 +241,16 @@ public final class TesteParaleloConfig {
                 && !Paralelo.ehNomeDeRegiao("Hoshiestar Vigia") && !Paralelo.ehNomeDeRegiao(null), "criterio de nome: outros nomes nao");
         String[] nomes = {"Hoshiestar Regiao #1", "Server thread", "Client thread", "Hoshiestar Regiao", "main", "Netty Server IO #0"};
         for (String n : nomes) {
-            boolean esperado = ligado && n.startsWith("Hoshiestar Regiao #");
-            v.igual(esperado, Paralelo.ehThreadDeRegiao(new Thread(n)), "ehThreadDeRegiao(thread '" + n + "') com ligado = " + ligado);
+            // passo 3: so com o recurso aceito (achado menor do passo 1: getEffectiveSide usa aceito())
+            boolean esperado = ligado && Paralelo.aceito() && n.startsWith("Hoshiestar Regiao #");
+            v.igual(esperado, Paralelo.ehThreadDeRegiao(new Thread(n)), "ehThreadDeRegiao(thread '" + n + "') com ligado = " + ligado + ", aceito = " + Paralelo.aceito());
         }
+        java.util.List<String> antes = Paralelo.motivos();
+        Paralelo.configurar(Paralelo.parametros(), new java.util.ArrayList<String>());
+        v.igual(ligado, Paralelo.ehThreadDeRegiao(new Thread("Hoshiestar Regiao #1")), "aceito: thread de regiao reconhecida so se ligado");
+        Paralelo.configurar(Paralelo.parametros(), java.util.Collections.singletonList("recusa de teste"));
+        v.sim(!Paralelo.ehThreadDeRegiao(new Thread("Hoshiestar Regiao #1")), "recusado: nenhuma thread vira 'de regiao' (getEffectiveSide original)");
+        Paralelo.configurar(Paralelo.parametros(), new java.util.ArrayList<String>(antes));
         f.delete();
     }
 

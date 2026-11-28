@@ -17,8 +17,10 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Porta de entrada do recurso {@code paralelo} (Degrau B: fase paralela sincronizada com barreira). Neste passo so existem
- * o interruptor, as recusas e o comando; nenhuma fase, nenhuma thread de regiao e nenhum gancho no tick.
+ * Porta de entrada do recurso {@code paralelo} (Degrau B: fase paralela sincronizada com barreira). Ate o passo 4: o
+ * interruptor, as recusas (com os fatos do jogo coletados no boot), o comando, o modo {@code sombra} (classificacao e
+ * guardas que so contam, em {@code GanchosParalelo}) e o modo {@code sombra_ordenada} (a thread do servidor roda os lotes
+ * sozinha, com adiados e juncao); nenhuma thread de regiao roda tile ainda.
  *
  * <p>Esta classe nao cita o Minecraft nem o Bukkit (e carregada ate pelo {@code FMLCommonHandler}, cedo no boot).
  */
@@ -43,6 +45,12 @@ public final class Paralelo {
      */
     static final String NAO_AVALIADO = "recusas do boot nao avaliadas: o registro do paralelo nao rodou (um erro no registro de outro recurso interrompe o catalogo; veja o log do boot)";
     private static volatile List<String> motivos = Collections.singletonList(NAO_AVALIADO);
+    /** Classes tiradas por trava de SHA-256 (nome do config -&gt; motivo); preenchido pela coleta do boot. */
+    private static volatile java.util.Map<String, String> classesTiradas = Collections.emptyMap();
+    /** Os fatos que vem do config (orcamento, parada, chunkmap), guardados pelo registro para a coleta do boot. */
+    private static volatile Recusas.Fatos fatosDoConfig = new Recusas.Fatos();
+    /** A coleta dos fatos do jogo ja rodou (com ou sem recusa). */
+    private static volatile boolean coletaFeita;
 
     private Paralelo() {
     }
@@ -60,7 +68,7 @@ public final class Paralelo {
      * "Hoshiestar Regiao #i"). Desligado, sempre falso: nenhum nome muda o resultado original de {@code getEffectiveSide}.
      */
     public static boolean ehThreadDeRegiao(Thread t) {
-        return LIGADO && ehNomeDeRegiao(t.getName());
+        return LIGADO && aceito() && ehNomeDeRegiao(t.getName()); // Hoshiestar passo 3: so com o recurso aceito (achado menor do passo 1)
     }
 
     /** O criterio de nome, sem o interruptor (para teste). */
@@ -72,6 +80,48 @@ public final class Paralelo {
     static void configurar(Parametros p, List<String> m) {
         params = p;
         motivos = Collections.unmodifiableList(m);
+    }
+
+    /**
+     * Fase de servidor pronto: guarda os motivos avaliados de novo com os fatos do jogo e as classes tiradas por trava.
+     * Chamado uma vez pela coleta ({@code ColetaFatosJogo}), na thread do servidor.
+     */
+    static void configurarDoJogo(List<String> m, java.util.Map<String, String> tiradas) {
+        classesTiradas = Collections.unmodifiableMap(new java.util.LinkedHashMap<String, String>(tiradas));
+        motivos = Collections.unmodifiableList(m);
+        coletaFeita = true;
+    }
+
+    static void guardarFatosDoConfig(Recusas.Fatos f) {
+        fatosDoConfig = f;
+    }
+
+    static Recusas.Fatos fatosDoConfig() {
+        return fatosDoConfig;
+    }
+
+    public static boolean coletaFeita() {
+        return coletaFeita;
+    }
+
+    public static java.util.Map<String, String> classesTiradas() {
+        return classesTiradas;
+    }
+
+    /** As classes pedidas no config menos as tiradas por trava (na ordem do config). */
+    public static List<String> classesEfetivas() {
+        List<String> r = new java.util.ArrayList<String>();
+        for (String c : params.classes) {
+            if (Parametros.CLASSES_PERMITIDAS.contains(c) && !classesTiradas.containsKey(c)) {
+                r.add(c);
+            }
+        }
+        return r;
+    }
+
+    /** Ligado no config e recusado (para o resumo do boot e o "hoshie status"). */
+    public static boolean recusado() {
+        return LIGADO && !motivos.isEmpty();
     }
 
     public static Parametros parametros() {
@@ -87,8 +137,8 @@ public final class Paralelo {
     }
 
     /**
-     * Ligado no config, recusas avaliadas e nenhuma recusa. Sem o registro, falso. Ainda nao liga nenhuma fase (passos 3
-     * a 6 do plano).
+     * Ligado no config, recusas avaliadas com os fatos do jogo e nenhuma recusa. Sem o registro ou sem a coleta, falso
+     * (a coleta so roda com o servidor pronto; antes disso o motivo "fatos do jogo ainda nao conferidos" recusa).
      */
     public static boolean aceito() {
         return LIGADO && motivos.isEmpty();
@@ -100,8 +150,11 @@ public final class Paralelo {
             return "desligado";
         }
         if (!motivos.isEmpty()) {
-            return "ligado no config, mas RECUSADO no boot (" + motivos.size() + " motivo(s); veja 'hoshie paralelo motivos'); fase ainda nao implementada";
+            return "ligado no config, mas RECUSADO no boot (" + motivos.size() + " motivo(s); veja 'hoshie paralelo motivos'); nenhum gancho roda";
         }
-        return "ligado no config, modo " + params.modo + ", sem recusa; fase ainda nao implementada (nenhum gancho roda)";
+        return "ligado no config, modo " + params.modo + ", sem recusa; classes efetivas " + classesEfetivas()
+                + (Parametros.MODO_SOMBRA_ORDENADA.equals(params.modo)
+                        ? " (a thread do servidor roda os lotes sozinha, com adiados e juncao; nenhuma thread de regiao)"
+                        : " (tudo em serie, as guardas so contam)");
     }
 }

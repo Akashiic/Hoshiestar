@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Wed, 25 Nov 2026 21:31:25 +0000
-Subject: [PATCH 23/30] orcamento: chaves do hoshiestar.yml (bloco orcamento,
+Subject: [PATCH 23/33] orcamento: chaves do hoshiestar.yml (bloco orcamento,
  ligado false), registro no Catalogo, comando hoshie regioes, adaptador do
  jogo e ferramentas de teste (so com -D); ganchos so de medicao em
  MinecraftServer.tick, World.updateEntities e WorldServer (tickUpdates e

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Mon, 23 Nov 2026 17:19:42 +0000
-Subject: [PATCH 21/30] observador: contexto velho (D-39): fecha o contexto
+Subject: [PATCH 21/33] observador: contexto velho (D-39): fecha o contexto
  antes do getBlock da proxima entrada agendada, no fim de cada chunk do tick
  aleatorio, na excecao do tile e da entidade e no fim do laco de entidades;
  teste de bytecode

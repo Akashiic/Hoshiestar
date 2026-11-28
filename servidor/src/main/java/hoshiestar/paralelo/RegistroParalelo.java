@@ -36,10 +36,11 @@ public final class RegistroParalelo {
         f.paradaLigada = cfg.parada_ligado;
         f.chunkmapCache4Seguro = cfg.chunkmap_cache4Seguro;
         // os fatos que so o jogo sabe (dimensoes, transformadores, observadores...) nao existem na fase de coremod:
-        // f.jogoConferido fica falso e isso e motivo de recusa. Quem coletar os fatos no boot do servidor (passo 3 do plano,
-        // ou no maximo o 6, antes de abrir a fase) avalia de novo e chama Paralelo.configurar
+        // f.jogoConferido fica falso e isso e motivo de recusa. ColetaFatosJogo (servidor pronto) coleta, avalia de novo e
+        // chama Paralelo.configurarDoJogo (passo 3)
         List<String> motivos = Recusas.avaliar(cfg.paralelo_ligado, p, f);
         Paralelo.configurar(p, motivos);
+        Paralelo.guardarFatosDoConfig(f);
         if (cfg.paralelo_ligado) {
             for (String m : motivos) {
                 Log.aviso("paralelo recusado no boot: " + m);
@@ -51,6 +52,11 @@ public final class RegistroParalelo {
                     @Override
                     public String linha() {
                         return Paralelo.linhaDeEstado();
+                    }
+
+                    @Override
+                    public boolean recusado() {
+                        return Paralelo.recusado();
                     }
                 });
     }

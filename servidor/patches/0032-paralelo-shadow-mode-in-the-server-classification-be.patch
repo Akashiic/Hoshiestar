@@ -1,0 +1,1801 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Akashic <hoshiestar@localhost>
+Date: Fri, 27 Nov 2026 06:43:06 +0000
+Subject: [PATCH 32/33] paralelo: shadow mode in the server (classification
+ before the tile loop, dispatch line that never diverts, guards in count mode
+ at every point of section 4, boot facts collection), all behind
+ Paralelo.LIGADO
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01ELhLZzamveLVoauHRY3hDN
+
+diff --git a/patches/cpw/mods/fml/common/eventhandler/EventBus.java.patch b/patches/cpw/mods/fml/common/eventhandler/EventBus.java.patch
+index 736ded36..dd273893 100644
+--- a/patches/cpw/mods/fml/common/eventhandler/EventBus.java.patch
++++ b/patches/cpw/mods/fml/common/eventhandler/EventBus.java.patch
+@@ -33,7 +33,7 @@
+      public void unregister(Object object)
+      {
+          ArrayList<IEventListener> list = listeners.remove(object);
+-@@ -131,19 +150,44 @@
++@@ -131,19 +150,45 @@
+  
+      public boolean post(Event event)
+      {
+@@ -42,6 +42,7 @@
+ -        try
+ -        {
+ -            for (; index < listeners.length; index++)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosEventos.eventoForge(); // Hoshiestar - paralelo: guarda de evento do Forge (sombra: so conta)
+ +        if (MinecraftServer.serverStarted && Timings.isTimingsEnabled()) { //Only use timings after the startup and if Timings is Enabled.
+ +            Timing eventTiming = CrucibleTimings.getEventTiming(event);
+ +            eventTiming.startTiming();
+@@ -88,7 +89,7 @@
+          }
+          return (event.isCancelable() ? event.isCanceled() : false);
+      }
+-@@ -158,4 +202,8 @@
++@@ -158,4 +203,8 @@
+              FMLLog.log(Level.ERROR, "%d: %s", x, listeners[x]);
+          }
+      }
+diff --git a/patches/net/minecraft/network/NetHandlerPlayServer.java.patch b/patches/net/minecraft/network/NetHandlerPlayServer.java.patch
+index 21966668..147e9e9d 100644
+--- a/patches/net/minecraft/network/NetHandlerPlayServer.java.patch
++++ b/patches/net/minecraft/network/NetHandlerPlayServer.java.patch
+@@ -607,7 +607,15 @@
+          if (this.serverController.isSinglePlayer() && this.playerEntity.getCommandSenderName().equals(this.serverController.getServerOwner()))
+          {
+              logger.info("Stopping singleplayer server as player logged out");
+-@@ -657,6 +992,18 @@
++@@ -641,6 +976,7 @@
++ 
++     public void sendPacket(final Packet p_147359_1_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosEventos.pacote(); // Hoshiestar - paralelo: guarda de pacote (sombra: so conta)
++         if (p_147359_1_ instanceof S02PacketChat)
++         {
++             S02PacketChat s02packetchat = (S02PacketChat)p_147359_1_;
++@@ -657,6 +993,18 @@
+              }
+          }
+  
+@@ -626,7 +634,7 @@
+          try
+          {
+              this.netManager.scheduleOutboundPacket(p_147359_1_, new GenericFutureListener[0]);
+-@@ -679,20 +1026,37 @@
++@@ -679,20 +1027,37 @@
+  
+      public void processHeldItemChange(C09PacketHeldItemChange p_147355_1_)
+      {
+@@ -665,7 +673,7 @@
+          {
+              ChatComponentTranslation chatcomponenttranslation = new ChatComponentTranslation("chat.cannotSend", new Object[0]);
+              chatcomponenttranslation.getChatStyle().setColor(EnumChatFormatting.RED);
+-@@ -708,51 +1072,430 @@
++@@ -708,51 +1073,430 @@
+              {
+                  if (!ChatAllowedCharacters.isAllowedCharacter(s.charAt(i)))
+                  {
+@@ -1108,7 +1116,7 @@
+          if (p_147357_1_.func_149513_d() == 1)
+          {
+              this.playerEntity.setSneaking(true);
+-@@ -772,7 +1515,7 @@
++@@ -772,7 +1516,7 @@
+          else if (p_147357_1_.func_149513_d() == 3)
+          {
+              this.playerEntity.wakeUpPlayer(false, true, true);
+@@ -1117,7 +1125,7 @@
+          }
+          else if (p_147357_1_.func_149513_d() == 6)
+          {
+-@@ -789,8 +1532,20 @@
++@@ -789,8 +1533,20 @@
+  
+      public void processUseEntity(C02PacketUseEntity p_147340_1_)
+      {
+@@ -1139,7 +1147,7 @@
+          this.playerEntity.func_143004_u();
+  
+          if (entity != null)
+-@@ -805,9 +1560,53 @@
++@@ -805,9 +1561,53 @@
+  
+              if (this.playerEntity.getDistanceSqToEntity(entity) < d0)
+              {
+@@ -1193,7 +1201,7 @@
+                  }
+                  else if (p_147340_1_.func_149565_c() == C02PacketUseEntity.Action.ATTACK)
+                  {
+-@@ -819,6 +1618,13 @@
++@@ -819,6 +1619,13 @@
+                      }
+  
+                      this.playerEntity.attackTargetEntityWithCurrentItem(entity);
+@@ -1207,7 +1215,7 @@
+                  }
+              }
+          }
+-@@ -828,14 +1634,26 @@
++@@ -828,14 +1635,26 @@
+      {
+          this.playerEntity.func_143004_u();
+          C16PacketClientStatus.EnumState enumstate = p_147342_1_.func_149435_c();
+@@ -1236,7 +1244,7 @@
+                  else if (this.playerEntity.getServerForPlayer().getWorldInfo().isHardcoreModeEnabled())
+                  {
+                      if (this.serverController.isSinglePlayer() && this.playerEntity.getCommandSenderName().equals(this.serverController.getServerOwner()))
+-@@ -857,7 +1675,7 @@
++@@ -857,7 +1676,7 @@
+                          return;
+                      }
+  
+@@ -1245,7 +1253,7 @@
+                  }
+  
+                  break;
+-@@ -871,17 +1689,461 @@
++@@ -871,17 +1690,461 @@
+  
+      public void processCloseWindow(C0DPacketCloseWindow p_147356_1_)
+      {
+@@ -1708,7 +1716,7 @@
+              if (ItemStack.areItemStacksEqual(p_147351_1_.func_149546_g(), itemstack))
+              {
+                  this.playerEntity.playerNetServerHandler.sendPacket(new S32PacketConfirmTransaction(p_147351_1_.func_149548_c(), p_147351_1_.func_149547_f(), true));
+-@@ -903,6 +2165,12 @@
++@@ -903,6 +2166,12 @@
+                  }
+  
+                  this.playerEntity.sendContainerAndContentsToPlayer(this.playerEntity.openContainer, arraylist);
+@@ -1721,7 +1729,7 @@
+              }
+          }
+      }
+-@@ -925,9 +2193,61 @@
++@@ -925,9 +2194,61 @@
+              boolean flag = p_147344_1_.func_149627_c() < 0;
+              ItemStack itemstack = p_147344_1_.func_149625_d();
+              boolean flag1 = p_147344_1_.func_149627_c() >= 1 && p_147344_1_.func_149627_c() < 36 + InventoryPlayer.getHotbarSize();
+@@ -1784,7 +1792,7 @@
+              if (flag1 && flag2 && flag3)
+              {
+                  if (itemstack == null)
+-@@ -956,6 +2276,11 @@
++@@ -956,6 +2277,11 @@
+  
+      public void processConfirmTransaction(C0FPacketConfirmTransaction p_147339_1_)
+      {
+@@ -1796,7 +1804,7 @@
+          Short oshort = (Short)this.field_147372_n.lookup(this.playerEntity.openContainer.windowId);
+  
+          if (oshort != null && p_147339_1_.func_149533_d() == oshort.shortValue() && this.playerEntity.openContainer.windowId == p_147339_1_.func_149532_c() && !this.playerEntity.openContainer.isPlayerNotUsingContainer(this.playerEntity))
+-@@ -966,6 +2291,11 @@
++@@ -966,6 +2292,11 @@
+  
+      public void processUpdateSign(C12PacketUpdateSign p_147343_1_)
+      {
+@@ -1808,7 +1816,7 @@
+          this.playerEntity.func_143004_u();
+          WorldServer worldserver = this.serverController.worldServerForDimension(this.playerEntity.dimension);
+  
+-@@ -980,6 +2310,7 @@
++@@ -980,6 +2311,7 @@
+                  if (!tileentitysign.func_145914_a() || tileentitysign.func_145911_b() != this.playerEntity)
+                  {
+                      this.serverController.logWarning("Player " + this.playerEntity.getCommandSenderName() + " just tried to change non-editable sign");
+@@ -1816,7 +1824,7 @@
+                      return;
+                  }
+              }
+-@@ -990,6 +2321,7 @@
++@@ -990,6 +2322,7 @@
+              for (j = 0; j < 4; ++j)
+              {
+                  boolean flag = true;
+@@ -1824,7 +1832,7 @@
+  
+                  if (p_147343_1_.func_149589_f()[j].length() > 15)
+                  {
+-@@ -1018,7 +2350,29 @@
++@@ -1018,7 +2351,29 @@
+                  int k = p_147343_1_.func_149586_d();
+                  i = p_147343_1_.func_149585_e();
+                  TileEntitySign tileentitysign1 = (TileEntitySign)tileentity;
+@@ -1855,7 +1863,7 @@
+                  tileentitysign1.markDirty();
+                  worldserver.markBlockForUpdate(j, k, i);
+              }
+-@@ -1041,7 +2395,22 @@
++@@ -1041,7 +2396,22 @@
+  
+      public void processPlayerAbilities(C13PacketPlayerAbilities p_147348_1_)
+      {
+@@ -1879,7 +1887,7 @@
+      }
+  
+      public void processTabComplete(C14PacketTabComplete p_147341_1_)
+-@@ -1066,8 +2435,9 @@
++@@ -1066,8 +2436,9 @@
+      public void processVanilla250Packet(C17PacketCustomPayload p_147349_1_)
+      {
+          PacketBuffer packetbuffer;
+@@ -1891,7 +1899,7 @@
+  
+          if ("MC|BEdit".equals(p_147349_1_.func_149559_c()))
+          {
+-@@ -1075,34 +2445,52 @@
++@@ -1075,34 +2446,52 @@
+  
+              try
+              {
+@@ -1954,7 +1962,7 @@
+              }
+              finally
+              {
+-@@ -1117,37 +2505,48 @@
++@@ -1117,37 +2506,48 @@
+  
+              try
+              {
+@@ -2016,7 +2024,7 @@
+              }
+              finally
+              {
+-@@ -1174,9 +2573,12 @@
++@@ -1174,9 +2574,12 @@
+                          ((ContainerMerchant)container).setCurrentRecipeIndex(i);
+                      }
+                  }
+@@ -2030,7 +2038,7 @@
+                  }
+              }
+              else if ("MC|AdvCdm".equals(p_147349_1_.func_149559_c()))
+-@@ -1222,9 +2624,12 @@
++@@ -1222,9 +2625,12 @@
+                              this.playerEntity.addChatMessage(new ChatComponentTranslation("advMode.setCommand.success", new Object[] {s1}));
+                          }
+                      }
+@@ -2045,7 +2053,7 @@
+                      }
+                      finally
+                      {
+-@@ -1257,9 +2662,12 @@
++@@ -1257,9 +2663,12 @@
+                              tileentitybeacon.markDirty();
+                          }
+                      }
+@@ -2060,7 +2068,7 @@
+                      }
+                  }
+              }
+-@@ -1281,6 +2689,13 @@
++@@ -1281,6 +2690,13 @@
+                      containerrepair.updateItemName("");
+                  }
+              }
+@@ -2074,7 +2082,7 @@
+          }
+      }
+  
+-@@ -1292,6 +2707,21 @@
++@@ -1292,6 +2708,21 @@
+          }
+      }
+  
+diff --git a/patches/net/minecraft/server/MinecraftServer.java.patch b/patches/net/minecraft/server/MinecraftServer.java.patch
+index 587c467f..1ec86b01 100644
+--- a/patches/net/minecraft/server/MinecraftServer.java.patch
++++ b/patches/net/minecraft/server/MinecraftServer.java.patch
+@@ -379,7 +379,7 @@
+          this.clearCurrentTask();
+      }
+  
+-@@ -292,46 +513,87 @@
++@@ -292,46 +513,88 @@
+      {
+          this.currentTask = null;
+          this.percentDone = 0;
+@@ -389,6 +389,7 @@
+ -    protected void saveAllWorlds(boolean p_71267_1_)
+ +    protected void saveAllWorlds(boolean p_71267_1_) throws MinecraftException   // CraftBukkit - added throws
+      {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.salvarTudo(); // Hoshiestar - paralelo: guarda de salvamento (sombra: so conta)
+          if (!this.worldIsBeingDeleted)
+          {
+ -            WorldServer[] aworldserver = this.worldServers;
+@@ -479,7 +480,7 @@
+              if (this.func_147137_ag() != null)
+              {
+                  this.func_147137_ag().terminateEndpoints();
+-@@ -347,7 +609,14 @@
++@@ -347,7 +610,14 @@
+              if (this.worldServers != null)
+              {
+                  logger.info("Saving worlds");
+@@ -495,7 +496,7 @@
+  
+                  for (int i = 0; i < this.worldServers.length; ++i)
+                  {
+-@@ -368,6 +637,24 @@
++@@ -368,6 +638,24 @@
+                  this.usageSnooper.stopSnooper();
+              }
+          }
+@@ -520,7 +521,7 @@
+      }
+  
+      public boolean isServerRunning()
+-@@ -380,8 +667,16 @@
++@@ -380,8 +668,16 @@
+          this.serverRunning = false;
+      }
+  
+@@ -537,7 +538,7 @@
+          try
+          {
+              if (this.startServer())
+-@@ -392,45 +687,58 @@
++@@ -392,45 +688,58 @@
+                  this.field_147147_p.func_151315_a(new ChatComponentText(this.motd));
+                  this.field_147147_p.func_151321_a(new ServerStatusResponse.MinecraftProtocolVersionIdentifier("1.7.10", 5));
+                  this.func_147138_a(this.field_147147_p);
+@@ -623,7 +624,7 @@
+                  FMLCommonHandler.instance().handleServerStopping();
+                  FMLCommonHandler.instance().expectServerStopped(); // has to come before finalTick to avoid race conditions
+              }
+-@@ -448,6 +756,14 @@
++@@ -448,6 +757,14 @@
+          catch (Throwable throwable1)
+          {
+              logger.error("Encountered an unexpected exception", throwable1);
+@@ -638,7 +639,7 @@
+              CrashReport crashreport = null;
+  
+              if (throwable1 instanceof ReportedException)
+-@@ -477,6 +793,7 @@
++@@ -477,6 +794,7 @@
+          {
+              try
+              {
+@@ -646,7 +647,7 @@
+                  this.stopServer();
+                  this.serverStopped = true;
+              }
+-@@ -486,6 +803,16 @@
++@@ -486,6 +804,16 @@
+              }
+              finally
+              {
+@@ -663,7 +664,7 @@
+                  FMLCommonHandler.instance().handleServerStopped();
+                  this.serverStopped = true;
+                  this.systemExitNow();
+-@@ -497,6 +824,11 @@
++@@ -497,6 +825,11 @@
+      {
+          File file1 = this.getFile("server-icon.png");
+  
+@@ -675,7 +676,7 @@
+          if (file1.isFile())
+          {
+              ByteBuf bytebuf = Unpooled.buffer();
+-@@ -532,8 +864,21 @@
++@@ -532,8 +865,21 @@
+  
+      public void tick()
+      {
+@@ -697,7 +698,7 @@
+          ++this.tickCounter;
+  
+          if (this.startProfiling)
+-@@ -562,11 +907,18 @@
++@@ -562,11 +908,18 @@
+              this.field_147147_p.func_151318_b().func_151330_a(agameprofile);
+          }
+  
+@@ -718,7 +719,7 @@
+              this.theProfiler.endSection();
+          }
+  
+-@@ -575,80 +927,171 @@
++@@ -575,80 +928,171 @@
+          this.theProfiler.endSection();
+          this.theProfiler.startSection("snooper");
+  
+@@ -898,7 +899,7 @@
+  
+              worldTickTimes.get(id)[this.tickCounter % 100] = System.nanoTime() - j;
+          }
+-@@ -656,15 +1099,23 @@
++@@ -656,15 +1100,23 @@
+          this.theProfiler.endStartSection("dim_unloading");
+          DimensionManager.unloadWorlds(worldTickTimes);
+          this.theProfiler.endStartSection("connection");
+@@ -922,7 +923,7 @@
+  
+          this.theProfiler.endSection();
+      }
+-@@ -699,6 +1150,13 @@
++@@ -699,6 +1151,13 @@
+  
+      public WorldServer worldServerForDimension(int p_71218_1_)
+      {
+@@ -936,7 +937,7 @@
+          WorldServer ret = DimensionManager.getWorld(p_71218_1_);
+          if (ret == null)
+          {
+-@@ -784,13 +1242,14 @@
++@@ -784,13 +1243,14 @@
+  
+      public List getPossibleCompletions(ICommandSender p_71248_1_, String p_71248_2_)
+      {
+@@ -955,7 +956,7 @@
+  
+              if (list != null)
+              {
+-@@ -798,40 +1257,25 @@
++@@ -798,40 +1258,25 @@
+  
+                  while (iterator.hasNext())
+                  {
+@@ -1004,7 +1005,7 @@
+      }
+  
+      public static MinecraftServer getServer()
+-@@ -1034,7 +1478,7 @@
++@@ -1034,7 +1479,7 @@
+  
+      public boolean isServerInOnlineMode()
+      {
+@@ -1013,7 +1014,7 @@
+      }
+  
+      public void setOnlineMode(boolean p_71229_1_)
+-@@ -1124,7 +1568,7 @@
++@@ -1124,7 +1569,7 @@
+  
+      public NetworkSystem func_147137_ag()
+      {
+@@ -1022,7 +1023,7 @@
+      }
+  
+      @SideOnly(Side.CLIENT)
+-@@ -1257,10 +1701,14 @@
++@@ -1257,10 +1702,14 @@
+      @SideOnly(Side.SERVER)
+      public static void main(String[] p_main_0_)
+      {
+@@ -1037,7 +1038,7 @@
+              boolean flag = true;
+              String s = null;
+              String s1 = ".";
+-@@ -1356,16 +1804,34 @@
++@@ -1356,16 +1805,34 @@
+              {
+                  dedicatedserver.setGuiEnabled();
+              }
+@@ -1078,7 +1079,7 @@
+          }
+          catch (Exception exception)
+          {
+-@@ -1400,15 +1866,70 @@
++@@ -1400,15 +1867,70 @@
+      @SideOnly(Side.SERVER)
+      public String getPlugins()
+      {
+@@ -1154,7 +1155,7 @@
+      }
+  
+      @SideOnly(Side.SERVER)
+-@@ -1455,9 +1976,213 @@
++@@ -1455,9 +1977,213 @@
+          return this.serverStopped;
+      }
+  
+diff --git a/patches/net/minecraft/world/World.java.patch b/patches/net/minecraft/world/World.java.patch
+index d381b7b9..c16e535c 100644
+--- a/patches/net/minecraft/world/World.java.patch
++++ b/patches/net/minecraft/world/World.java.patch
+@@ -113,7 +113,7 @@
+       * Used in the getEntitiesWithinAABB functions to expand the search area for entities.
+       * Modders should change this variable to a higher value if it is less then the radius
+       * of one of there entities.
+-@@ -82,16 +126,16 @@
++@@ -82,16 +126,17 @@
+      public final MapStorage perWorldStorage;
+  
+      public boolean scheduledUpdatesAreImmediate;
+@@ -127,6 +127,7 @@
+ +    public List loadedTileEntityList = new HashedArrayList();
+ +    { if (hoshiestar.observador.Observador.LISTA) this.loadedTileEntityList = new hoshiestar.observador.ListaObservadaHashed(); } // Hoshiestar - observador: prototipo da lista de tiles (observador.lista, so no boot): mesma classe-base e mesmo comportamento, so conta quem usa
+ +    private List addedTileEntityList = new HashedArrayList();
+++    public List hoshieTilesPendentes() { return this.addedTileEntityList; } // Hoshiestar - paralelo: leitura da lista de tiles pendentes (so a foto dos invariantes)
+ +    public List field_147483_b = new ArrayList(); // Cauldron
+      public List playerEntities = new ArrayList();
+      public List weatherEffects = new ArrayList();
+@@ -136,7 +137,7 @@
+      protected final int DIST_HASH_MAGIC = 1013904223;
+      public float prevRainingStrength;
+      public float rainingStrength;
+-@@ -99,27 +143,93 @@
++@@ -99,27 +144,93 @@
+      public float thunderingStrength;
+      public int lastLightningBolt;
+      public EnumDifficulty difficultySetting;
+@@ -238,7 +239,7 @@
+      private static final String __OBFID = "CL_00000140";
+      public boolean restoringBlockSnapshots = false;
+      public boolean captureBlockSnapshots = false;
+-@@ -166,6 +276,27 @@
++@@ -166,6 +277,27 @@
+          return this.provider.worldChunkMgr;
+      }
+  
+@@ -266,7 +267,7 @@
+      @SideOnly(Side.CLIENT)
+      public World(ISaveHandler p_i45368_1_, String p_i45368_2_, WorldProvider p_i45368_3_, WorldSettings p_i45368_4_, Profiler p_i45368_5_)
+      {
+-@@ -179,6 +310,12 @@
++@@ -179,6 +311,12 @@
+          this.worldInfo = new WorldInfo(p_i45368_4_, p_i45368_2_);
+          this.provider = p_i45368_3_;
+          perWorldStorage = new MapStorage((ISaveHandler)null);
+@@ -279,7 +280,7 @@
+      }
+  
+      // Broken up so that the WorldClient gets the chance to set the mapstorage object before the dimension initializes
+-@@ -207,8 +344,182 @@
++@@ -207,8 +345,182 @@
+          this.calculateInitialWeather();
+      }
+  
+@@ -462,7 +463,7 @@
+          this.ambientTickCountdown = this.rand.nextInt(12000);
+          this.spawnHostileMobs = true;
+          this.spawnPeacefulMobs = true;
+-@@ -216,7 +527,6 @@
++@@ -216,7 +528,6 @@
+          this.lightUpdateBlockList = new int[32768];
+          this.saveHandler = p_i45369_1_;
+          this.theProfiler = p_i45369_5_;
+@@ -470,7 +471,7 @@
+          this.worldInfo = p_i45369_1_.loadWorldInfo();
+  
+          if (p_i45369_4_ != null)
+-@@ -235,14 +545,32 @@
++@@ -235,14 +546,32 @@
+          if (this.worldInfo == null)
+          {
+              this.worldInfo = new WorldInfo(p_i45369_3_, p_i45369_2_);
+@@ -503,7 +504,7 @@
+  
+          if (this instanceof WorldServer)
+          {
+-@@ -294,6 +622,7 @@
++@@ -294,6 +623,7 @@
+          this.calculateInitialSkylight();
+          this.calculateInitialWeather();
+      }
+@@ -511,11 +512,12 @@
+  
+      private static MapStorage s_mapStorage;
+      private static ISaveHandler s_savehandler;
+-@@ -336,6 +665,16 @@
++@@ -336,6 +666,17 @@
+  
+      public Block getBlock(int p_147439_1_, int p_147439_2_, int p_147439_3_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.lerBloco(this, p_147439_1_, p_147439_3_); // Hoshiestar - observador: leitura de bloco (so conta se cruza secao; sem origem so conta por contexto)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.lerBloco(this, p_147439_1_, p_147439_3_); // Hoshiestar - paralelo: guarda de leitura (sombra: so conta leitura fora do dono)
+ +        // Cauldron start - tree generation
+ +        if (this.worldChangeHolder.isCapturing())
+ +        {
+@@ -528,7 +530,7 @@
+          if (p_147439_1_ >= -30000000 && p_147439_3_ >= -30000000 && p_147439_1_ < 30000000 && p_147439_3_ < 30000000 && p_147439_2_ >= 0 && p_147439_2_ < 256)
+          {
+              Chunk chunk = null;
+-@@ -380,23 +719,46 @@
++@@ -380,23 +721,46 @@
+      {
+          if (p_72904_5_ >= 0 && p_72904_2_ < 256)
+          {
+@@ -585,7 +587,7 @@
+          }
+          else
+          {
+-@@ -404,7 +766,7 @@
++@@ -404,7 +768,7 @@
+          }
+      }
+  
+@@ -594,11 +596,12 @@
+      {
+          return this.chunkProvider.chunkExists(p_72916_1_, p_72916_2_);
+      }
+-@@ -421,6 +783,14 @@
++@@ -421,6 +785,15 @@
+  
+      public boolean setBlock(int p_147465_1_, int p_147465_2_, int p_147465_3_, Block p_147465_4_, int p_147465_5_, int p_147465_6_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.escreverBloco(this, p_147465_1_, p_147465_3_); // Hoshiestar - observador: escrita de bloco (as outras sobrecargas e setBlockToAir passam por aqui)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.escreverBloco(this, p_147465_1_, p_147465_3_); // Hoshiestar - paralelo: guarda de escrita de bloco (sombra: so conta)
+ +        // Cauldron start - tree generation
+ +        if (this.worldChangeHolder.isCapturing())
+ +        {
+@@ -609,7 +612,7 @@
+          if (p_147465_1_ >= -30000000 && p_147465_3_ >= -30000000 && p_147465_1_ < 30000000 && p_147465_3_ < 30000000)
+          {
+              if (p_147465_2_ < 0)
+-@@ -448,8 +818,22 @@
++@@ -448,8 +821,22 @@
+                      this.capturedBlockSnapshots.add(blockSnapshot);
+                  }
+  
+@@ -632,7 +635,7 @@
+                  if (!flag && blockSnapshot != null)
+                  {
+                      this.capturedBlockSnapshots.remove(blockSnapshot);
+-@@ -460,6 +844,7 @@
++@@ -460,6 +847,7 @@
+                  this.func_147451_t(p_147465_1_, p_147465_2_, p_147465_3_);
+                  this.theProfiler.endSection();
+  
+@@ -640,7 +643,7 @@
+                  if (flag && blockSnapshot == null) // Don't notify clients or update physics while capturing blockstates
+                  {
+                      // Modularize client and physic updates
+-@@ -496,6 +881,16 @@
++@@ -496,6 +884,16 @@
+  
+      public int getBlockMetadata(int p_72805_1_, int p_72805_2_, int p_72805_3_)
+      {
+@@ -657,7 +660,7 @@
+          if (p_72805_1_ >= -30000000 && p_72805_3_ >= -30000000 && p_72805_1_ < 30000000 && p_72805_3_ < 30000000)
+          {
+              if (p_72805_2_ < 0)
+-@@ -511,7 +906,7 @@
++@@ -511,7 +909,7 @@
+                  Chunk chunk = this.getChunkFromChunkCoords(p_72805_1_ >> 4, p_72805_3_ >> 4);
+                  p_72805_1_ &= 15;
+                  p_72805_3_ &= 15;
+@@ -666,15 +669,24 @@
+              }
+          }
+          else
+-@@ -522,6 +917,7 @@
++@@ -522,6 +920,8 @@
+  
+      public boolean setBlockMetadataWithNotify(int p_72921_1_, int p_72921_2_, int p_72921_3_, int p_72921_4_, int p_72921_5_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.escreverMeta(this, p_72921_1_, p_72921_3_); // Hoshiestar - observador: escrita de metadado
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.escreverMeta(this, p_72921_1_, p_72921_3_); // Hoshiestar - paralelo: guarda de escrita de metadado (sombra: so conta)
+          if (p_72921_1_ >= -30000000 && p_72921_3_ >= -30000000 && p_72921_1_ < 30000000 && p_72921_3_ < 30000000)
+          {
+              if (p_72921_2_ < 0)
+-@@ -610,6 +1006,12 @@
++@@ -602,6 +1002,7 @@
++ 
++     public void markBlockForUpdate(int p_147471_1_, int p_147471_2_, int p_147471_3_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_147471_1_, p_147471_3_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
++         for (int l = 0; l < this.worldAccesses.size(); ++l)
++         {
++             ((IWorldAccess)this.worldAccesses.get(l)).markBlockForUpdate(p_147471_1_, p_147471_2_, p_147471_3_);
++@@ -610,6 +1011,12 @@
+  
+      public void notifyBlockChange(int p_147444_1_, int p_147444_2_, int p_147444_3_, Block p_147444_4_)
+      {
+@@ -687,11 +699,20 @@
+          this.notifyBlocksOfNeighborChange(p_147444_1_, p_147444_2_, p_147444_3_, p_147444_4_);
+      }
+  
+-@@ -688,12 +1090,28 @@
++@@ -637,6 +1044,7 @@
++ 
++     public void markBlockRangeForRenderUpdate(int p_147458_1_, int p_147458_2_, int p_147458_3_, int p_147458_4_, int p_147458_5_, int p_147458_6_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_147458_1_, p_147458_3_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
++         for (int k1 = 0; k1 < this.worldAccesses.size(); ++k1)
++         {
++             ((IWorldAccess)this.worldAccesses.get(k1)).markBlockRangeForRenderUpdate(p_147458_1_, p_147458_2_, p_147458_3_, p_147458_4_, p_147458_5_, p_147458_6_);
++@@ -688,12 +1096,29 @@
+  
+      public void notifyBlockOfNeighborChange(int p_147460_1_, int p_147460_2_, int p_147460_3_, final Block p_147460_4_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.avisarVizinho(this, p_147460_1_, p_147460_3_); // Hoshiestar - observador: alcance da atualizacao de vizinho
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisarVizinho(this, p_147460_1_, p_147460_3_); // Hoshiestar - paralelo: guarda de aviso a vizinho (sombra: so conta)
+          if (!this.isRemote)
+          {
+              Block block = this.getBlock(p_147460_1_, p_147460_2_, p_147460_3_);
+@@ -716,7 +737,7 @@
+                  block.onNeighborBlockChange(this, p_147460_1_, p_147460_2_, p_147460_3_, p_147460_4_);
+              }
+              catch (Throwable throwable1)
+-@@ -947,14 +1365,13 @@
++@@ -947,14 +1372,13 @@
+          {
+              int l = p_72972_2_ >> 4;
+              int i1 = p_72972_4_ >> 4;
+@@ -733,7 +754,55 @@
+                  return chunk.getSavedLightValue(p_72972_1_, p_72972_2_ & 15, p_72972_3_, p_72972_4_ & 15);
+              }
+          }
+-@@ -1305,8 +1722,24 @@
++@@ -989,6 +1413,7 @@
++ 
++     public void func_147479_m(int p_147479_1_, int p_147479_2_, int p_147479_3_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_147479_1_, p_147479_3_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
++         for (int l = 0; l < this.worldAccesses.size(); ++l)
++         {
++             ((IWorldAccess)this.worldAccesses.get(l)).markBlockForRenderUpdate(p_147479_1_, p_147479_2_, p_147479_3_);
++@@ -1247,6 +1672,7 @@
++ 
++     public void playSoundAtEntity(Entity p_72956_1_, String p_72956_2_, float p_72956_3_, float p_72956_4_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, (int) Math.floor(p_72956_1_.posX), (int) Math.floor(p_72956_1_.posZ)); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
++         PlaySoundAtEntityEvent event = new PlaySoundAtEntityEvent(p_72956_1_, p_72956_2_, p_72956_3_, p_72956_4_);
++         if (MinecraftForge.EVENT_BUS.post(event))
++         {
++@@ -1261,6 +1687,7 @@
++ 
++     public void playSoundToNearExcept(EntityPlayer p_85173_1_, String p_85173_2_, float p_85173_3_, float p_85173_4_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, (int) Math.floor(p_85173_1_.posX), (int) Math.floor(p_85173_1_.posZ)); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
++         PlaySoundAtEntityEvent event = new PlaySoundAtEntityEvent(p_85173_1_, p_85173_2_, p_85173_3_, p_85173_4_);
++         if (MinecraftForge.EVENT_BUS.post(event))
++         {
++@@ -1275,6 +1702,7 @@
++ 
++     public void playSoundEffect(double p_72908_1_, double p_72908_3_, double p_72908_5_, String p_72908_7_, float p_72908_8_, float p_72908_9_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, (int) Math.floor(p_72908_1_), (int) Math.floor(p_72908_5_)); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
++         for (int i = 0; i < this.worldAccesses.size(); ++i)
++         {
++             ((IWorldAccess)this.worldAccesses.get(i)).playSound(p_72908_7_, p_72908_1_, p_72908_3_, p_72908_5_, p_72908_8_, p_72908_9_);
++@@ -1285,6 +1713,7 @@
++ 
++     public void playRecord(String p_72934_1_, int p_72934_2_, int p_72934_3_, int p_72934_4_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_72934_2_, p_72934_4_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
++         for (int l = 0; l < this.worldAccesses.size(); ++l)
++         {
++             ((IWorldAccess)this.worldAccesses.get(l)).playRecord(p_72934_1_, p_72934_2_, p_72934_3_, p_72934_4_);
++@@ -1293,6 +1722,7 @@
++ 
++     public void spawnParticle(String p_72869_1_, double p_72869_2_, double p_72869_4_, double p_72869_6_, double p_72869_8_, double p_72869_10_, double p_72869_12_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, (int) Math.floor(p_72869_2_), (int) Math.floor(p_72869_6_)); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
++         for (int i = 0; i < this.worldAccesses.size(); ++i)
++         {
++             ((IWorldAccess)this.worldAccesses.get(i)).spawnParticle(p_72869_1_, p_72869_2_, p_72869_4_, p_72869_6_, p_72869_8_, p_72869_10_, p_72869_12_);
++@@ -1305,8 +1735,25 @@
+          return true;
+      }
+  
+@@ -754,11 +823,12 @@
+ +    public boolean addEntity(Entity p_72838_1_, SpawnReason spawnReason) // Changed signature, added SpawnReason
+ +    {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.adicionarEntidade(this, p_72838_1_); // Hoshiestar - observador: entidade criada (spawnEntityInWorld passa por aqui)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.adicionarEntidade(this, p_72838_1_); // Hoshiestar - paralelo: guarda de entidade criada (sombra: so conta)
+ +        if (!p_72838_1_.entityAllowedToSpawn()) return false; // Cauldron
+          // do not drop any items while restoring blocksnapshots. Prevents dupes
+          if (!this.isRemote && (p_72838_1_ == null || (p_72838_1_ instanceof net.minecraft.entity.item.EntityItem && this.restoringBlockSnapshots))) return false;
+  
+-@@ -1319,23 +1752,99 @@
++@@ -1319,23 +1766,99 @@
+              flag = true;
+          }
+  
+@@ -860,7 +930,7 @@
+              return true;
+          }
+      }
+-@@ -1346,6 +1855,8 @@
++@@ -1346,6 +1869,8 @@
+          {
+              ((IWorldAccess)this.worldAccesses.get(i)).onEntityCreate(p_72923_1_);
+          }
+@@ -869,7 +939,7 @@
+      }
+  
+      public void onEntityRemoved(Entity p_72847_1_)
+-@@ -1354,10 +1865,13 @@
++@@ -1354,10 +1879,14 @@
+          {
+              ((IWorldAccess)this.worldAccesses.get(i)).onEntityDestroy(p_72847_1_);
+          }
+@@ -880,10 +950,11 @@
+      public void removeEntity(Entity p_72900_1_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.removerEntidade(this, p_72900_1_); // Hoshiestar - observador: entidade removida
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.removerEntidade(this, p_72900_1_); // Hoshiestar - paralelo: guarda de entidade removida (sombra: so conta)
+          if (p_72900_1_.riddenByEntity != null)
+          {
+              p_72900_1_.riddenByEntity.mountEntity((Entity)null);
+-@@ -1397,6 +1911,19 @@
++@@ -1397,6 +1926,19 @@
+          }
+  
+          this.loadedEntityList.remove(p_72973_1_);
+@@ -903,7 +974,7 @@
+          this.onEntityRemoved(p_72973_1_);
+      }
+  
+-@@ -1407,42 +1934,62 @@
++@@ -1407,42 +1949,62 @@
+  
+      public List getCollidingBoundingBoxes(Entity p_72945_1_, AxisAlignedBB p_72945_2_)
+      {
+@@ -981,7 +1052,7 @@
+          for (int j2 = 0; j2 < list.size(); ++j2)
+          {
+              AxisAlignedBB axisalignedbb1 = ((Entity)list.get(j2)).getBoundingBox();
+-@@ -1791,17 +2338,29 @@
++@@ -1791,17 +2353,29 @@
+  
+      public void updateEntities()
+      {
+@@ -1011,7 +1082,7 @@
+              try
+              {
+                  ++entity.ticksExisted;
+-@@ -1862,10 +2421,17 @@
++@@ -1862,10 +2436,17 @@
+  
+          this.unloadedEntityList.clear();
+          this.theProfiler.endStartSection("regular");
+@@ -1032,7 +1103,7 @@
+  
+              if (entity.ridingEntity != null)
+              {
+-@@ -1884,10 +2450,14 @@
++@@ -1884,10 +2465,14 @@
+              {
+                  try
+                  {
+@@ -1047,7 +1118,7 @@
+                      crashreport = CrashReport.makeCrashReport(throwable1, "Ticking entity");
+                      crashreportcategory = crashreport.makeCategory("Entity being ticked");
+                      entity.addEntityCrashInfo(crashreportcategory);
+-@@ -1916,30 +2486,96 @@
++@@ -1916,30 +2501,100 @@
+                  {
+                      this.getChunkFromChunkCoords(j, l).removeEntity(entity);
+                  }
+@@ -1104,6 +1175,7 @@
+  
+ -            if (!tileentity.isInvalid() && tileentity.hasWorldObj() && this.blockExists(tileentity.xCoord, tileentity.yCoord, tileentity.zCoord))
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.ListaObservada.mundo(); // Hoshiestar - observador: laco de tiles e tiles pendentes (o update do tile volta a ser "de fora" pelo contexto de tile)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.abrir(this); // Hoshiestar - paralelo: classificacao das regioes (so leitura; sem variavel local nova antes do laco: o Opis usa o slot 9 fixo)
+ +        int tilesThisCycle = 0;
+ +        for (tileLimiter.initTick(); tilesThisCycle < loadedTileEntityList.size() && (tilesThisCycle % 10 == 0 || tileLimiter.shouldContinue()); tileTickPosition++, tilesThisCycle++) {
+ +            tileTickPosition = (tileTickPosition < loadedTileEntityList.size()) ? tileTickPosition : 0;
+@@ -1132,6 +1204,7 @@
+ +
+ +            if (tileentity.hasWorldObj() && CauldronHooks.canTileEntityTick(tileentity, this) && this.blockExists(tileentity.xCoord, tileentity.yCoord, tileentity.zCoord))
+ +            {
+++                if (hoshiestar.paralelo.Paralelo.LIGADO && hoshiestar.paralelo.GanchosParalelo.despachar(this, tileentity)) continue; // Hoshiestar - paralelo: despacho (depois do trecho que o DragonAPI reescreve; sombra nunca desvia: so abre o contexto "lote R" do tile)
+ +                if (hoshiestar.orcamento.Orcamento.LIGADO && !hoshiestar.orcamento.GanchosOrcamento.tile(this, tileentity)) continue; // Hoshiestar - orcamento: regiao em corte neste tick pula a tile (depois do blockExists: fora do trecho que o DragonAPI reescreve; antes dos ganchos do medidor e do observador; mede o tempo por regiao)
+                  try
+                  {
+@@ -1142,16 +1215,18 @@
+                      tileentity.updateEntity();
+ +                    tileentity.tickTimer.stopTiming(); // Spigot
+ +                    if (hoshiestar.medidor.Medidor.ATIVO) hoshiestar.medidor.GanchosMedidor.fimTE(); // Hoshiestar - medidor: depois do update
+++                    if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.fimTile(this); // Hoshiestar - paralelo: fim do contexto do tile (confere os invariantes; fora da linha da chamada)
+ +                    if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimTile(); // Hoshiestar - observador: fim do contexto do tile
+                  }
+                  catch (Throwable throwable)
+                  {
+ +                    tileentity.tickTimer.stopTiming(); // Spigot
+ +                    if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimTile(); // Hoshiestar - observador: o update lancou excecao: fecha o contexto do tile (o fimTile do caminho normal nao rodou)
+++                    if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.fimTile(this); // Hoshiestar - paralelo: o update lancou excecao: fecha o contexto do tile
+                      crashreport = CrashReport.makeCrashReport(throwable, "Ticking block entity");
+                      crashreportcategory = crashreport.makeCategory("Block entity being ticked");
+                      tileentity.func_145828_a(crashreportcategory);
+-@@ -1955,23 +2591,16 @@
++@@ -1955,23 +2610,17 @@
+                      }
+                  }
+              }
+@@ -1172,6 +1247,7 @@
+ -            }
+          }
+ +        hoshiestar.vigia.Marcas.tile(null); // Hoshiestar - vigia: fim do laco de tiles
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.fimLaco(this); // Hoshiestar - paralelo: fim do laco de tiles (fase volta a FECHADA)
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.fimTile(); // Hoshiestar - observador: fim do laco de tiles (limpa sobra de update que lancou excecao)
+ +        if (hoshiestar.orcamento.Orcamento.LIGADO) hoshiestar.orcamento.GanchosOrcamento.fimLaco(); // Hoshiestar - orcamento: fim do laco de tiles
+  
+@@ -1183,7 +1259,7 @@
+          if (!this.field_147483_b.isEmpty())
+          {
+              for (Object tile : field_147483_b)
+-@@ -1981,6 +2610,7 @@
++@@ -1981,6 +2630,7 @@
+              this.loadedTileEntityList.removeAll(this.field_147483_b);
+              this.field_147483_b.clear();
+          }
+@@ -1191,7 +1267,7 @@
+  
+          this.field_147481_N = false;
+  
+-@@ -1992,14 +2622,14 @@
++@@ -1992,14 +2642,14 @@
+              {
+                  TileEntity tileentity1 = (TileEntity)this.addedTileEntityList.get(k);
+  
+@@ -1208,7 +1284,7 @@
+                  {
+                      if (this.chunkExists(tileentity1.xCoord >> 4, tileentity1.zCoord >> 4))
+                      {
+-@@ -2015,18 +2645,29 @@
++@@ -2015,18 +2665,30 @@
+  
+              this.addedTileEntityList.clear();
+          }
+@@ -1225,6 +1301,7 @@
+      {
+ -        List dest = field_147481_N ? addedTileEntityList : loadedTileEntityList;
+ -        for(TileEntity entity : (Collection<TileEntity>)p_147448_1_)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.adicionarTiles(this); // Hoshiestar - paralelo: guarda de tiles na lista (sombra: so conta)
+ +        // Cauldron start
+ +        Collection dest = field_147481_N ? addedTileEntityList : loadedTileEntityList; // List -> Collection for CB loadedTileEntityList type change
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.ListaObservada.mundo(); // Hoshiestar - observador: o World pondo os tiles do chunk na lista
+@@ -1241,7 +1318,7 @@
+      }
+  
+      public void updateEntity(Entity p_72870_1_)
+-@@ -2036,11 +2677,18 @@
++@@ -2036,11 +2698,18 @@
+  
+      public void updateEntityWithOptionalForce(Entity p_72866_1_, boolean p_72866_2_)
+      {
+@@ -1263,7 +1340,7 @@
+  
+          if (!canUpdate)
+          {
+-@@ -2048,9 +2696,34 @@
++@@ -2048,9 +2717,34 @@
+              MinecraftForge.EVENT_BUS.post(event);
+              canUpdate = event.canUpdate;
+          }
+@@ -1299,7 +1376,7 @@
+              p_72866_1_.lastTickPosX = p_72866_1_.posX;
+              p_72866_1_.lastTickPosY = p_72866_1_.posY;
+              p_72866_1_.lastTickPosZ = p_72866_1_.posZ;
+-@@ -2134,7 +2807,10 @@
++@@ -2134,7 +2828,10 @@
+                      p_72866_1_.riddenByEntity = null;
+                  }
+              }
+@@ -1310,7 +1387,14 @@
+      }
+  
+      public boolean checkNoEntityCollision(AxisAlignedBB p_72855_1_)
+-@@ -2517,6 +3193,16 @@
++@@ -2511,12 +3208,23 @@
++ 
++     public TileEntity getTileEntity(int p_147438_1_, int p_147438_2_, int p_147438_3_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.lerTile(this, p_147438_1_, p_147438_3_); // Hoshiestar - paralelo: guarda de leitura de tile (sombra: so conta leitura fora do dono)
++         if (p_147438_2_ >= 0 && p_147438_2_ < 256)
++         {
++             TileEntity tileentity = null;
+              int l;
+              TileEntity tileentity1;
+  
+@@ -1327,7 +1411,7 @@
+              if (this.field_147481_N)
+              {
+                  for (l = 0; l < this.addedTileEntityList.size(); ++l)
+-@@ -2555,6 +3241,7 @@
++@@ -2555,6 +3263,7 @@
+                  }
+              }
+  
+@@ -1335,11 +1419,12 @@
+              return tileentity;
+          }
+          else
+-@@ -2565,12 +3252,13 @@
++@@ -2565,12 +3274,14 @@
+  
+      public void setTileEntity(int p_147455_1_, int p_147455_2_, int p_147455_3_, TileEntity p_147455_4_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.porTile(this, p_147455_1_, p_147455_3_); // Hoshiestar - observador: tile posto
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.porTile(this, p_147455_1_, p_147455_3_); // Hoshiestar - paralelo: guarda de tile posto (sombra: so conta)
+          if (p_147455_4_ == null || p_147455_4_.isInvalid())
+          {
+              return;
+@@ -1350,7 +1435,7 @@
+          {
+              if (this.field_147481_N)
+              {
+-@@ -2591,7 +3279,9 @@
++@@ -2591,7 +3302,9 @@
+              }
+              else
+              {
+@@ -1360,11 +1445,12 @@
+              }
+          }
+          Chunk chunk = this.getChunkFromChunkCoords(p_147455_1_ >> 4, p_147455_3_ >> 4);
+-@@ -2605,14 +3295,35 @@
++@@ -2605,14 +3318,36 @@
+  
+      public void removeTileEntity(int p_147475_1_, int p_147475_2_, int p_147475_3_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.removerTile(this, p_147475_1_, p_147475_3_); // Hoshiestar - observador: tile removido
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.tirarTile(this, p_147475_1_, p_147475_3_); // Hoshiestar - paralelo: guarda de tile removido (sombra: so conta)
+          Chunk chunk = getChunkFromChunkCoords(p_147475_1_ >> 4, p_147475_3_ >> 4);
+ +        TileEntity te = chunk.getTileEntityUnsafe(p_147475_1_ & 15, p_147475_2_, p_147475_3_ & 15);
+ +        if(te != null)
+@@ -1397,7 +1483,7 @@
+      }
+  
+      public boolean func_147469_q(int p_147469_1_, int p_147469_2_, int p_147469_3_)
+-@@ -2718,7 +3429,15 @@
++@@ -2718,7 +3453,15 @@
+  
+                      if (i <= 0)
+                      {
+@@ -1414,7 +1500,7 @@
+                      }
+                  }
+  
+-@@ -2754,7 +3473,15 @@
++@@ -2754,7 +3497,15 @@
+  
+                      if (j <= 0)
+                      {
+@@ -1431,7 +1517,7 @@
+                      }
+                  }
+  
+-@@ -2777,8 +3504,41 @@
++@@ -2777,8 +3528,41 @@
+      protected void setActivePlayerChunksAndCheckLight()
+      {
+          this.activeChunkSet.clear();
+@@ -1474,7 +1560,7 @@
+          int i;
+          EntityPlayer entityplayer;
+          int j;
+-@@ -2788,17 +3548,28 @@
++@@ -2788,17 +3572,28 @@
+          for (i = 0; i < this.playerEntities.size(); ++i)
+          {
+              entityplayer = (EntityPlayer)this.playerEntities.get(i);
+@@ -1509,7 +1595,7 @@
+          }
+  
+          this.theProfiler.endSection();
+-@@ -2810,7 +3581,7 @@
++@@ -2810,7 +3605,7 @@
+  
+          this.theProfiler.startSection("playerCheckLight");
+  
+@@ -1518,7 +1604,7 @@
+          {
+              i = this.rand.nextInt(this.playerEntities.size());
+              entityplayer = (EntityPlayer)this.playerEntities.get(i);
+-@@ -3034,9 +3805,9 @@
++@@ -3034,9 +3829,9 @@
+          }
+      }
+  
+@@ -1530,7 +1616,7 @@
+          {
+              return false;
+          }
+-@@ -3166,6 +3937,28 @@
++@@ -3166,6 +3961,28 @@
+                  }
+              }
+  
+@@ -1559,7 +1645,7 @@
+              this.theProfiler.endSection();
+              return true;
+          }
+-@@ -3188,7 +3981,7 @@
++@@ -3188,7 +4005,7 @@
+  
+      public List getEntitiesWithinAABBExcludingEntity(Entity p_94576_1_, AxisAlignedBB p_94576_2_, IEntitySelector p_94576_3_)
+      {
+@@ -1568,7 +1654,7 @@
+          int i = MathHelper.floor_double((p_94576_2_.minX - MAX_ENTITY_RADIUS) / 16.0D);
+          int j = MathHelper.floor_double((p_94576_2_.maxX + MAX_ENTITY_RADIUS) / 16.0D);
+          int k = MathHelper.floor_double((p_94576_2_.minZ - MAX_ENTITY_RADIUS) / 16.0D);
+-@@ -3219,7 +4012,7 @@
++@@ -3219,7 +4036,7 @@
+          int j = MathHelper.floor_double((p_82733_2_.maxX + MAX_ENTITY_RADIUS) / 16.0D);
+          int k = MathHelper.floor_double((p_82733_2_.minZ - MAX_ENTITY_RADIUS) / 16.0D);
+          int l = MathHelper.floor_double((p_82733_2_.maxZ + MAX_ENTITY_RADIUS) / 16.0D);
+@@ -1577,7 +1663,15 @@
+  
+          for (int i1 = i; i1 <= j; ++i1)
+          {
+-@@ -3284,8 +4077,21 @@
++@@ -3270,6 +4087,7 @@
++ 
++     public void markTileEntityChunkModified(int p_147476_1_, int p_147476_2_, int p_147476_3_, TileEntity p_147476_4_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.chunkModificado(this, p_147476_1_, p_147476_3_); // Hoshiestar - paralelo: guarda de dono (sombra: so conta fora do dono)
++         if (this.blockExists(p_147476_1_, p_147476_2_, p_147476_3_))
++         {
++             this.getChunkFromBlockCoords(p_147476_1_, p_147476_3_).setChunkModified();
++@@ -3284,8 +4102,21 @@
+          {
+              Entity entity = (Entity)this.loadedEntityList.get(j);
+  
+@@ -1600,7 +1694,7 @@
+                  ++i;
+              }
+          }
+-@@ -3298,6 +4104,7 @@
++@@ -3298,6 +4129,7 @@
+          for (int i = 0; i < p_72868_1_.size(); ++i)
+          {
+              Entity entity = (Entity)p_72868_1_.get(i);
+@@ -1608,7 +1702,7 @@
+              if (!MinecraftForge.EVENT_BUS.post(new EntityJoinWorldEvent(entity, this)))
+              {
+                  loadedEntityList.add(entity);
+-@@ -3314,8 +4121,17 @@
++@@ -3314,8 +4146,17 @@
+      public boolean canPlaceEntityOnSide(Block p_147472_1_, int p_147472_2_, int p_147472_3_, int p_147472_4_, boolean p_147472_5_, int p_147472_6_, Entity p_147472_7_, ItemStack p_147472_8_)
+      {
+          Block block1 = this.getBlock(p_147472_2_, p_147472_3_, p_147472_4_);
+@@ -1627,7 +1721,7 @@
+      }
+  
+      public PathEntity getPathEntityToEntity(Entity p_72865_1_, Entity p_72865_2_, float p_72865_3_, boolean p_72865_4_, boolean p_72865_5_, boolean p_72865_6_, boolean p_72865_7_)
+-@@ -3464,6 +4280,12 @@
++@@ -3464,6 +4305,12 @@
+          for (int i = 0; i < this.playerEntities.size(); ++i)
+          {
+              EntityPlayer entityplayer1 = (EntityPlayer)this.playerEntities.get(i);
+@@ -1640,7 +1734,7 @@
+              double d5 = entityplayer1.getDistanceSq(p_72977_1_, p_72977_3_, p_72977_5_);
+  
+              if ((p_72977_7_ < 0.0D || d5 < p_72977_7_ * p_72977_7_) && (d4 == -1.0D || d5 < d4))
+-@@ -3489,7 +4311,12 @@
++@@ -3489,7 +4336,12 @@
+          for (int i = 0; i < this.playerEntities.size(); ++i)
+          {
+              EntityPlayer entityplayer1 = (EntityPlayer)this.playerEntities.get(i);
+@@ -1654,7 +1748,7 @@
+              if (!entityplayer1.capabilities.disableDamage && entityplayer1.isEntityAlive())
+              {
+                  double d5 = entityplayer1.getDistanceSq(p_72846_1_, p_72846_3_, p_72846_5_);
+-@@ -3660,6 +4487,18 @@
++@@ -3660,6 +4512,18 @@
+  
+      public void updateAllPlayersSleepingFlag() {}
+  
+@@ -1673,13 +1767,46 @@
+      public float getWeightedThunderStrength(float p_72819_1_)
+      {
+          return (this.prevThunderingStrength + (this.thunderingStrength - this.prevThunderingStrength) * p_72819_1_) * this.getRainStrength(p_72819_1_);
+-@@ -3932,11 +4771,14 @@
++@@ -3737,6 +4601,7 @@
++ 
++     public void playBroadcastSound(int p_82739_1_, int p_82739_2_, int p_82739_3_, int p_82739_4_, int p_82739_5_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_82739_2_, p_82739_4_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
++         for (int j1 = 0; j1 < this.worldAccesses.size(); ++j1)
++         {
++             ((IWorldAccess)this.worldAccesses.get(j1)).broadcastSound(p_82739_1_, p_82739_2_, p_82739_3_, p_82739_4_, p_82739_5_);
++@@ -3750,6 +4615,7 @@
++ 
++     public void playAuxSFXAtEntity(EntityPlayer p_72889_1_, int p_72889_2_, int p_72889_3_, int p_72889_4_, int p_72889_5_, int p_72889_6_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_72889_3_, p_72889_5_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
++         try
++         {
++             for (int j1 = 0; j1 < this.worldAccesses.size(); ++j1)
++@@ -3838,6 +4704,7 @@
++ 
++     public void destroyBlockInWorldPartially(int p_147443_1_, int p_147443_2_, int p_147443_3_, int p_147443_4_, int p_147443_5_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.avisoCliente(this, p_147443_2_, p_147443_4_); // Hoshiestar - paralelo: aviso ao cliente (sombra: conta como adiado)
++         for (int j1 = 0; j1 < this.worldAccesses.size(); ++j1)
++         {
++             IWorldAccess iworldaccess = (IWorldAccess)this.worldAccesses.get(j1);
++@@ -3865,6 +4732,7 @@
++ 
++     public void func_147453_f(int p_147453_1_, int p_147453_2_, int p_147453_3_, Block p_147453_4_)
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.vizinhosMarkDirty(this, p_147453_1_, p_147453_3_); // Hoshiestar - paralelo: guarda de dono dos vizinhos do markDirty (sombra: so conta fora do dono)
++         for (ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS)
++         {
++             int i1 = p_147453_1_ + dir.offsetX;
++@@ -3932,11 +4800,15 @@
+       */
+      public void addTileEntity(TileEntity entity)
+      {
+ -        List dest = field_147481_N ? addedTileEntityList : loadedTileEntityList;
+ -        if(entity.canUpdate())
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.adicionarTile(this, entity); // Hoshiestar - observador: tile adicionado a lista do mundo
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.adicionarTile(this, entity); // Hoshiestar - paralelo: guarda de tile na lista (sombra: so conta)
+ +        Collection dest = field_147481_N ? addedTileEntityList : loadedTileEntityList; // Cauldron - List -> Collection for CB loadedTileEntityList type change
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.ListaObservada.mundo(); // Hoshiestar - observador: addTileEntity pondo o tile na lista
+ +        if (CauldronHooks.canUpdate(entity))
+@@ -1690,7 +1817,7 @@
+      }
+  
+      /**
+-@@ -4029,4 +4871,132 @@
++@@ -4029,4 +4901,132 @@
+          }
+          return count;
+      }
+diff --git a/patches/net/minecraft/world/WorldServer.java.patch b/patches/net/minecraft/world/WorldServer.java.patch
+index 5b2593da..741fb0f4 100644
+--- a/patches/net/minecraft/world/WorldServer.java.patch
++++ b/patches/net/minecraft/world/WorldServer.java.patch
+@@ -22,7 +22,7 @@
+  import net.minecraft.block.Block;
+  import net.minecraft.block.BlockEventData;
+  import net.minecraft.block.material.Material;
+-@@ -63,15 +68,29 @@
++@@ -63,18 +68,33 @@
+  import net.minecraftforge.common.MinecraftForge;
+  import net.minecraftforge.event.ForgeEventFactory;
+  import net.minecraftforge.event.world.WorldEvent;
+@@ -53,7 +53,11 @@
+      private final PlayerManager thePlayerManager;
+      private Set pendingTickListEntriesHashSet;
+      private TreeSet pendingTickListEntriesTreeSet;
+-@@ -92,9 +111,13 @@
+++    public int hoshieAgendados() { return this.pendingTickListEntriesTreeSet == null ? -1 : this.pendingTickListEntriesTreeSet.size(); } // Hoshiestar - paralelo: tamanho da fila de ticks agendados (so a foto dos invariantes)
++     public ChunkProviderServer theChunkProviderServer;
++     public boolean levelSaving;
++     private boolean allPlayersSleeping;
++@@ -92,9 +112,13 @@
+      protected Set<ChunkCoordIntPair> doneChunks = new HashSet<ChunkCoordIntPair>();
+      public List<Teleporter> customTeleporters = new ArrayList<Teleporter>();
+  
+@@ -67,7 +71,7 @@
+          this.mcServer = p_i45284_1_;
+          this.theEntityTracker = new EntityTracker(this);
+          this.thePlayerManager = new PlayerManager(this);
+-@@ -106,12 +129,12 @@
++@@ -106,12 +130,12 @@
+  
+          if (this.pendingTickListEntriesHashSet == null)
+          {
+@@ -82,7 +86,7 @@
+          }
+  
+          this.worldTeleporter = new Teleporter(this);
+-@@ -124,6 +147,47 @@
++@@ -124,6 +148,47 @@
+              this.mapStorage.setData("scoreboard", scoreboardsavedata);
+          }
+  
+@@ -130,7 +134,7 @@
+          if (!(this instanceof WorldServerMulti)) //Forge: We fix the global mapStorage, which causes us to share scoreboards early. So don't associate the save data with the temporary scoreboard
+          {
+              scoreboardsavedata.func_96499_a(this.worldScoreboard);
+-@@ -132,6 +196,31 @@
++@@ -132,6 +197,31 @@
+          DimensionManager.setWorld(p_i45284_4_, this);
+      }
+  
+@@ -162,7 +166,7 @@
+      public void tick()
+      {
+          super.tick();
+-@@ -155,12 +244,19 @@
++@@ -155,12 +245,19 @@
+          }
+  
+          this.theProfiler.startSection("mobSpawner");
+@@ -185,7 +189,7 @@
+          this.theProfiler.endStartSection("chunkSource");
+          this.chunkProvider.unloadQueuedChunks();
+          int j = this.calculateSkylightSubtracted(1.0F);
+-@@ -170,30 +266,47 @@
++@@ -170,30 +267,47 @@
+              this.skylightSubtracted = j;
+          }
+  
+@@ -234,7 +238,7 @@
+      }
+  
+      public BiomeGenBase.SpawnListEntry spawnRandomCreature(EnumCreatureType p_73057_1_, int p_73057_2_, int p_73057_3_, int p_73057_4_)
+-@@ -212,7 +325,7 @@
++@@ -212,7 +326,7 @@
+          {
+              EntityPlayer entityplayer = (EntityPlayer)iterator.next();
+  
+@@ -243,7 +247,7 @@
+              {
+                  this.allPlayersSleeping = false;
+                  break;
+-@@ -240,7 +353,25 @@
++@@ -240,7 +354,25 @@
+  
+      private void resetRainAndThunder()
+      {
+@@ -270,7 +274,7 @@
+      }
+  
+      public boolean areAllPlayersAsleep()
+-@@ -248,19 +379,26 @@
++@@ -248,19 +380,26 @@
+          if (this.allPlayersSleeping && !this.isRemote)
+          {
+              Iterator iterator = this.playerEntities.iterator();
+@@ -300,7 +304,7 @@
+              return false;
+          }
+          else
+-@@ -302,15 +440,30 @@
++@@ -302,15 +441,30 @@
+          super.func_147456_g();
+          int i = 0;
+          int j = 0;
+@@ -337,7 +341,7 @@
+              this.func_147467_a(k, l, chunk);
+              this.theProfiler.endStartSection("tickChunk");
+              chunk.func_150804_b(false);
+-@@ -346,12 +499,32 @@
++@@ -346,12 +500,32 @@
+  
+                  if (this.isBlockFreezableNaturally(j1 + k, l1 - 1, k1 + l))
+                  {
+@@ -372,7 +376,7 @@
+                  }
+  
+                  if (this.isRaining())
+-@@ -388,14 +561,25 @@
++@@ -388,14 +562,25 @@
+                          if (block.getTickRandomly())
+                          {
+                              ++i;
+@@ -398,15 +402,16 @@
+      }
+  
+      public boolean isBlockTickScheduledThisTick(int p_147477_1_, int p_147477_2_, int p_147477_3_, Block p_147477_4_)
+-@@ -411,6 +595,7 @@
++@@ -411,6 +596,8 @@
+  
+      public void scheduleBlockUpdateWithPriority(int p_147454_1_, int p_147454_2_, int p_147454_3_, Block p_147454_4_, int p_147454_5_, int p_147454_6_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.agendarTick(this, p_147454_1_, p_147454_3_); // Hoshiestar - observador: tick de bloco agendado (scheduleBlockUpdate passa por aqui)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.tickAgendado(this, p_147454_1_, p_147454_3_); // Hoshiestar - paralelo: tick agendado (sombra: conta como adiado)
+          NextTickListEntry nextticklistentry = new NextTickListEntry(p_147454_1_, p_147454_2_, p_147454_3_, p_147454_4_);
+          //Keeping here as a note for future when it may be restored.
+          //boolean isForced = getPersistentChunks().containsKey(new ChunkCoordIntPair(nextticklistentry.xCoord >> 4, nextticklistentry.zCoord >> 4));
+-@@ -427,7 +612,7 @@
++@@ -427,7 +614,7 @@
+                  {
+                      Block block1 = this.getBlock(nextticklistentry.xCoord, nextticklistentry.yCoord, nextticklistentry.zCoord);
+  
+@@ -415,15 +420,16 @@
+                      {
+                          block1.updateTick(this, nextticklistentry.xCoord, nextticklistentry.yCoord, nextticklistentry.zCoord, this.rand);
+                      }
+-@@ -457,6 +642,7 @@
++@@ -457,6 +644,8 @@
+  
+      public void func_147446_b(int p_147446_1_, int p_147446_2_, int p_147446_3_, Block p_147446_4_, int p_147446_5_, int p_147446_6_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.agendarTick(this, p_147446_1_, p_147446_3_); // Hoshiestar - observador: tick de bloco agendado (func_147446_b)
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.tickAgendado(this, p_147446_1_, p_147446_3_); // Hoshiestar - paralelo: tick agendado (sombra: conta como adiado)
+          NextTickListEntry nextticklistentry = new NextTickListEntry(p_147446_1_, p_147446_2_, p_147446_3_, p_147446_4_);
+          nextticklistentry.setPriority(p_147446_6_);
+  
+-@@ -474,7 +660,7 @@
++@@ -474,7 +663,7 @@
+  
+      public void updateEntities()
+      {
+@@ -432,7 +438,7 @@
+          {
+              if (this.updateEntityTick++ >= 1200)
+              {
+-@@ -487,6 +673,7 @@
++@@ -487,6 +676,7 @@
+          }
+  
+          super.updateEntities();
+@@ -440,7 +446,7 @@
+      }
+  
+      public void resetUpdateEntityTick()
+-@@ -494,24 +681,66 @@
++@@ -494,24 +684,66 @@
+          this.updateEntityTick = 0;
+      }
+  
+@@ -512,7 +518,7 @@
+              for (int j = 0; j < i; ++j)
+              {
+                  nextticklistentry = (NextTickListEntry)this.pendingTickListEntriesTreeSet.first();
+-@@ -525,6 +754,12 @@
++@@ -525,6 +757,12 @@
+                  this.pendingTickListEntriesHashSet.remove(nextticklistentry);
+                  this.pendingTickListEntriesThisTick.add(nextticklistentry);
+              }
+@@ -525,7 +531,7 @@
+  
+              this.theProfiler.endSection();
+              this.theProfiler.startSection("ticking");
+-@@ -534,6 +769,7 @@
++@@ -534,6 +772,7 @@
+              {
+                  nextticklistentry = (NextTickListEntry)iterator.next();
+                  iterator.remove();
+@@ -533,7 +539,7 @@
+                  //Keeping here as a note for future when it may be restored.
+                  //boolean isForced = getPersistentChunks().containsKey(new ChunkCoordIntPair(nextticklistentry.xCoord >> 4, nextticklistentry.zCoord >> 4));
+                  //byte b0 = isForced ? 0 : 8;
+-@@ -545,6 +781,8 @@
++@@ -545,6 +784,8 @@
+  
+                      if (block.getMaterial() != Material.air && Block.isEqualTo(block, nextticklistentry.func_151351_a()))
+                      {
+@@ -542,7 +548,7 @@
+                          try
+                          {
+                              block.updateTick(this, nextticklistentry.xCoord, nextticklistentry.yCoord, nextticklistentry.zCoord, this.rand);
+-@@ -575,19 +813,19 @@
++@@ -575,19 +816,19 @@
+                  }
+              }
+  
+@@ -569,7 +575,7 @@
+          int l = k + 16 + 2;
+  
+          for (int i1 = 0; i1 < 2; ++i1)
+-@@ -617,19 +855,24 @@
++@@ -617,19 +858,24 @@
+                      if (p_72920_2_)
+                      {
+                          this.pendingTickListEntriesHashSet.remove(nextticklistentry);
+@@ -596,7 +602,7 @@
+          return arraylist;
+      }
+  
+-@@ -651,7 +894,37 @@
++@@ -651,7 +897,37 @@
+      protected IChunkProvider createChunkProvider()
+      {
+          IChunkLoader ichunkloader = this.saveHandler.getChunkLoader(this.provider);
+@@ -635,7 +641,7 @@
+          return this.theChunkProviderServer;
+      }
+  
+-@@ -659,29 +932,38 @@
++@@ -659,29 +935,38 @@
+      {
+          ArrayList arraylist = new ArrayList();
+  
+@@ -689,7 +695,7 @@
+          return arraylist;
+      }
+  
+-@@ -704,7 +986,7 @@
++@@ -704,7 +989,7 @@
+  
+          if (this.pendingTickListEntriesHashSet == null)
+          {
+@@ -698,7 +704,7 @@
+          }
+  
+          if (this.pendingTickListEntriesTreeSet == null)
+-@@ -733,7 +1015,28 @@
++@@ -733,7 +1018,28 @@
+              int i = 0;
+              int j = this.provider.getAverageGroundLevel();
+              int k = 0;
+@@ -727,7 +733,15 @@
+              if (chunkposition != null)
+              {
+                  i = chunkposition.chunkPosX;
+-@@ -799,14 +1102,18 @@
++@@ -792,6 +1098,7 @@
++ 
++     public void saveAllChunks(boolean p_73044_1_, IProgressUpdate p_73044_2_) throws MinecraftException
++     {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.salvar(this); // Hoshiestar - paralelo: guarda de salvamento (sombra: so conta)
++         if (this.chunkProvider.canSave())
++         {
++             if (p_73044_2_ != null)
++@@ -799,14 +1106,18 @@
+                  p_73044_2_.displayProgressMessage("Saving level");
+              }
+  
+@@ -746,7 +760,7 @@
+              MinecraftForge.EVENT_BUS.post(new WorldEvent.Save(this));
+              ArrayList arraylist = Lists.newArrayList(this.theChunkProviderServer.func_152380_a());
+              Iterator iterator = arraylist.iterator();
+-@@ -876,6 +1183,20 @@
++@@ -876,6 +1187,20 @@
+  
+      public boolean addWeatherEffect(Entity p_72942_1_)
+      {
+@@ -767,7 +781,7 @@
+          if (super.addWeatherEffect(p_72942_1_))
+          {
+              this.mcServer.getConfigurationManager().sendToAllNear(p_72942_1_.posX, p_72942_1_.posY, p_72942_1_.posZ, 512.0D, this.provider.dimensionId, new S2CPacketSpawnGlobalEntity(p_72942_1_));
+-@@ -894,13 +1215,24 @@
++@@ -894,13 +1219,24 @@
+  
+      public Explosion newExplosion(Entity p_72885_1_, double p_72885_2_, double p_72885_4_, double p_72885_6_, float p_72885_8_, boolean p_72885_9_, boolean p_72885_10_)
+      {
+@@ -793,15 +807,16 @@
+          if (!p_72885_10_)
+          {
+              explosion.affectedBlockPositions.clear();
+-@@ -923,6 +1255,7 @@
++@@ -923,6 +1259,8 @@
+  
+      public void addBlockEvent(int p_147452_1_, int p_147452_2_, int p_147452_3_, Block p_147452_4_, int p_147452_5_, int p_147452_6_)
+      {
+ +        if (hoshiestar.observador.Observador.ATIVO) hoshiestar.observador.GanchosObservador.eventoDeBloco(this, p_147452_1_, p_147452_3_); // Hoshiestar - observador: evento de bloco
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.eventoDeBloco(this, p_147452_1_, p_147452_3_); // Hoshiestar - paralelo: evento de bloco (sombra: conta como adiado)
+          BlockEventData blockeventdata = new BlockEventData(p_147452_1_, p_147452_2_, p_147452_3_, p_147452_4_, p_147452_5_, p_147452_6_);
+          Iterator iterator = this.field_147490_S[this.blockEventCacheIndex].iterator();
+          BlockEventData blockeventdata1;
+-@@ -942,6 +1275,7 @@
++@@ -942,6 +1280,7 @@
+  
+      private void func_147488_Z()
+      {
+@@ -809,7 +824,7 @@
+          while (!this.field_147490_S[this.blockEventCacheIndex].isEmpty())
+          {
+              int i = this.blockEventCacheIndex;
+-@@ -960,6 +1294,7 @@
++@@ -960,6 +1299,7 @@
+  
+              this.field_147490_S[i].clear();
+          }
+@@ -817,7 +832,7 @@
+      }
+  
+      private boolean func_147485_a(BlockEventData p_147485_1_)
+-@@ -977,7 +1312,8 @@
++@@ -977,7 +1317,8 @@
+      {
+          boolean flag = this.isRaining();
+          super.updateWeather();
+@@ -827,7 +842,7 @@
+          if (this.prevRainingStrength != this.rainingStrength)
+          {
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(7, this.rainingStrength), this.provider.dimensionId);
+-@@ -987,11 +1323,9 @@
++@@ -987,11 +1328,9 @@
+          {
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(8, this.thunderingStrength), this.provider.dimensionId);
+          }
+@@ -841,7 +856,7 @@
+          if (flag != this.isRaining())
+          {
+              if (flag)
+-@@ -1006,6 +1340,33 @@
++@@ -1006,6 +1345,33 @@
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(7, this.rainingStrength), this.provider.dimensionId);
+              this.mcServer.getConfigurationManager().sendPacketToAllPlayersInDimension(new S2BPacketChangeGameState(8, this.thunderingStrength), this.provider.dimensionId);
+          }
+@@ -875,7 +890,7 @@
+      }
+  
+      protected int func_152379_p()
+-@@ -1069,4 +1430,53 @@
++@@ -1069,4 +1435,53 @@
+                  this();
+              }
+          }
+diff --git a/patches/net/minecraft/world/gen/ChunkProviderServer.java.patch b/patches/net/minecraft/world/gen/ChunkProviderServer.java.patch
+index 6eb14b8a..4a6d2378 100644
+--- a/patches/net/minecraft/world/gen/ChunkProviderServer.java.patch
++++ b/patches/net/minecraft/world/gen/ChunkProviderServer.java.patch
+@@ -179,20 +179,21 @@
+      }
+  
+      public Chunk loadChunk(int p_73158_1_, int p_73158_2_)
+-@@ -103,9 +173,9 @@
++@@ -103,9 +173,10 @@
+  
+      public Chunk loadChunk(int par1, int par2, Runnable runnable)
+      {
+ -        long k = ChunkCoordIntPair.chunkXZ2Int(par1, par2);
+ -        this.chunksToUnload.remove(Long.valueOf(k));
+ -        Chunk chunk = (Chunk)this.loadedChunkHashMap.getValueByKey(k);
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.cargaChunk(this.worldObj, par1, par2); // Hoshiestar - paralelo: guarda de carga de chunk e da fila de descarga (sombra: so conta)
+ +        this.chunksToUnload.remove(par1, par2);
+ +        Chunk chunk = this.loadedChunkHashMap_KC.rawThermos().get(par1,par2); //Thermos replacement
+ +        boolean newChunk = false;
+          AnvilChunkLoader loader = null;
+  
+          if (this.currentChunkLoader instanceof AnvilChunkLoader)
+-@@ -113,6 +183,8 @@
++@@ -113,6 +184,8 @@
+              loader = (AnvilChunkLoader) this.currentChunkLoader;
+          }
+  
+@@ -201,7 +202,7 @@
+          // We can only use the queue for already generated chunks
+          if (chunk == null && loader != null && loader.chunkExists(this.worldObj, par1, par2))
+          {
+-@@ -142,18 +214,19 @@
++@@ -142,18 +215,19 @@
+  
+      public Chunk originalLoadChunk(int p_73158_1_, int p_73158_2_)
+      {
+@@ -226,7 +227,7 @@
+              if (chunk == null)
+              {
+                  chunk = this.safeLoadChunk(p_73158_1_, p_73158_2_);
+-@@ -176,18 +249,54 @@
++@@ -176,18 +250,54 @@
+                          CrashReport crashreport = CrashReport.makeCrashReport(throwable, "Exception generating new chunk");
+                          CrashReportCategory crashreportcategory = crashreport.makeCategory("Chunk to be generated");
+                          crashreportcategory.addCrashSection("Location", String.format("%d,%d", new Object[] {Integer.valueOf(p_73158_1_), Integer.valueOf(p_73158_2_)}));
+@@ -286,7 +287,7 @@
+          }
+  
+          return chunk;
+-@@ -195,11 +304,45 @@
++@@ -195,11 +305,46 @@
+  
+      public Chunk provideChunk(int p_73154_1_, int p_73154_2_)
+      {
+@@ -295,6 +296,7 @@
+ +
+ +        // CraftBukkit start
+ +        Chunk chunk = (Chunk) this.loadedChunkHashMap_KC.rawThermos().get(p_73154_1_, p_73154_2_);
+++        if (chunk == null && hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosParalelo.faltaChunk(this.worldObj, p_73154_1_, p_73154_2_); // Hoshiestar - paralelo: guarda de chunk pedido e nao carregado (sombra: so conta)
+ +        chunk = chunk == null ? (shouldLoadChunk() ? this.loadChunk(p_73154_1_, p_73154_2_) : this.defaultEmptyChunk) : chunk; // Cauldron handle forge server tick events and load the chunk within 5 seconds of the world being loaded (for chunk loaders)
+ +
+ +        if (chunk == this.defaultEmptyChunk)
+@@ -335,7 +337,7 @@
+      {
+          if (this.currentChunkLoader == null)
+          {
+-@@ -209,6 +352,7 @@
++@@ -209,6 +354,7 @@
+          {
+              try
+              {
+@@ -343,7 +345,7 @@
+                  Chunk chunk = this.currentChunkLoader.loadChunk(this.worldObj, p_73239_1_, p_73239_2_);
+  
+                  if (chunk != null)
+-@@ -217,8 +361,11 @@
++@@ -217,8 +363,11 @@
+  
+                      if (this.currentChunkProvider != null)
+                      {
+@@ -355,7 +357,7 @@
+                  }
+  
+                  return chunk;
+-@@ -231,7 +378,7 @@
++@@ -231,7 +380,7 @@
+          }
+      }
+  
+@@ -364,7 +366,7 @@
+      {
+          if (this.currentChunkLoader != null)
+          {
+-@@ -246,7 +393,7 @@
++@@ -246,7 +395,7 @@
+          }
+      }
+  
+@@ -373,7 +375,7 @@
+      {
+          if (this.currentChunkLoader != null)
+          {
+-@@ -254,15 +401,18 @@
++@@ -254,15 +403,18 @@
+              {
+                  p_73242_1_.lastSaveTime = this.worldObj.getTotalWorldTime();
+                  this.currentChunkLoader.saveChunk(this.worldObj, p_73242_1_);
+@@ -393,7 +395,7 @@
+          }
+      }
+  
+-@@ -276,21 +426,56 @@
++@@ -276,21 +428,56 @@
+  
+              if (this.currentChunkProvider != null)
+              {
+@@ -453,7 +455,7 @@
+  
+              if (p_73151_1_)
+              {
+-@@ -309,7 +494,7 @@
++@@ -309,7 +496,7 @@
+                  }
+              }
+          }
+@@ -462,7 +464,7 @@
+          return true;
+      }
+  
+-@@ -325,36 +510,74 @@
++@@ -325,36 +512,74 @@
+      {
+          if (!this.worldObj.levelSaving)
+          {
+@@ -555,7 +557,7 @@
+              if (this.currentChunkLoader != null)
+              {
+                  this.currentChunkLoader.chunkTick();
+-@@ -371,7 +594,7 @@
++@@ -371,7 +596,7 @@
+  
+      public String makeString()
+      {
+@@ -564,7 +566,7 @@
+      }
+  
+      public List getPossibleCreatures(EnumCreatureType p_73155_1_, int p_73155_2_, int p_73155_3_, int p_73155_4_)
+-@@ -386,8 +609,33 @@
++@@ -386,8 +611,33 @@
+  
+      public int getLoadedChunkCount()
+      {
+diff --git a/patches/org/bukkit/plugin/SimplePluginManager.java.patch b/patches/org/bukkit/plugin/SimplePluginManager.java.patch
+index 2dd40d53..5b293b5b 100644
+--- a/patches/org/bukkit/plugin/SimplePluginManager.java.patch
++++ b/patches/org/bukkit/plugin/SimplePluginManager.java.patch
+@@ -37,7 +37,15 @@
+          while (!plugins.isEmpty()) {
+              boolean missingDependency = true;
+              Iterator<String> pluginIterator = plugins.keySet().iterator();
+-@@ -555,7 +562,8 @@
++@@ -473,6 +480,7 @@
++      * @param event Event details
++      */
++     public void callEvent(Event event) {
+++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosEventos.eventoBukkit(event); // Hoshiestar - paralelo: guarda de evento do Bukkit (sombra: so conta; antes de qualquer synchronized)
++         if (event.isAsynchronous()) {
++             if (Thread.holdsLock(this)) {
++                 throw new IllegalStateException(event.getEventName() + " cannot be triggered asynchronously from inside synchronized code.");
++@@ -555,7 +563,8 @@
+              throw new IllegalPluginAccessException("Plugin attempted to register " + event + " while not enabled");
+          }
+  
+@@ -47,7 +55,7 @@
+              getEventListeners(event).register(new TimedRegisteredListener(listener, executor, priority, plugin, ignoreCancelled));
+          } else {
+              getEventListeners(event).register(new RegisteredListener(listener, executor, priority, plugin, ignoreCancelled));
+-@@ -716,7 +724,7 @@
++@@ -716,7 +725,7 @@
+      }
+  
+      public boolean useTimings() {
+@@ -56,7 +64,7 @@
+      }
+  
+      /**
+-@@ -725,6 +733,23 @@
++@@ -725,6 +734,23 @@
+       * @param use True if per event timing code should be used
+       */
+      public void useTimings(boolean use) {
+diff --git a/src/main/java/thermos/thermite/ThermiteRandom.java b/src/main/java/thermos/thermite/ThermiteRandom.java
+index efc6e803..a058d93d 100644
+--- a/src/main/java/thermos/thermite/ThermiteRandom.java
++++ b/src/main/java/thermos/thermite/ThermiteRandom.java
+@@ -118,6 +118,7 @@ public class ThermiteRandom extends Random {
+      * @return
+      */
+     public int next(int nbits) {
++        if (hoshiestar.paralelo.Paralelo.LIGADO) hoshiestar.paralelo.GanchosEventos.sorteio(this); // Hoshiestar - paralelo: guarda de sorteio no world.rand do mundo da fase (sombra: so conta)
+         long x = seed;
+         x ^= (x << 21);
+         x ^= (x >>> 35);

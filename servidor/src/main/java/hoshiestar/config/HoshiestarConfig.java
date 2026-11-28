@@ -415,12 +415,16 @@ public final class HoshiestarConfig extends YamlConfig {
 
     // ---- paralelo ----
     @Comments({"Fase paralela sincronizada com barreira (Degrau B): tiles de regioes diferentes tickam em threads de regiao",
-        "enquanto a thread do servidor espera, e tudo volta a ser serie na juncao. NESTA VERSAO SO EXISTEM AS CHAVES, AS",
-        "RECUSAS E O COMANDO 'hoshie paralelo': a fase ainda nao esta implementada e nenhum gancho roda.",
+        "enquanto a thread do servidor espera, e tudo volta a ser serie na juncao. NESTA VERSAO EXISTEM 'sombra' (tudo em",
+        "serie, na ordem de sempre; o servidor classifica as regioes e as guardas so contam o que seria ilegal na fase) e",
+        "'sombra_ordenada' (a thread do servidor roda sozinha os lotes das regioes elegiveis depois do laco, com os adiados e",
+        "a juncao; nenhuma thread de regiao). Ver 'hoshie paralelo estado' e 'motivos'. O modo paralelo ainda recusa ligar.",
         "ligado: false = comportamento original. Lido so no boot. O recurso recusa ligar (motivo no log, em 'hoshie paralelo",
         "motivos' e em 'hoshie status') se: orcamento.ligado for false; o modo for sombra_ordenada ou paralelo e parada.ligado",
         "for false; o modo for paralelo e chunkmap.cache4Seguro for false; a dimensao nao existir; houver classe fora da lista;",
-        "algum valor abaixo estiver fora da faixa; ou (com os fatos do jogo, nos passos seguintes) houver mod sem veredito."})
+        "algum valor abaixo estiver fora da faixa; ou, com os fatos do jogo lidos quando o servidor fica pronto: world.rand",
+        "trocado, distancia de simulacao ou preventChunkLoadingFromBlockUpdates do hodgepodge ligados, observador ou watcher",
+        "do DragonAPI nao revisado, firewall sem allowTileEntityTick, mixin ou transformador sem veredito, ou fato nao lido."})
     public boolean paralelo_ligado = false;
 
     @Comments({"Paralelo: modo. 'sombra' (tudo em serie, so conta o que seria ilegal), 'sombra_ordenada' (a thread do servidor",

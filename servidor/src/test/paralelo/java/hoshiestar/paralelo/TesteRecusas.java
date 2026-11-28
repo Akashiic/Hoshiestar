@@ -31,6 +31,7 @@ public final class TesteRecusas {
             classes();
             recusas();
             ordemEDeterminismo();
+            recusasPasso3();
         } catch (Throwable t) {
             v.erro("excecao no teste", t);
         }
@@ -117,34 +118,78 @@ public final class TesteRecusas {
         v.sim(r.size() == 2 && tem(r, "'funil'") && tem(r, "'xyz'"), "uma recusa por classe fora da lista: " + r);
     }
 
+    /** Recusas.avaliar sem o motivo "modo ainda nao implementado" (passo 3: so sombra existe), para os casos do passo 1. */
+    static List<String> av(boolean ligado, Parametros p, Recusas.Fatos f) {
+        List<String> r = new java.util.ArrayList<String>(Recusas.avaliar(ligado, p, f));
+        for (java.util.Iterator<String> it = r.iterator(); it.hasNext();) {
+            if (it.next().contains("ainda nao implementado")) {
+                it.remove();
+            }
+        }
+        return r;
+    }
+
+    /** Passo 3 e 4: modo ainda nao implementado, recusas novas da decisao 39c e fatos nao lidos (39d). */
+    static void recusasPasso3() {
+        Recusas.Fatos f = bons();
+        f.paradaLigada = true;
+        f.chunkmapCache4Seguro = true;
+        v.sim(Recusas.avaliar(true, com("sombra", 0, 3, ""), f).isEmpty(), "sombra com tudo certo: aceito");
+        // passo 4: sombra_ordenada existe (com a parada ligada); so paralelo ainda nao
+        v.sim(Recusas.avaliar(true, com("sombra_ordenada", 0, 3, ""), f).isEmpty(), "sombra_ordenada com parada e tudo certo: aceito (passo 4)");
+        List<String> rp = Recusas.avaliar(true, com("paralelo", 0, 3, ""), f);
+        v.sim(rp.size() == 1 && rp.get(0).contains("'paralelo' ainda nao implementado"), "modo paralelo ainda nao existe: recusa " + rp);
+        f.paradaLigada = false;
+        List<String> ro = Recusas.avaliar(true, com("sombra_ordenada", 0, 3, ""), f);
+        v.sim(ro.size() == 1 && ro.get(0).contains("exige parada.ligado"), "sombra_ordenada sem parada: recusa (decisao 38c) " + ro);
+        f.paradaLigada = true;
+        f = bons();
+        f.preventChunkLoadingLigado = true;
+        List<String> r = Recusas.avaliar(true, com("sombra", 0, 3, ""), f);
+        v.sim(r.size() == 1 && r.get(0).contains("preventChunkLoadingFromBlockUpdates"), "preventChunkLoadingFromBlockUpdates ligado: recusa " + r);
+        f = bons();
+        f.watchersNaoRevisados = Arrays.asList("x.Watcher");
+        r = Recusas.avaliar(true, com("sombra", 0, 3, ""), f);
+        v.sim(r.size() == 1 && r.get(0).contains("TileUpdateEvent") && r.get(0).endsWith("x.Watcher"), "watcher fora de {EMPTileWatcher}: recusa " + r);
+        f = bons();
+        f.naoColetados = Arrays.asList("rand: nao lido", "firewall: nao lido");
+        r = Recusas.avaliar(true, com("sombra", 0, 3, ""), f);
+        v.sim(r.size() == 2 && r.get(0).contains("rand: nao lido") && r.get(1).contains("firewall: nao lido"), "cada fato nao lido recusa " + r);
+        f = bons();
+        f.randTrocado = true;
+        f.classeRand = "java.util.Random";
+        r = Recusas.avaliar(true, com("sombra", 0, 3, ""), f);
+        v.sim(r.size() == 1 && r.get(0).endsWith("java.util.Random"), "rand trocado diz a classe " + r);
+    }
+
     static void recusas() {
         Recusas.Fatos f = bons();
         Parametros sombra = com("sombra", 0, 3, "");
         // orcamento
         f.orcamentoLigado = false;
-        List<String> r = Recusas.avaliar(true, sombra, f);
+        List<String> r = av(true, sombra, f);
         v.sim(r.size() == 1 && r.get(0).startsWith("orcamento desligado"), "orcamento desligado: uma recusa " + r);
-        v.sim(Recusas.avaliar(false, sombra, f).isEmpty(), "orcamento desligado + paralelo desligado: sem recusa");
+        v.sim(av(false, sombra, f).isEmpty(), "orcamento desligado + paralelo desligado: sem recusa");
         // parada: sombra nao exige; os outros dois exigem
         f = bons();
-        v.sim(Recusas.avaliar(true, com("sombra", 0, 3, ""), f).isEmpty(), "sombra sem parada: sem recusa");
-        r = Recusas.avaliar(true, com("sombra_ordenada", 0, 3, ""), f);
+        v.sim(av(true, com("sombra", 0, 3, ""), f).isEmpty(), "sombra sem parada: sem recusa");
+        r = av(true, com("sombra_ordenada", 0, 3, ""), f);
         v.sim(r.size() == 1 && r.get(0).contains("exige parada.ligado"), "sombra_ordenada sem parada: recusa " + r);
         f.paradaLigada = true;
-        v.sim(Recusas.avaliar(true, com("sombra_ordenada", 0, 3, ""), f).isEmpty(), "sombra_ordenada com parada: sem recusa");
+        v.sim(av(true, com("sombra_ordenada", 0, 3, ""), f).isEmpty(), "sombra_ordenada com parada: sem recusa");
         f.paradaLigada = false;
-        r = Recusas.avaliar(true, com("paralelo", 0, 3, ""), f);
+        r = av(true, com("paralelo", 0, 3, ""), f);
         v.sim(tem(r, "exige parada.ligado") && tem(r, "exige chunkmap.cache4Seguro") && r.size() == 2, "paralelo sem parada e sem H01: duas recusas " + r);
         f.paradaLigada = true;
-        r = Recusas.avaliar(true, com("paralelo", 0, 3, ""), f);
+        r = av(true, com("paralelo", 0, 3, ""), f);
         v.sim(r.size() == 1 && r.get(0).contains("chunkmap.cache4Seguro"), "paralelo com parada, sem H01: so a do H01 " + r);
         f.chunkmapCache4Seguro = true;
-        v.sim(Recusas.avaliar(true, com("paralelo", 0, 3, ""), f).isEmpty(), "paralelo com parada e H01: sem recusa");
+        v.sim(av(true, com("paralelo", 0, 3, ""), f).isEmpty(), "paralelo com parada e H01: sem recusa");
         f = bons();
         f.chunkmapCache4Seguro = false;
-        v.sim(!tem(Recusas.avaliar(true, com("sombra_ordenada", 0, 3, ""), f), "cache4Seguro"), "o H01 so e exigido no modo paralelo");
+        v.sim(!tem(av(true, com("sombra_ordenada", 0, 3, ""), f), "cache4Seguro"), "o H01 so e exigido no modo paralelo");
         // modo invalido nao dispara as recusas de modo (so o problema de faixa)
-        r = Recusas.avaliar(true, com("lixo", 0, 3, ""), bons());
+        r = av(true, com("lixo", 0, 3, ""), bons());
         v.sim(r.size() == 1 && r.get(0).startsWith("paralelo.modo"), "modo invalido: so o motivo do valor " + r);
         // fatos do jogo ainda nao coletados (o valor inicial): recusa em TODOS os modos (achado importante 3 da revisao do passo 1)
         Recusas.Fatos cru = new Recusas.Fatos();
@@ -152,47 +197,47 @@ public final class TesteRecusas {
         cru.paradaLigada = true;
         cru.chunkmapCache4Seguro = true;
         for (String modo : new String[] {"sombra", "sombra_ordenada", "paralelo"}) {
-            r = Recusas.avaliar(true, com(modo, 0, 3, ""), cru);
+            r = av(true, com(modo, 0, 3, ""), cru);
             v.sim(r.size() == 1 && r.get(0).equals(Recusas.FATOS_NAO_CONFERIDOS), "fatos do jogo nao coletados, modo " + modo + ": uma recusa " + r);
         }
-        v.sim(Recusas.avaliar(false, sombra, cru).isEmpty(), "fatos do jogo nao coletados + paralelo desligado: sem recusa");
+        v.sim(av(false, sombra, cru).isEmpty(), "fatos do jogo nao coletados + paralelo desligado: sem recusa");
         cru.randTrocado = true;
-        r = Recusas.avaliar(true, sombra, cru);
+        r = av(true, sombra, cru);
         v.sim(r.size() == 2 && tem(r, "world.rand"), "fato ruim ja preenchido conta mesmo antes de 'conferido': " + r);
         cru.randTrocado = false;
         cru.jogoConferido = true; // marcou conferido sem dizer as dimensoes: continua recusando
-        r = Recusas.avaliar(true, sombra, cru);
+        r = av(true, sombra, cru);
         v.sim(r.size() == 1 && r.get(0).contains("lista de dimensoes do servidor nao informada"), "conferido sem a lista de dimensoes: recusa " + r);
         // dimensao unica e existente
         f = bons();
-        v.sim(Recusas.avaliar(true, com("sombra", -1, 3, ""), f).isEmpty(), "dimensao -1 existe: sem recusa");
-        r = Recusas.avaliar(true, com("sombra", 7, 3, ""), f);
+        v.sim(av(true, com("sombra", -1, 3, ""), f).isEmpty(), "dimensao -1 existe: sem recusa");
+        r = av(true, com("sombra", 7, 3, ""), f);
         v.sim(r.size() == 1 && r.get(0).contains("dimensao 7 inexistente"), "dimensao 7 inexistente: recusa " + r);
         f.dimensoes = new HashSet<Integer>();
-        v.sim(tem(Recusas.avaliar(true, sombra, f), "dimensao 0 inexistente"), "servidor sem nenhuma dimensao: recusa a 0");
+        v.sim(tem(av(true, sombra, f), "dimensao 0 inexistente"), "servidor sem nenhuma dimensao: recusa a 0");
         // fatos do jogo
         f = bons();
         f.randTrocado = true;
-        r = Recusas.avaliar(true, sombra, f);
+        r = av(true, sombra, f);
         v.sim(r.size() == 1 && r.get(0).contains("world.rand"), "world.rand trocado: recusa " + r);
         f = bons();
         f.distanciaDeSimulacaoLigada = true;
-        r = Recusas.avaliar(true, sombra, f);
+        r = av(true, sombra, f);
         v.sim(r.size() == 1 && r.get(0).contains("addSimulationDistance_WIP"), "distancia de simulacao do hodgepodge: recusa " + r);
         f = bons();
         f.observadoresNaoRevisados = Arrays.asList("a.B", "c.D");
-        r = Recusas.avaliar(true, sombra, f);
+        r = av(true, sombra, f);
         v.sim(r.size() == 2 && r.get(0).endsWith("a.B") && r.get(1).endsWith("c.D"), "observador nao revisado: uma recusa por nome " + r);
         f = bons();
         f.firewallSemPortao = true;
-        r = Recusas.avaliar(true, sombra, f);
+        r = av(true, sombra, f);
         v.sim(r.size() == 1 && r.get(0).contains("allowTileEntityTick"), "firewall sem o portao: recusa " + r);
         f = bons();
         f.semVeredito = Arrays.asList("mod X (mixin)", "mod Y (transformador)");
-        r = Recusas.avaliar(true, sombra, f);
+        r = av(true, sombra, f);
         v.sim(r.size() == 2 && r.get(0).endsWith("mod X (mixin)") && r.get(1).endsWith("mod Y (transformador)"),
                 "mods da rede sem veredito: uma recusa por nome " + r);
-        v.sim(Recusas.avaliar(false, sombra, f).isEmpty(), "desligado: nenhuma recusa, mesmo com fato ruim");
+        v.sim(av(false, sombra, f).isEmpty(), "desligado: nenhuma recusa, mesmo com fato ruim");
     }
 
     static void ordemEDeterminismo() {
@@ -204,8 +249,8 @@ public final class TesteRecusas {
         f.observadoresNaoRevisados = Arrays.asList("o");
         f.semVeredito = Arrays.asList("s");
         Parametros p = Parametros.ler("paralelo", 5, 9, "funil", "parar", "parar", 64, 5, 1200, 600);
-        List<String> a = Recusas.avaliar(true, p, f);
-        List<String> b = Recusas.avaliar(true, p, f);
+        List<String> a = av(true, p, f);
+        List<String> b = av(true, p, f);
         v.igual(a, b, "mesma entrada, mesma lista na mesma ordem");
         String[] ordem = {"paralelo.threads", "orcamento desligado", "exige parada.ligado", "exige chunkmap.cache4Seguro",
             "fatos do jogo ainda nao conferidos", "dimensao 5 inexistente", "classe 'funil'", "world.rand", "addSimulationDistance_WIP", "ChunkRequestEvent",

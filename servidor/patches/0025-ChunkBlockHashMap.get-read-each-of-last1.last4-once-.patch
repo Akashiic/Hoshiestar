@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Thu, 26 Nov 2026 12:21:59 +0000
-Subject: [PATCH 25/30] ChunkBlockHashMap.get: read each of last1..last4 once
+Subject: [PATCH 25/33] ChunkBlockHashMap.get: read each of last1..last4 once
  into a local (H01 part 1)
 
 The original read the field up to four times per slot (null check, x, z,

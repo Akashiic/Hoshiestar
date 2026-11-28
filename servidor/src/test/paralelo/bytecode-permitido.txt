@@ -1,0 +1,156 @@
+# Hoshiestar - paralelo (Degrau B, passo 3): lista permitida por metodo do caminho das classes liberadas (onda 1).
+# Formato: <metodo>\t<alvo>. Alvo = dono.nome de cada chamada (invoke*), getstatic, putstatic e putfield, seguindo os
+# metodos mesclados por mixin (nome com '$') da mesma classe; "SELF" = a propria classe; o prefixo gerado pelo Mixin
+# (ex.: "redirect$zpb000$hodgepodge_2$") e tirado. Chamadas a hoshiestar.* sao sempre permitidas (codigo do fork).
+# Origem: TesteBytecodeFinal --gerar sobre o dump das classes finais do passo 2 (degrauB/dump-classes/loader, boot de
+# 2026-11-27 com o jar daccc6b6), revisado no passo 3. Alvos de terceiros e o veredito de cada um:
+#   SELF.hodgepodge$getBlock, Common.getstatic:log ........ hodgepodge MixinWorldGetBlock (passo 0, M1: seguro)
+#   SELF.bellow$atLeastFloor0/3, bellow$getMinY, putfield:bellow$minY, DeepWorlds.resolve
+#                                                     ....... AkashicBellow MixinWorld_Deep (M2: seguro; campo iniciado uma vez)
+#   SELF.bellow$readSecond/deepGet, IDeepWorld.bellow$getMinY .. AkashicBellow MixinChunk_Deep (M3: seguro, so leitura)
+#   SELF.eid$getID ......................................... EndlessIDs ExtendedBlockStorageMixin (M4: seguro)
+#   SELF.ignoreSpectatorsForClosest/neverReturnSpectator, SpectatorMode.isSpectator,
+#   CallbackInfoReturnable.* ............................... EtFuturum spectator/MixinWorld (M7: seguro) e o Mixin
+#   MysteriumPatchesFixesMagicka.getClosestPlayer ........... AM2.5-LTS (passo 2, 6.3: so le o NBT da bota; proposta
+#                                                             "seguro com trava de SHA", aceita ao pôr a mesa na lista)
+# Qualquer alvo novo = injecao sem veredito: a classe que depende do metodo sai ate nova revisao.
+World.getBlock	SELF.bellow$atLeastFloor0
+World.getBlock	SELF.bellow$getMinY
+World.getBlock	SELF.func_72964_e
+World.getBlock	SELF.hodgepodge$getBlock
+World.getBlock	SELF.putfield:bellow$minY
+World.getBlock	com/akashiic/bellow/world/DeepWorlds.resolve
+World.getBlock	com/mitchej123/hodgepodge/Common.getstatic:log
+World.getBlock	io/github/crucible/util/WorldChangeHolder.getBlock
+World.getBlock	io/github/crucible/util/WorldChangeHolder.isCapturing
+World.getBlock	java/lang/Boolean.valueOf
+World.getBlock	java/lang/Integer.valueOf
+World.getBlock	net/minecraft/crash/CrashReport.func_85055_a
+World.getBlock	net/minecraft/crash/CrashReport.func_85058_a
+World.getBlock	net/minecraft/crash/CrashReportCategory.func_71507_a
+World.getBlock	net/minecraft/crash/CrashReportCategory.func_85071_a
+World.getBlock	net/minecraft/init/Blocks.getstatic:field_150350_a
+World.getBlock	net/minecraft/util/ReportedException.<init>
+World.getBlock	net/minecraft/world/chunk/Chunk.func_150810_a
+World.getBlock	org/apache/logging/log4j/Logger.info
+World.getTileEntity	SELF.bellow$atLeastFloor3
+World.getTileEntity	SELF.bellow$getMinY
+World.getTileEntity	SELF.func_72964_e
+World.getTileEntity	SELF.putfield:bellow$minY
+World.getTileEntity	com/akashiic/bellow/world/DeepWorlds.resolve
+World.getTileEntity	io/github/crucible/util/WorldChangeHolder.getTileEntity
+World.getTileEntity	io/github/crucible/util/WorldChangeHolder.isCaptured
+World.getTileEntity	io/github/crucible/util/WorldChangeHolder.isCapturing
+World.getTileEntity	java/util/List.get
+World.getTileEntity	java/util/List.size
+World.getTileEntity	net/minecraft/tileentity/TileEntity.func_145837_r
+World.getTileEntity	net/minecraft/world/chunk/Chunk.func_150806_e
+World.getChunkFromChunkCoords	net/minecraft/world/chunk/IChunkProvider.func_73154_d
+Chunk.getBlock	SELF.bellow$deepGet
+Chunk.getBlock	SELF.bellow$readSecond
+Chunk.getBlock	com/akashiic/bellow/api/IDeepWorld.bellow$getMinY
+Chunk.getBlock	net/minecraft/init/Blocks.getstatic:field_150350_a
+Chunk.getBlock	net/minecraft/world/chunk/storage/ExtendedBlockStorage.func_150819_a
+Chunk.func_150806_e	SELF.func_150810_a
+Chunk.func_150806_e	SELF.func_76628_c
+Chunk.func_150806_e	java/util/Map.get
+Chunk.func_150806_e	java/util/Map.remove
+Chunk.func_150806_e	net/minecraft/block/Block.createTileEntity
+Chunk.func_150806_e	net/minecraft/block/Block.hasTileEntity
+Chunk.func_150806_e	net/minecraft/tileentity/TileEntity.func_145837_r
+Chunk.func_150806_e	net/minecraft/world/ChunkPosition.<init>
+Chunk.func_150806_e	net/minecraft/world/World.func_147455_a
+ExtendedBlockStorage.getBlockByExtId	SELF.eid$getID
+ExtendedBlockStorage.getBlockByExtId	net/minecraft/block/Block.func_149729_e
+ExtendedBlockStorage.getBlockByExtId	net/minecraft/world/chunk/NibbleArray.func_76582_a
+CPS.provideChunk	SELF.func_73158_c
+CPS.provideChunk	SELF.getstatic:field_147417_b
+CPS.provideChunk	SELF.shouldLoadChunk
+CPS.provideChunk	java/lang/Class.getName
+CPS.provideChunk	java/lang/Object.getClass
+CPS.provideChunk	java/lang/StringBuilder.<init>
+CPS.provideChunk	java/lang/StringBuilder.append
+CPS.provideChunk	java/lang/StringBuilder.toString
+CPS.provideChunk	java/lang/Throwable.<init>
+CPS.provideChunk	java/lang/Throwable.fillInStackTrace
+CPS.provideChunk	java/lang/Throwable.printStackTrace
+CPS.provideChunk	net/minecraft/server/MinecraftServer.func_71259_af
+CPS.provideChunk	net/minecraft/server/MinecraftServer.func_71276_C
+CPS.provideChunk	net/minecraft/world/WorldServer.getWorld
+CPS.provideChunk	net/minecraft/world/WorldServer.isProfilingWorld
+CPS.provideChunk	net/minecraft/world/chunk/Chunk.putfield:lastAccessedTick
+CPS.provideChunk	org/apache/logging/log4j/Logger.error
+CPS.provideChunk	org/bukkit/craftbukkit/v1_7_R4/CraftWorld.getName
+CPS.provideChunk	thermos/wrapper/ChunkBlockHashMap.get
+CPS.provideChunk	thermos/wrapper/VanillaChunkHashMap.rawThermos
+CPS.chunkExists	thermos/wrapper/ChunkBlockHashMap.get
+CPS.chunkExists	thermos/wrapper/VanillaChunkHashMap.rawThermos
+TileEntity.getBlockType	SELF.putfield:field_145854_h
+TileEntity.getBlockType	net/minecraft/world/World.func_147439_a
+World.getClosestPlayer	SELF.ignoreSpectatorsForClosest
+World.getClosestPlayer	SELF.neverReturnSpectator
+World.getClosestPlayer	ganymedes01/etfuturum/spectator/SpectatorMode.isSpectator
+World.getClosestPlayer	java/util/List.get
+World.getClosestPlayer	java/util/List.size
+World.getClosestPlayer	net/minecraft/entity/player/EntityPlayer.func_70092_e
+World.getClosestPlayer	net/tclproject/mysteriumlib/asm/fixes/MysteriumPatchesFixesMagicka.getClosestPlayer
+World.getClosestPlayer	org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable.<init>
+World.getClosestPlayer	org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable.getReturnValue
+World.getClosestPlayer	org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable.isCancelled
+World.getClosestPlayer	org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable.setReturnValue
+TileEntityEnchantmentTable.updateEntity	SELF.getstatic:field_145923_r
+TileEntityEnchantmentTable.updateEntity	SELF.putfield:field_145924_q
+TileEntityEnchantmentTable.updateEntity	SELF.putfield:field_145925_p
+TileEntityEnchantmentTable.updateEntity	SELF.putfield:field_145926_a
+TileEntityEnchantmentTable.updateEntity	SELF.putfield:field_145927_n
+TileEntityEnchantmentTable.updateEntity	SELF.putfield:field_145928_o
+TileEntityEnchantmentTable.updateEntity	SELF.putfield:field_145929_l
+TileEntityEnchantmentTable.updateEntity	SELF.putfield:field_145930_m
+TileEntityEnchantmentTable.updateEntity	SELF.putfield:field_145931_j
+TileEntityEnchantmentTable.updateEntity	SELF.putfield:field_145932_k
+TileEntityEnchantmentTable.updateEntity	SELF.putfield:field_145933_i
+TileEntityEnchantmentTable.updateEntity	java/lang/Math.atan2
+TileEntityEnchantmentTable.updateEntity	java/util/Random.nextInt
+TileEntityEnchantmentTable.updateEntity	net/minecraft/tileentity/TileEntity.func_145845_h
+TileEntityEnchantmentTable.updateEntity	net/minecraft/world/World.func_72977_a
+TileEntityChest.updateEntity	SELF.func_145979_i
+TileEntityChest.updateEntity	SELF.putfield:field_145983_q
+TileEntityChest.updateEntity	SELF.putfield:field_145986_n
+TileEntityChest.updateEntity	SELF.putfield:field_145987_o
+TileEntityChest.updateEntity	SELF.putfield:field_145989_m
+TileEntityChest.updateEntity	java/util/Iterator.hasNext
+TileEntityChest.updateEntity	java/util/Iterator.next
+TileEntityChest.updateEntity	java/util/List.iterator
+TileEntityChest.updateEntity	java/util/Random.nextFloat
+TileEntityChest.updateEntity	net/minecraft/inventory/ContainerChest.func_85151_d
+TileEntityChest.updateEntity	net/minecraft/inventory/InventoryLargeChest.func_90010_a
+TileEntityChest.updateEntity	net/minecraft/tileentity/TileEntity.func_145845_h
+TileEntityChest.updateEntity	net/minecraft/util/AxisAlignedBB.func_72330_a
+TileEntityChest.updateEntity	net/minecraft/world/World.func_72872_a
+TileEntityChest.updateEntity	net/minecraft/world/World.func_72908_a
+TileEntityChest.checkForAdjacentChests	SELF.func_145977_a
+TileEntityChest.checkForAdjacentChests	SELF.func_145978_a
+TileEntityChest.checkForAdjacentChests	SELF.putfield:field_145984_a
+TileEntityChest.checkForAdjacentChests	SELF.putfield:field_145988_l
+TileEntityChest.checkForAdjacentChests	SELF.putfield:field_145990_j
+TileEntityChest.checkForAdjacentChests	SELF.putfield:field_145991_k
+TileEntityChest.checkForAdjacentChests	SELF.putfield:field_145992_i
+TileEntityChest.checkForAdjacentChests	net/minecraft/world/World.func_147438_o
+TileEntityChest.func_145977_a	SELF.func_145980_j
+TileEntityChest.func_145977_a	net/minecraft/world/World.func_147439_a
+TileEntityChest.func_145978_a	SELF.func_145837_r
+TileEntityChest.func_145978_a	SELF.putfield:field_145984_a
+TileEntityEnderChest.updateEntity	SELF.putfield:field_145972_a
+TileEntityEnderChest.updateEntity	SELF.putfield:field_145974_k
+TileEntityEnderChest.updateEntity	SELF.putfield:field_145975_i
+TileEntityEnderChest.updateEntity	java/util/Random.nextFloat
+TileEntityEnderChest.updateEntity	net/minecraft/init/Blocks.getstatic:field_150477_bB
+TileEntityEnderChest.updateEntity	net/minecraft/tileentity/TileEntity.func_145845_h
+TileEntityEnderChest.updateEntity	net/minecraft/world/World.func_147452_c
+TileEntityEnderChest.updateEntity	net/minecraft/world/World.func_72908_a
+WorldServer.addBlockEvent	java/util/Iterator.hasNext
+WorldServer.addBlockEvent	java/util/Iterator.next
+WorldServer.addBlockEvent	net/minecraft/block/BlockEventData.<init>
+WorldServer.addBlockEvent	net/minecraft/block/BlockEventData.equals
+WorldServer.addBlockEvent	net/minecraft/world/WorldServer$ServerBlockEventList.add
+WorldServer.addBlockEvent	net/minecraft/world/WorldServer$ServerBlockEventList.iterator

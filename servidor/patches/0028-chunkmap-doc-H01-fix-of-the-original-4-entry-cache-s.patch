@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Thu, 26 Nov 2026 12:36:24 +0000
-Subject: [PATCH 28/30] chunkmap doc: H01 fix of the original 4-entry cache
+Subject: [PATCH 28/33] chunkmap doc: H01 fix of the original 4-entry cache
  (section 12)
 
 What changes, why parts 2 and 3 sit behind chunkmap.cache4Seguro, the

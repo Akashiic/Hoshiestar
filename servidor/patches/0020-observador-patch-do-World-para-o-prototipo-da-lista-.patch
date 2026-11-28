@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Akashic <hoshiestar@localhost>
 Date: Mon, 23 Nov 2026 11:53:22 +0000
-Subject: [PATCH 20/30] observador: patch do World para o prototipo da lista
+Subject: [PATCH 20/33] observador: patch do World para o prototipo da lista
  (troca no construtor e embrulhar atras de Observador.LISTA; marcas do World
  atras de Observador.ATIVO)
 

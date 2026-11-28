@@ -120,6 +120,19 @@ M = {
      'abortar durante uma operacao delegada solta quem estava parado na pausa: ele tica mais um item junto com a operacao (I2b)'),
  'aborto_nao_espera_pedindo': ('Barreira', "                while (algumEm(Trabalhador.RODANDO, Trabalhador.PEDINDO)) {", "                while (algumEm(Trabalhador.RODANDO, -1)) {",
      'abortar volta sem esperar o trabalhador que esta no meio de um pedido (I2c)'),
+ 'aborto_larga_na_interrupcao': ('Barreira', "                        condParados.awaitNanos(resta);\n                    } catch (InterruptedException e) {\n                        interrompida = true;\n",
+     "                        condParados.awaitNanos(resta);\n                    } catch (InterruptedException e) {\n                        interrompida = true;\n                        break;\n",
+     'abortar larga a espera quando quem chama esta interrompido: o gemeo do I1 dentro do abortar (segunda revisao do passo 5, I3a)'),
+ 'portao_larga_na_interrupcao': ('Barreira', "                    condPortao.awaitNanos(resta);\n                } catch (InterruptedException ex) {\n                    interrompida = true;\n",
+     "                    condPortao.awaitNanos(resta);\n                } catch (InterruptedException ex) {\n                    interrompida = true;\n                    return PORTAO_ESPEROU;\n",
+     'thread estranha interrompida passa pelo portao com a fase rodando (I3b)'),
+ 'aborto_abre_portao_antes': ('Barreira', "            condRetomar.signalAll();\n            condServidor.signal();\n            if (eu != servidor && meu(eu) == null) {",
+     "            condRetomar.signalAll();\n            condServidor.signal();\n            portaoAberto = true;\n            condPortao.signalAll();\n            if (eu != servidor && meu(eu) == null) {",
+     'abortar abre o portao ANTES de esperar os trabalhadores sairem do item: thread estranha escreve junto, dentro do prazo (I3c)'),
+ 'ocioso_nao_avisa_aborto': ('Barreira', "            if (abortada) {\n                condParados.signalAll();\n            }\n            for (;;) {", "            for (;;) {",
+     'aviso perdido: o trabalhador que fica ocioso depois do aborto nao avisa quem chamou abortar, que espera o prazo inteiro (segunda revisao, M1)'),
+ 'morto_nao_avisa_aborto': ('Barreira', "        condServidor.signal();\n        condParados.signalAll();\n    }", "        condServidor.signal();\n    }",
+     'aviso perdido: a thread de regiao que acaba durante o aborto nao avisa quem chamou abortar (segunda revisao, M1)'),
 }
 
 
