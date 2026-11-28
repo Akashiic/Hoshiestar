@@ -82,7 +82,7 @@ MinecraftServer.tick                                                            
   em série, por reflexão, antes de pôr o tile no lote; se a resposta for "não", o tile não tica (igual ao original).
 - **Reconferência na hora do tick.** Entre o despacho e o tick passa tempo (o resto do laço em série). Antes de **cada**
   `updateEntity` de lote (trabalhador, `sombra_ordenada` e lote sujo na junção) conferimos de novo `isInvalid()` e
-  `hasWorldObj()`. No lote sujo, que roda em série, também `worldObj.getTileEntity(x, y, z) == tile`. Falhou: pula sem
+  `getWorldObj() != null` (nunca `hasWorldObj()`: o AM2 troca esse método inteiro e escreve num mapa estático; passo 2). No lote sujo, que roda em série, também `worldObj.getTileEntity(x, y, z) == tile`. Falhou: pula sem
   ticar; a remoção da lista fica para o laço do tick seguinte, como hoje. Sem isso, um funil quebrado depois do despacho
   ainda puxaria um item do baú de cima para dentro de um tile que já saiu do mundo (item perdido).
 - **Regras de bytecode de `World.updateEntities`** (três transformadores de terceiros reescrevem esse método; conferido no

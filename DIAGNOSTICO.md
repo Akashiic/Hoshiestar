@@ -532,6 +532,35 @@ resultado de uma thread parada no portão espera sem fim (se a thread de E/S de 
 verificado); a "confirmação do portão" só garante que a thread acordou. Tempos do núcleo com regiões falsas são
 indicação, não medição de servidor.
 
+**D-71. Bytes finais (boot com dump, passo 2) confirmam as regras do `updateEntities`** (slot 9; uma chamada de tick,
+a do firewall, entre o início e o fim da medição do Opis; janela do DragonAPI limpa). Mudança de veredito: `getClosestPlayer`
+tem uma injeção que o passo 0 não viu, do coremod MysteriumLib do AM2.5-LTS (só lê o NBT da bota do jogador). A mesa
+volta com trava de SHA-256 desse jar (`Travas.java`, "só mesa"). Outros fatos: o patch `ChunkRequestEvent` do DragonAPI
+e o `EntityGuard_Bukkit` do hodgepodge não estão aplicados; o CoFH `writeWorld` está ativo (só em série); o AM2 troca
+`TileEntity.hasWorldObj` (escreve num mapa estático), por isso a reconferência usa `getWorldObj() != null`; `world.rand`
+é `ThermiteRandom`; nenhum watcher do `TileUpdateEvent` carregado.
+
+**D-72. Desligado = jar anterior (pendência do passo 1):** medianas novo × antigo (c8125bf6), ordem N A A N N A:
+4,281/4,167, 4,832/4,530 e 4,714/4,916 ms; média +1,6%, as duas séries sobem com a ordem. Dentro do ruído do D-62.
+
+**D-73. Ferramenta `congelar` (passo 2):** duas execuções desligadas congeladas no mesmo tick dão 0 diferenças nas 707
+posições da montagem, mas 7 no mundo inteiro (cristais do ChromatiCraft que crescem por sorteio e um item num chunk que
+fica carregado por tempos diferentes). Duas execuções iguais também diferem entre si nesses pontos: é variação própria do
+mundo, não da ferramenta.
+
+**D-74. Modo `sombra` (passo 3), modpack, carga sintética:** desligado × sombra = 0 na montagem e 0 na ilha elegível.
+Duas horas, 143.120 ticks, 1,7 milhão de tiles no contexto: "seria ilegal" = 0, invariantes = 0, erros nossos = 0.
+Baús quebrados e repostos sem violação; profiler do Opis 90 s sem exceção. Custo (JFR, servidor quase ocioso,
+indicação): 0,15 ms por tick na classificação. Revisão: brecha "liberar na dúvida" na trava de versão (classe-sonda
+sumida = jar ausente), corrigida e revisada de novo.
+
+**D-75. Modo `sombra_ordenada` (passo 4), modpack:** desligado × sombra_ordenada = 0 nas mini-bases e nos chunks da ilha
+em lote; 1 diferença no spawn (tempo de espera de um funil em região em série, que também varia só com o orçamento
+ligado; causa não achada). Conservação de itens fechada depois de `stop` e religar, e com `injetar quebrar` num baú já
+despachado (o baú não ticou, os itens caíram no chão). Os 6 tiles "a mais" no lote são baús de masmorra da camada funda
+do AkashicBellow (y de -70 a -78), com conteúdo idêntico nas quatro execuções. Adiados de som, tick agendado e "não
+descarregar" nunca rodaram no jogo (só nos testes isolados, que agora pegam 22 de 22 defeitos postos de propósito).
+
 ## 9. A máquina de produção
 
 7 vCores e 17 GB de RAM, com heap de 14 GB (`-Xms14336M -Xmx14336M`). Sobram cerca de 3 GB
