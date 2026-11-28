@@ -1,7 +1,7 @@
 ---
 name: revisor
 description: Revisa uma entrega tentando quebrá-la, com olhos novos. Use depois que o implementador ou o investigador terminar, antes de aceitar o trabalho. Só lê e roda; não corrige. Para código de thread, lock, fila entre regiões ou parada use o revisor-concorrencia.
-disallowedTools: Write, Edit
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 model: opus
 effort: medium
 ---

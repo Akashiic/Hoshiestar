@@ -1,7 +1,7 @@
 ---
 name: revisor-concorrencia
 description: Revisão de concorrência por um agente diferente do autor. Use para todo código com thread, lock, fila entre regiões, cache compartilhado, parada do servidor ou núcleo de roteamento. Procura deadlock, corrida, visibilidade de memória e perda de item ou energia. Só lê e roda; não corrige.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 model: claude-fable-5-2
 effort: high
 ---

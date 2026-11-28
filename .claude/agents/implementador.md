@@ -1,7 +1,7 @@
 ---
 name: implementador
 description: Escreve ou altera código a partir de uma especificação clara (patch no fork em servidor/, correção embutida em mod, script, teste isolado). Use quando já existe desenho ou roteiro pronto. Não use para investigar causa nem para revisar o próprio código.
-tools: Read, Write, Edit, Grep, Glob, Bash
+tools: Read, Write, Edit, Grep, Glob, Bash, WebSearch, WebFetch
 model: sonnet
 effort: medium
 ---

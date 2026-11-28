@@ -19,6 +19,8 @@ Chame pelo nome. O modelo e o esforço já estão no arquivo de cada agente (dec
 | `revisor` | opus | revisão que tenta quebrar a entrega (nunca quem construiu) |
 | `revisor-concorrencia` | fable 5.2 | só thread, lock, fila entre regiões, parada (nunca quem escreveu) |
 
+Checagem que diz se o trabalho está pronto: `servidor/test.sh <workspace-do-fork>` (testes isolados; saída 0 = passou). Build: `servidor/build.sh --rapido <workspace> --mods <pasta mods/>`. Peça sempre o comando e a saída como prova.
+
 Briefing de cada chamada: objetivo, arquivos de entrada, formato de saída, restrições e critério de "pronto". O agente não vê a conversa.
 
 Regras duras (resumo; o texto completo está em `PROMPT.md`):
