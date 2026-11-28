@@ -8,7 +8,7 @@
 **Subagente (você foi chamado pelo coordenador):** não leia esses três arquivos inteiros (são ~90 KB). Leia só o que o briefing citar, com `grep` ou trecho. As regras duras abaixo valem para você também.
 
 ## Agentes do projeto (`.claude/agents/`)
-Chame pelo nome. O modelo e o esforço já estão no arquivo de cada agente (decisão 40 do `PROGRESSO.md`). Sessão principal: Opus 5.5; Fable 5.2 de advisor só nas etapas críticas. Para código de concorrência, chame o `implementador` com `model: opus`; para risco de perder item, energia ou bloco, suba o esforço do `revisor` para alto.
+Chame pelo nome. O modelo e o esforço já estão no arquivo de cada agente (decisão 40 do `PROGRESSO.md`). Sessão principal: Opus 5.5; Fable 5.2 de advisor só nas etapas críticas. Quando o plano da etapa já diz o modelo de cada passo (ex.: `docs/09-plano-degrau-b.md` §11), vale o plano: chame o agente com aquele `model` (o passo 6 do Degrau B é escrito em Fable). Fora disso, para código de concorrência, chame o `implementador` com `model: opus`; para risco de perder item, energia ou bloco, suba o esforço do `revisor` para alto.
 
 | Agente | Modelo | Para quê |
 |---|---|---|
