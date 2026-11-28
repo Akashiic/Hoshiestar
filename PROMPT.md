@@ -127,14 +127,12 @@ Você pode ler código, compilar e rodar testes que não dependam do jogo. Talve
 ## ADMINISTRAÇÃO DO PROJETO
 Você é o coordenador. Planeje, delegue e julgue. Faça você mesmo só a integração final e as decisões de rumo do projeto.
 
-MODELOS DOS SUBAGENTES (use o parâmetro "model")
-- haiku: trabalho repetitivo, em volume e sem decisão (listar mods, coletar logs, formatar relatórios).
-- sonnet: implementação com especificação clara.
-- opus: partes complexas que exigem cuidado.
-- fable: só para o que for realmente difícil ou crítico (concorrência, deadlocks, o núcleo de roteamento), ou quando o opus falhar duas vezes na mesma tarefa. É o mais caro, então use com moderação.
-
-Nunca use um modelo maior do que a tarefa exige.
-Antes de subir de modelo, suba o esforço de raciocínio.
+MODELOS **[atualizado pelo admin, 2026-11-28, decisão 40]**
+- Coordenador (sessão principal): Opus 5.5, esforço médio. Fable 5.2 como advisor (`/advisor claude-fable-5-2`; o apelido `fable` pode apontar para outra versão) só nas etapas críticas (concorrência, núcleo de roteamento); no resto, `/advisor off`. Ligar e desligar o advisor não quebra o cache.
+- Subagentes (`.claude/agents/`, modelo e esforço no arquivo): `coletor` em Haiku 5.5; `implementador` e `testador` em Sonnet 5.5; `investigador` e `revisor` em Opus 5.5; `revisor-concorrencia` em Fable 5.2 (IDs completos no arquivo de cada agente).
+- Exceções na chamada: `implementador` com `model: claude-opus-5-5` para código de concorrência; `revisor` com esforço alto quando houver risco de perder item, energia ou bloco.
+- Fable direto, fora do advisor: só revisão de concorrência, ou quando o Opus falhar duas vezes na mesma tarefa com esforço alto.
+- Ajuste o custo pelo esforço: baixo para coleta, médio para o normal, alto para risco de perder item, energia ou bloco. Evite `max`.
 
 BRIEFING
 O subagente não herda seu contexto. Envie sempre: objetivo, arquivos de entrada, formato de saída, restrições e critério de "pronto". Passe dados por arquivos e peça respostas curtas.
