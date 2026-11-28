@@ -2,7 +2,7 @@
 name: investigador
 description: Investiga e desenha sem alterar código. Use para achar a causa raiz de um problema, desenhar a solução de um recurso, estudar código de terceiros (Crucible, Folia, mods) ou analisar um perfil ou dump. Entrega um relatório em arquivo.
 tools: Read, Grep, Glob, Bash, Write, WebSearch, WebFetch
-model: opus
+model: claude-opus-5-5
 effort: medium
 ---
 

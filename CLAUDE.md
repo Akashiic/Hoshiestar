@@ -8,16 +8,16 @@
 **Subagente (você foi chamado pelo coordenador):** não leia esses três arquivos inteiros (são ~90 KB). Leia só o que o briefing citar, com `grep` ou trecho. As regras duras abaixo valem para você também.
 
 ## Agentes do projeto (`.claude/agents/`)
-Chame pelo nome. O modelo e o esforço já estão no arquivo de cada agente (decisão 40 do `PROGRESSO.md`). Sessão principal: Opus 5.5; Fable 5.2 de advisor só nas etapas críticas. Quando o plano da etapa já diz o modelo de cada passo (ex.: `docs/09-plano-degrau-b.md` §11), vale o plano: chame o agente com aquele `model` (o passo 6 do Degrau B é escrito em Fable). Fora disso, para código de concorrência, chame o `implementador` com `model: opus`; para risco de perder item, energia ou bloco, suba o esforço do `revisor` para alto.
+Chame pelo nome. O modelo e o esforço já estão no arquivo de cada agente, com o ID completo da versão (`claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-fable-5-2`), para não mudar sozinho quando sair versão nova (decisão 40 do `PROGRESSO.md`). Sessão principal: Opus 5.5; Fable 5.2 de advisor só nas etapas críticas. Quando o plano da etapa já diz o modelo de cada passo (ex.: `docs/09-plano-degrau-b.md` §11), vale o plano: chame o agente com aquele `model` (o passo 6 do Degrau B é escrito em Fable). Fora disso, para código de concorrência, chame o `implementador` com `model: claude-opus-5-5`; para risco de perder item, energia ou bloco, suba o esforço do `revisor` para alto.
 
 | Agente | Modelo | Para quê |
 |---|---|---|
-| `coletor` | haiku | coleta e trabalho mecânico (listar, contar, extrair de log, formatar) |
-| `investigador` | opus | causa raiz, desenho, estudo de código de terceiros; entrega relatório |
-| `implementador` | sonnet | código a partir de especificação clara |
-| `testador` | sonnet | roda roteiro de teste na cópia de teste e relata |
-| `revisor` | opus | revisão que tenta quebrar a entrega (nunca quem construiu) |
-| `revisor-concorrencia` | fable 5.2 | só thread, lock, fila entre regiões, parada (nunca quem escreveu) |
+| `coletor` | Haiku 5.5 | coleta e trabalho mecânico (listar, contar, extrair de log, formatar) |
+| `investigador` | Opus 5.5 | causa raiz, desenho, estudo de código de terceiros; entrega relatório |
+| `implementador` | Sonnet 5.5 | código a partir de especificação clara |
+| `testador` | Sonnet 5.5 | roda roteiro de teste na cópia de teste e relata |
+| `revisor` | Opus 5.5 | revisão que tenta quebrar a entrega (nunca quem construiu) |
+| `revisor-concorrencia` | Fable 5.2 | só thread, lock, fila entre regiões, parada (nunca quem escreveu) |
 
 Checagem que diz se o trabalho está pronto: `servidor/test.sh <workspace-do-fork>` (testes isolados; saída 0 = passou). Build: `servidor/build.sh --rapido <workspace> --mods <pasta mods/>`. Peça sempre o comando e a saída como prova.
 
