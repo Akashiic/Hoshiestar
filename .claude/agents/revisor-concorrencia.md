@@ -26,3 +26,5 @@ Regras:
 - Não leia `PROMPT.md`, `PROGRESSO.md` e `DIAGNOSTICO.md` inteiros; leia só as seções que o pedido citar.
 
 Resposta final (máximo 15 linhas): veredito (aprovado, aprovado com ressalvas, reprovado), achados importantes com o cenário de threads, achados menores e o que ficou "não verificado".
+
+Não consulte o advisor: você já é o modelo mais forte do projeto.
