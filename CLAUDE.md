@@ -8,15 +8,15 @@
 **Subagente (você foi chamado pelo coordenador):** não leia esses três arquivos inteiros (são ~90 KB). Leia só o que o briefing citar, com `grep` ou trecho. As regras duras abaixo valem para você também.
 
 ## Agentes do projeto (`.claude/agents/`)
-Chame pelo nome. O modelo e o esforço já estão no arquivo de cada agente (decisão 40 do `PROGRESSO.md`). Sessão principal: Opus 5.5 com Fable 5.2 de advisor.
+Chame pelo nome. O modelo e o esforço já estão no arquivo de cada agente (decisão 40 do `PROGRESSO.md`). Sessão principal: Opus 5.5; Fable 5.2 de advisor só nas etapas críticas. Para código de concorrência, chame o `implementador` com `model: opus`; para risco de perder item, energia ou bloco, suba o esforço do `revisor` para alto.
 
 | Agente | Modelo | Para quê |
 |---|---|---|
-| `coletor` | opus (baixo) | coleta e trabalho mecânico (listar, contar, extrair de log, formatar) |
+| `coletor` | haiku | coleta e trabalho mecânico (listar, contar, extrair de log, formatar) |
 | `investigador` | opus | causa raiz, desenho, estudo de código de terceiros; entrega relatório |
-| `implementador` | opus | código a partir de especificação clara |
-| `testador` | opus | roda roteiro de teste na cópia de teste e relata |
-| `revisor` | opus (alto) | revisão que tenta quebrar a entrega (nunca quem construiu) |
+| `implementador` | sonnet | código a partir de especificação clara |
+| `testador` | sonnet | roda roteiro de teste na cópia de teste e relata |
+| `revisor` | opus | revisão que tenta quebrar a entrega (nunca quem construiu) |
 | `revisor-concorrencia` | fable 5.2 | só thread, lock, fila entre regiões, parada (nunca quem escreveu) |
 
 Briefing de cada chamada: objetivo, arquivos de entrada, formato de saída, restrições e critério de "pronto". O agente não vê a conversa.

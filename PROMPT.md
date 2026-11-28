@@ -128,8 +128,9 @@ Você pode ler código, compilar e rodar testes que não dependam do jogo. Talve
 Você é o coordenador. Planeje, delegue e julgue. Faça você mesmo só a integração final e as decisões de rumo do projeto.
 
 MODELOS **[atualizado pelo admin, 2026-11-28, decisão 40]**
-- Coordenador (sessão principal): Opus 5.5, esforço médio, com Fable 5.2 como advisor (`/advisor`). O advisor entra sozinho nos pontos de decisão: plano, erro que não sai, revisão antes de declarar pronto.
-- Subagentes: os de `.claude/agents/`, todos em Opus 5.5, menos o `revisor-concorrencia` (Fable 5.2). O modelo e o esforço ficam no arquivo de cada agente.
+- Coordenador (sessão principal): Opus 5.5, esforço médio. Fable 5.2 como advisor (`/advisor fable`) só nas etapas críticas (concorrência, núcleo de roteamento); no resto, `/advisor off`. Ligar e desligar o advisor não quebra o cache.
+- Subagentes (`.claude/agents/`, modelo e esforço no arquivo): `coletor` em Haiku; `implementador` e `testador` em Sonnet; `investigador` e `revisor` em Opus; `revisor-concorrencia` em Fable 5.2.
+- Exceções na chamada: `implementador` com `model: opus` para código de concorrência; `revisor` com esforço alto quando houver risco de perder item, energia ou bloco.
 - Fable direto, fora do advisor: só revisão de concorrência, ou quando o Opus falhar duas vezes na mesma tarefa com esforço alto.
 - Ajuste o custo pelo esforço: baixo para coleta, médio para o normal, alto para risco de perder item, energia ou bloco. Evite `max`.
 

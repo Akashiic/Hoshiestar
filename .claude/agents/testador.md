@@ -2,7 +2,7 @@
 name: testador
 description: Roda testes do Hoshiestar com roteiro pronto, na cópia de teste do servidor (boot, parada, carga sintética, diferencial, conservação de itens e energia). Use depois que o implementador terminar ou para repetir um teste. Não use para consertar código nem para desenhar teste novo.
 tools: Read, Grep, Glob, Bash, Write
-model: opus
+model: sonnet
 effort: medium
 ---
 

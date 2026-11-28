@@ -2,7 +2,7 @@
 name: coletor
 description: Coleta e trabalho mecânico, sem decisão. Use para listar mods ou plugins, extrair linhas de logs e dumps, contar ocorrências, montar tabelas a partir de arquivos e formatar relatórios. Não use para decidir, desenhar nem escrever código.
 tools: Read, Grep, Glob, Bash
-model: opus
+model: haiku
 effort: low
 omitClaudeMd: true
 ---
